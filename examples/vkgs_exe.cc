@@ -1,6 +1,6 @@
 #include <iostream>
 
 int main() {
-  std::cout << "Hello pygs" << std::endl;
+  std::cout << "Hello vkgs" << std::endl;
   return 0;
 }

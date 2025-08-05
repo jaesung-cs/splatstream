@@ -1,4 +1,5 @@
 .vscode
 
 build
+_skbuild
 *.egg-info
