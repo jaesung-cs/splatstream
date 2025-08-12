@@ -1,5 +1,5 @@
-#ifndef VKGS_EXPORT_H
-#define VKGS_EXPORT_H
+#ifndef VKGS_EXPORT_API_H
+#define VKGS_EXPORT_API_H
 
 // clang-format off
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -9,8 +9,8 @@
     #define VKGS_API __declspec(dllimport)
   #endif
 #else
-  #define MYLIB_API
+  #define VKGS_API
 #endif
 // clang-format on
 
-#endif  // VKGS_EXPORT_H
+#endif  // VKGS_EXPORT_API_H

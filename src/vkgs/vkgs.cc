@@ -2,6 +2,6 @@
 
 namespace vkgs {
 
-int add(int i, int j) { return i + j; }
+int VKGS_API add(int i, int j) { return i + j; }
 
 }  // namespace vkgs

@@ -1,5 +1,8 @@
 .vscode
+.clang-tidy
+.clangd
 
 build
 _skbuild
 *.egg-info
+__pycache__

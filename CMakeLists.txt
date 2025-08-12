@@ -30,18 +30,19 @@ add_executable(vkgs_exe
   examples/vkgs_exe.cc
 )
 
-# pygs_test
-pybind11_add_module(pygs_test
-  binding/pygs_test.cc
+# pygs
+pybind11_add_module(pygs
+  binding/pygs.cc
 )
+set_target_properties(pygs PROPERTIES OUTPUT_NAME _core)
 
-target_link_libraries(pygs_test
+target_link_libraries(pygs
   PRIVATE
     vkgs
 )
 
 install(
-  TARGETS vkgs pygs_test
-  LIBRARY DESTINATION .
-  RUNTIME DESTINATION .
+  TARGETS vkgs pygs
+  LIBRARY DESTINATION lib/site-packages/pygs
+  RUNTIME DESTINATION lib/site-packages/pygs
 )
