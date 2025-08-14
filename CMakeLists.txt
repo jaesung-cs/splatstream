@@ -10,7 +10,7 @@ find_package(pybind11 REQUIRED)
 
 # vkgs
 add_library(vkgs SHARED
-  src/vkgs/vkgs.cc
+  src/vkgs/module.cc
 )
 
 target_include_directories(vkgs

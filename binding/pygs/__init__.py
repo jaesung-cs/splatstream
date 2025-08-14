@@ -1,6 +1,5 @@
-from .wrapper import wrapped_add, wrapped_sub
+from .module import Module
 
 __all__ = [
-    "wrapped_add",
-    "wrapped_sub",
+    "Module",
 ]
