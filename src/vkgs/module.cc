@@ -53,8 +53,6 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 class Module::Impl {
  public:
   Impl() {
-    std::cout << "Impl created" << std::endl;
-
     volkInitialize();
 
     // Instance
@@ -103,7 +101,7 @@ class Module::Impl {
 
     VkPhysicalDeviceProperties device_properties;
     vkGetPhysicalDeviceProperties(physical_device_, &device_properties);
-    std::cout << "Physical device: " << device_properties.deviceName << std::endl;
+    device_name_ = device_properties.deviceName;
 
     // Queue
     uint32_t queue_family_count = 0;
@@ -129,10 +127,6 @@ class Module::Impl {
       if (!graphics && compute) compute_queue_index_ = i;
       if (!graphics && !compute && transfer && !special_purpose) transfer_queue_index_ = i;
     }
-
-    std::cout << "Graphics queue index: " << graphics_queue_index_ << std::endl;
-    std::cout << "Compute  queue index: " << compute_queue_index_ << std::endl;
-    std::cout << "Transfer queue index: " << transfer_queue_index_ << std::endl;
 
     // Device
     float queue_priority = 1.0f;
@@ -176,8 +170,6 @@ class Module::Impl {
   }
 
   ~Impl() {
-    std::cout << "Impl destroyed" << std::endl;
-
     vmaDestroyAllocator(allocator_);
     vkDestroyDevice(device_, NULL);
     vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
@@ -186,7 +178,14 @@ class Module::Impl {
     volkFinalize();
   }
 
+  const std::string& device_name() const noexcept { return device_name_; }
+  uint32_t graphics_queue_index() const noexcept { return graphics_queue_index_; }
+  uint32_t compute_queue_index() const noexcept { return compute_queue_index_; }
+  uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
+
  private:
+  std::string device_name_;
+
   VkInstance instance_ = VK_NULL_HANDLE;
   VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
   VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
@@ -206,5 +205,10 @@ class Module::Impl {
 Module::Module() : impl_(std::make_unique<Impl>()) {}
 
 Module::~Module() = default;
+
+const std::string& Module::device_name() const noexcept { return impl_->device_name(); }
+uint32_t Module::graphics_queue_index() const noexcept { return impl_->graphics_queue_index(); }
+uint32_t Module::compute_queue_index() const noexcept { return impl_->compute_queue_index(); }
+uint32_t Module::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
 
 }  // namespace vkgs

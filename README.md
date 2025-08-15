@@ -2,7 +2,7 @@
 Python bindings for 3dgs rendering
 
 ## Requirements
-- VulkanSDK
+- VulkanSDK, with optional components `Volk`, `vma` installed.
 - cmake
 - Dependencies
 ```bash
@@ -17,5 +17,5 @@ $ cmake --build build --config Release -j
 
 ## Build Python Module
 ```bash
-$ pip install .
+$ pip install ./binding
 ```
