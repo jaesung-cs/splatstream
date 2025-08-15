@@ -43,6 +43,6 @@ target_link_libraries(pygs
 
 install(
   TARGETS vkgs pygs
-  LIBRARY DESTINATION lib/site-packages/pygs
-  RUNTIME DESTINATION lib/site-packages/pygs
+  LIBRARY DESTINATION pygs
+  RUNTIME DESTINATION pygs
 )

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["scikit-build-core"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pygs"
+version = "0.0.0"
+description = "Python bindings for vkgs"
+authors = [
+    {name = "Jaesung Park", email = "jaesung.cs@gmail.com"}
+]
+urls = {Homepage = "https://github.com/jaesung-cs/pygs"}
+requires-python = ">=3.8"
+license = {text = "MIT"}
+
+[tool.scikit-build]
+cmake.source-dir = ".."
+cmake.build-type = "Release"
+wheel.packages = ["pygs"]
