@@ -10,6 +10,9 @@ find_package(pybind11 REQUIRED)
 
 # vkgs
 add_library(vkgs SHARED
+  src/vkgs/impl/module_impl.cc
+  src/vkgs/impl/buffer_impl.cc
+  src/vkgs/buffer.cc
   src/vkgs/module.cc
   src/vkgs/volk_impl.cc
   src/vkgs/vma_impl.cc
@@ -22,9 +25,11 @@ target_compile_definitions(vkgs
 
 target_include_directories(vkgs
   PUBLIC
+    include/
+  PRIVATE
     ${Vulkan_INCLUDE_DIRS}/Volk
     ${Vulkan_INCLUDE_DIRS}/vma
-    include/
+    src/
 )
 
 target_link_libraries(vkgs
