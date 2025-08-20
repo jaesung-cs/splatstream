@@ -199,7 +199,9 @@ Module::Impl::~Impl() {
   volkFinalize();
 }
 
-void Module::Impl::write_buffer(Buffer& buffer, void* ptr) {
+void Module::Impl::WaitIdle() { vkDeviceWaitIdle(device_); }
+
+void Module::Impl::WriteBuffer(Buffer& buffer, void* ptr) {
   std::memcpy(buffer.impl()->stage_buffer_map(), ptr, buffer.size());
 
   VkBufferCopy2 region = {VK_STRUCTURE_TYPE_BUFFER_COPY_2};

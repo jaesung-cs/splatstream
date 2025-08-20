@@ -2,14 +2,17 @@
 #define VKGS_BUFFER_H
 
 #include "vkgs/export_api.h"
+#include "vkgs/object.h"
 #include "vkgs/module.h"
 
 namespace vkgs {
 
-class VKGS_API Buffer {
+class VKGS_API Buffer : public Object {
  public:
   Buffer(Module* module, size_t size);
-  ~Buffer();
+  ~Buffer() override;
+
+  void Destroy() override;
 
   size_t size() const noexcept;
 

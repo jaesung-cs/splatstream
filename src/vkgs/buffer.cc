@@ -4,9 +4,11 @@
 
 namespace vkgs {
 
-Buffer::Buffer(Module* module, size_t size) : impl_(std::make_unique<Impl>(module, size)) {}
+Buffer::Buffer(Module* module, size_t size) : Object(module), impl_(std::make_unique<Impl>(module, size)) {}
 
-Buffer::~Buffer() = default;
+Buffer::~Buffer() { DestroyThis(); }
+
+void Buffer::Destroy() { impl_.reset(); }
 
 size_t Buffer::size() const noexcept { return impl_->size(); }
 

@@ -5,22 +5,25 @@
 #include <string>
 
 #include "vkgs/export_api.h"
+#include "vkgs/object.h"
 
 namespace vkgs {
 
 class Buffer;
 
-class VKGS_API Module {
+class VKGS_API Module : public Object {
  public:
   Module();
-  ~Module();
+  ~Module() override;
+
+  void PreDestroy() override;
+  void Destroy() override;
+  void WriteBuffer(Buffer& buffer, void* ptr);
 
   const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
-
-  void write_buffer(Buffer& buffer, void* ptr);
 
   const auto* impl() const noexcept { return impl_.get(); }
 

@@ -22,7 +22,8 @@ class Module::Impl {
 
   auto allocator() const noexcept { return allocator_; }
 
-  void write_buffer(Buffer& buffer, void* ptr);
+  void WaitIdle();
+  void WriteBuffer(Buffer& buffer, void* ptr);
 
  private:
   std::string device_name_;
