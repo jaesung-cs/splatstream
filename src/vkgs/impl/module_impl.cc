@@ -3,9 +3,6 @@
 #include <iostream>
 #include <vector>
 
-#include "volk.h"
-
-#include "vkgs/buffer.h"
 #include "vkgs/impl/buffer_impl.h"
 
 namespace vkgs {
@@ -145,11 +142,20 @@ Module::Impl::Impl() {
   queue_create_infos[2].queueCount = 1;
   queue_create_infos[2].pQueuePriorities = &queue_priority;
 
+  std::vector<const char*> device_extensions = {
+      VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+  };
+
+  VkPhysicalDeviceSynchronization2Features synchronization_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
+  synchronization_features.synchronization2 = VK_TRUE;
+
   VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+  device_info.pNext = &synchronization_features;
   device_info.queueCreateInfoCount = queue_create_infos.size();
   device_info.pQueueCreateInfos = queue_create_infos.data();
-  device_info.enabledExtensionCount = 0;
-  device_info.ppEnabledExtensionNames = NULL;
+  device_info.enabledExtensionCount = device_extensions.size();
+  device_info.ppEnabledExtensionNames = device_extensions.data();
   vkCreateDevice(physical_device_, &device_info, NULL, &device_);
 
   vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
@@ -193,9 +199,8 @@ Module::Impl::~Impl() {
   volkFinalize();
 }
 
-void Module::Impl::write_buffer(Buffer& buffer, intptr_t ptr) {
-  std::cout << "write_buffer: " << ptr << std::endl;
-  std::cout << "buffer size: " << buffer.size() << std::endl;
+void Module::Impl::write_buffer(Buffer& buffer, void* ptr) {
+  std::memcpy(buffer.impl()->stage_buffer_map(), ptr, buffer.size());
 
   VkBufferCopy2 region = {VK_STRUCTURE_TYPE_BUFFER_COPY_2};
   region.srcOffset = 0;
@@ -203,8 +208,8 @@ void Module::Impl::write_buffer(Buffer& buffer, intptr_t ptr) {
   region.size = buffer.size();
 
   VkCopyBufferInfo2 copy_info = {VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2};
-  copy_info.srcBuffer = buffer.impl()->handle();
-  copy_info.dstBuffer = buffer.impl()->handle();
+  copy_info.srcBuffer = buffer.impl()->stage_buffer();
+  copy_info.dstBuffer = buffer.impl()->buffer();
   copy_info.regionCount = 1;
   copy_info.pRegions = &region;
 

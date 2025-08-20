@@ -20,7 +20,7 @@ class VKGS_API Module {
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
-  void write_buffer(Buffer& buffer, intptr_t ptr);
+  void write_buffer(Buffer& buffer, void* ptr);
 
   const auto* impl() const noexcept { return impl_.get(); }
 

@@ -12,6 +12,8 @@ PYBIND11_MODULE(_core, m) {
       .def_property_readonly("graphics_queue_index", &vkgs::Module::graphics_queue_index)
       .def_property_readonly("compute_queue_index", &vkgs::Module::compute_queue_index)
       .def_property_readonly("transfer_queue_index", &vkgs::Module::transfer_queue_index)
-      .def("write_buffer", &vkgs::Module::write_buffer);
+      .def("write_buffer", [](vkgs::Module* module, vkgs::Buffer* buffer, intptr_t ptr) {
+        module->write_buffer(*buffer, reinterpret_cast<void*>(ptr));
+      });
   py::class_<vkgs::Buffer>(m, "Buffer").def(py::init<vkgs::Module*, size_t>());
 }

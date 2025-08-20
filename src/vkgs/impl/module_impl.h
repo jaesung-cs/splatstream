@@ -1,10 +1,11 @@
 #ifndef VKGS_IMPL_MODULE_IMPL_H
 #define VKGS_IMPL_MODULE_IMPL_H
 
+#include "vkgs/module.h"
+
 #include "volk/volk.h"
 #include "vk_mem_alloc.h"
 
-#include "vkgs/module.h"
 #include "vkgs/buffer.h"
 
 namespace vkgs {
@@ -21,7 +22,7 @@ class Module::Impl {
 
   auto allocator() const noexcept { return allocator_; }
 
-  void write_buffer(Buffer& buffer, intptr_t ptr);
+  void write_buffer(Buffer& buffer, void* ptr);
 
  private:
   std::string device_name_;
