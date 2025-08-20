@@ -14,6 +14,6 @@ requires-python = ">=3.8"
 license = {text = "MIT"}
 
 [tool.scikit-build]
-cmake.source-dir = ".."
+cmake.source-dir = "."
 cmake.build-type = "Release"
 wheel.packages = ["pygs"]

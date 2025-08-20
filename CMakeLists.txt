@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Vulkan REQUIRED COMPONENTS volk)
-find_package(pybind11 REQUIRED)
 
 # vkgs
 add_library(vkgs SHARED
@@ -48,21 +47,4 @@ add_executable(vkgs_exe
 target_link_libraries(vkgs_exe
   PRIVATE
     vkgs
-)
-
-# pygs
-pybind11_add_module(pygs
-  binding/pygs.cc
-)
-set_target_properties(pygs PROPERTIES OUTPUT_NAME _core)
-
-target_link_libraries(pygs
-  PRIVATE
-    vkgs
-)
-
-install(
-  TARGETS vkgs pygs
-  LIBRARY DESTINATION pygs
-  RUNTIME DESTINATION pygs
 )
