@@ -21,6 +21,7 @@ class Module::Impl {
   uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
 
   auto allocator() const noexcept { return allocator_; }
+  auto device() const noexcept { return device_; }
 
   void WaitIdle();
   void WriteBuffer(Buffer& buffer, void* ptr);

@@ -1,18 +1,18 @@
 #ifndef VKGS_BUFFER_H
 #define VKGS_BUFFER_H
 
+#include <memory>
+
 #include "vkgs/export_api.h"
-#include "vkgs/object.h"
-#include "vkgs/module.h"
 
 namespace vkgs {
 
-class VKGS_API Buffer : public Object {
- public:
-  Buffer(Module* module, size_t size);
-  ~Buffer() override;
+class Module;
 
-  void Destroy() override;
+class VKGS_API Buffer {
+ public:
+  Buffer(Module module, size_t size);
+  ~Buffer();
 
   size_t size() const noexcept;
 
@@ -20,7 +20,7 @@ class VKGS_API Buffer : public Object {
 
  private:
   class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 };
 
 }  // namespace vkgs

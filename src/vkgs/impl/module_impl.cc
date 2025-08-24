@@ -190,6 +190,8 @@ Module::Impl::Impl() {
 }
 
 Module::Impl::~Impl() {
+  WaitIdle();
+
   vkDestroyCommandPool(device_, transfer_command_pool_, NULL);
   vmaDestroyAllocator(allocator_);
   vkDestroyDevice(device_, NULL);

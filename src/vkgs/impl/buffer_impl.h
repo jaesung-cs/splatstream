@@ -12,7 +12,7 @@ namespace vkgs {
 
 class Buffer::Impl {
  public:
-  Impl(Module* module, size_t size);
+  Impl(Module module, size_t size);
   ~Impl();
 
   VkBuffer buffer() const noexcept { return buffer_; }
@@ -22,7 +22,7 @@ class Buffer::Impl {
   size_t size() const noexcept { return size_; }
 
  private:
-  Module* module_ = nullptr;
+  Module module_;
   size_t size_ = 0;
 
   VkBuffer buffer_ = VK_NULL_HANDLE;
