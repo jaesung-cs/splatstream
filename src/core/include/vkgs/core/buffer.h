@@ -7,12 +7,14 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
+#include "vkgs/core/export_api.h"
+
 namespace vkgs {
 namespace core {
 
 class Module;
 
-class Buffer {
+class VKGS_CORE_API Buffer {
  public:
   Buffer(std::shared_ptr<Module> module, size_t size);
   ~Buffer();

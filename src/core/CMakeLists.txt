@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Vulkan REQUIRED COMPONENTS volk)
 
-add_library(vkgs_core STATIC
+add_library(vkgs_core SHARED
   src/buffer.cc
   src/module.cc
   src/volk_impl.cc
@@ -31,4 +31,4 @@ target_link_libraries(vkgs_core
     Vulkan::volk
 )
 
-target_compile_definitions(vkgs_core PRIVATE VKGS_EXPORTS)
+target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)

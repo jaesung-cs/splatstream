@@ -8,12 +8,14 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
+#include "vkgs/core/export_api.h"
+
 namespace vkgs {
 namespace core {
 
 class Buffer;
 
-class Module : public std::enable_shared_from_this<Module> {
+class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
  public:
   Module();
   ~Module();
