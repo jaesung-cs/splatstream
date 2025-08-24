@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "vkgs/module.h"
+#include "vkgs/buffer.h"
 
 int main() {
   std::cout << "Hello vkgs" << std::endl;
@@ -10,6 +11,11 @@ int main() {
   std::cout << "graphics queue index: " << module.graphics_queue_index() << std::endl;
   std::cout << "compute  queue index: " << module.compute_queue_index() << std::endl;
   std::cout << "transfer queue index: " << module.transfer_queue_index() << std::endl;
+
+  vkgs::Buffer buffer(&module, 1024);
+
+  std::vector<float> data(256);
+  module.WriteBuffer(buffer, data.data());
 
   return 0;
 }
