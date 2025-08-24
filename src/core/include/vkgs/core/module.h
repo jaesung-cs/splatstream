@@ -1,19 +1,22 @@
-#ifndef VKGS_IMPL_MODULE_IMPL_H
-#define VKGS_IMPL_MODULE_IMPL_H
+#ifndef VKGS_CORE_MODULE_H
+#define VKGS_CORE_MODULE_H
 
-#include "vkgs/module.h"
+#include <string>
+#include <cstdint>
+#include <memory>
 
-#include "volk/volk.h"
+#include "volk.h"
 #include "vk_mem_alloc.h"
 
-#include "vkgs/buffer.h"
-
 namespace vkgs {
+namespace core {
 
-class Module::Impl {
+class Buffer;
+
+class Module : public std::enable_shared_from_this<Module> {
  public:
-  Impl();
-  ~Impl();
+  Module();
+  ~Module();
 
   const std::string& device_name() const noexcept { return device_name_; }
   uint32_t graphics_queue_index() const noexcept { return graphics_queue_index_; }
@@ -24,7 +27,7 @@ class Module::Impl {
   auto device() const noexcept { return device_; }
 
   void WaitIdle();
-  void WriteBuffer(Buffer& buffer, void* ptr);
+  void WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr);
 
  private:
   std::string device_name_;
@@ -48,6 +51,7 @@ class Module::Impl {
   VkCommandBuffer transfer_command_buffer_ = VK_NULL_HANDLE;
 };
 
+}  // namespace core
 }  // namespace vkgs
 
-#endif  // VKGS_IMPL_MODULE_IMPL_H
+#endif  // VKGS_CORE_MODULE_H

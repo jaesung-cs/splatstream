@@ -1,11 +1,12 @@
 #include "vkgs/buffer.h"
 
 #include "vkgs/module.h"
-#include "vkgs/impl/buffer_impl.h"
+
+#include "buffer_impl.h"
 
 namespace vkgs {
 
-Buffer::Buffer(Module module, size_t size) : impl_(std::make_shared<Impl>(module, size)) {}
+Buffer::Buffer(Module& module, size_t size) : impl_(std::make_shared<Impl>(module, size)) {}
 
 Buffer::~Buffer() = default;
 

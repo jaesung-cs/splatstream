@@ -1,28 +1,29 @@
-#ifndef VKGS_IMPL_BUFFER_IMPL_H
-#define VKGS_IMPL_BUFFER_IMPL_H
+#ifndef VKGS_CORE_BUFFER_H
+#define VKGS_CORE_BUFFER_H
 
-#include "vkgs/buffer.h"
+#include <string>
+#include <memory>
 
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
-#include "vkgs/module.h"
-
 namespace vkgs {
+namespace core {
 
-class Buffer::Impl {
+class Module;
+
+class Buffer {
  public:
-  Impl(Module module, size_t size);
-  ~Impl();
+  Buffer(std::shared_ptr<Module> module, size_t size);
+  ~Buffer();
 
+  size_t size() const noexcept { return size_; }
   VkBuffer buffer() const noexcept { return buffer_; }
   VkBuffer stage_buffer() const noexcept { return stage_buffer_; }
   void* stage_buffer_map() const noexcept { return stage_buffer_map_; }
 
-  size_t size() const noexcept { return size_; }
-
  private:
-  Module module_;
+  std::weak_ptr<Module> module_;
   size_t size_ = 0;
 
   VkBuffer buffer_ = VK_NULL_HANDLE;
@@ -33,6 +34,7 @@ class Buffer::Impl {
   void* stage_buffer_map_ = nullptr;
 };
 
+}  // namespace core
 }  // namespace vkgs
 
-#endif  // VKGS_IMPL_BUFFER_IMPL_H
+#endif  // VKGS_CORE_BUFFER_H

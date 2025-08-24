@@ -14,11 +14,11 @@ set_target_properties(pygs PROPERTIES OUTPUT_NAME _core)
 
 target_link_libraries(pygs
   PRIVATE
-    vkgs
+    vkgs::api
 )
 
 install(
-  TARGETS vkgs pygs
+  TARGETS vkgs_api pygs
   LIBRARY DESTINATION pygs
   RUNTIME DESTINATION pygs
 )

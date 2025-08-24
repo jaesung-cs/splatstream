@@ -5,39 +5,8 @@ project(pygs LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-find_package(Vulkan REQUIRED COMPONENTS volk)
-
-# vkgs
-add_library(vkgs SHARED
-  src/vkgs/impl/module_impl.cc
-  src/vkgs/impl/buffer_impl.cc
-  src/vkgs/buffer.cc
-  src/vkgs/module.cc
-  src/vkgs/volk_impl.cc
-  src/vkgs/vma_impl.cc
-)
-
-target_compile_definitions(vkgs
-  PRIVATE
-    VK_NO_PROTOTYPES
-)
-
-target_include_directories(vkgs
-  PUBLIC
-    include/
-  PRIVATE
-    ${Vulkan_INCLUDE_DIRS}/Volk
-    ${Vulkan_INCLUDE_DIRS}/vma
-    src/
-)
-
-target_link_libraries(vkgs
-  PRIVATE
-    Vulkan::Vulkan
-    Vulkan::volk
-)
-
-target_compile_definitions(vkgs PRIVATE VKGS_EXPORTS)
+add_subdirectory(src/core)
+add_subdirectory(src/api)
 
 # vkgs_exe
 add_executable(vkgs_exe
@@ -46,5 +15,5 @@ add_executable(vkgs_exe
 
 target_link_libraries(vkgs_exe
   PRIVATE
-    vkgs
+    vkgs::api
 )

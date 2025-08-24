@@ -11,7 +11,7 @@ class Module;
 
 class VKGS_API Buffer {
  public:
-  Buffer(Module module, size_t size);
+  Buffer(Module& module, size_t size);
   ~Buffer();
 
   size_t size() const noexcept;

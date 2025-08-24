@@ -1,11 +1,12 @@
-#include "vkgs/impl/module_impl.h"
+#include "vkgs/core/module.h"
 
 #include <iostream>
 #include <vector>
 
-#include "vkgs/impl/buffer_impl.h"
+#include "vkgs/core/buffer.h"
 
 namespace vkgs {
+namespace core {
 
 namespace {
 
@@ -50,7 +51,7 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 
 }  // namespace
 
-Module::Impl::Impl() {
+Module::Module() {
   volkInitialize();
 
   // Instance
@@ -189,7 +190,7 @@ Module::Impl::Impl() {
   vkAllocateCommandBuffers(device_, &command_buffer_info, &transfer_command_buffer_);
 }
 
-Module::Impl::~Impl() {
+Module::~Module() {
   WaitIdle();
 
   vkDestroyCommandPool(device_, transfer_command_pool_, NULL);
@@ -201,19 +202,19 @@ Module::Impl::~Impl() {
   volkFinalize();
 }
 
-void Module::Impl::WaitIdle() { vkDeviceWaitIdle(device_); }
+void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
 
-void Module::Impl::WriteBuffer(Buffer& buffer, void* ptr) {
-  std::memcpy(buffer.impl()->stage_buffer_map(), ptr, buffer.size());
+void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr) {
+  std::memcpy(buffer->stage_buffer_map(), ptr, buffer->size());
 
   VkBufferCopy2 region = {VK_STRUCTURE_TYPE_BUFFER_COPY_2};
   region.srcOffset = 0;
   region.dstOffset = 0;
-  region.size = buffer.size();
+  region.size = buffer->size();
 
   VkCopyBufferInfo2 copy_info = {VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2};
-  copy_info.srcBuffer = buffer.impl()->stage_buffer();
-  copy_info.dstBuffer = buffer.impl()->buffer();
+  copy_info.srcBuffer = buffer->stage_buffer();
+  copy_info.dstBuffer = buffer->buffer();
   copy_info.regionCount = 1;
   copy_info.pRegions = &region;
 
@@ -232,4 +233,5 @@ void Module::Impl::WriteBuffer(Buffer& buffer, void* ptr) {
   vkQueueSubmit2(transfer_queue_, 1, &submit_info, VK_NULL_HANDLE);
 }
 
+}  // namespace core
 }  // namespace vkgs
