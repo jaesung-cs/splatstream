@@ -76,9 +76,15 @@ Module::Module() {
 
   std::vector<const char*> extensions = {
       VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#ifdef __APPLE__
+      VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+#endif
   };
 
   VkInstanceCreateInfo instance_info = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+#ifdef __APPLE__
+  instance_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
   instance_info.pNext = &messenger_info;
   instance_info.pApplicationInfo = &app_info;
   instance_info.enabledLayerCount = validation_layers.size();
@@ -122,9 +128,15 @@ Module::Module() {
                 VK_QUEUE_DATA_GRAPH_BIT_ARM))
       special_purpose = true;
 
-    if (graphics) graphics_queue_index_ = i;
-    if (!graphics && compute) compute_queue_index_ = i;
-    if (!graphics && !compute && transfer && !special_purpose) transfer_queue_index_ = i;
+    // TODO: make exact rule for selecting queue.
+    if (graphics && graphics_queue_index_ == VK_QUEUE_FAMILY_IGNORED) graphics_queue_index_ = i;
+    if (!graphics && compute ||
+        graphics && graphics_queue_index_ != i && compute_queue_index_ == VK_QUEUE_FAMILY_IGNORED)
+      compute_queue_index_ = i;
+    if (!graphics && !compute && transfer && !special_purpose || graphics && graphics_queue_index_ != i &&
+                                                                     compute_queue_index_ != i &&
+                                                                     transfer_queue_index_ == VK_QUEUE_FAMILY_IGNORED)
+      transfer_queue_index_ = i;
   }
 
   // Device
@@ -145,6 +157,9 @@ Module::Module() {
 
   std::vector<const char*> device_extensions = {
       VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+#ifdef __APPLE__
+      "VK_KHR_portability_subset",
+#endif
   };
 
   VkPhysicalDeviceSynchronization2Features synchronization_features = {
