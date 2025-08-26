@@ -15,5 +15,7 @@ PYBIND11_MODULE(_core, m) {
       .def("write_buffer", [](vkgs::Module* module, vkgs::Buffer* buffer, intptr_t ptr) {
         module->WriteBuffer(*buffer, reinterpret_cast<void*>(ptr));
       });
-  py::class_<vkgs::Buffer>(m, "Buffer").def(py::init<vkgs::Module&, size_t>());
+  py::class_<vkgs::Buffer>(m, "Buffer")
+      .def(py::init<vkgs::Module&, size_t>())
+      .def_property_readonly("size", &vkgs::Buffer::size);
 }

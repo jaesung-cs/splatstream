@@ -1,7 +1,11 @@
 from .module import Module
-from .buffer import Buffer
+
+# Global module on init
+singleton_module = Module()
+
+from .buffer import Buffer, from_tensor
 
 __all__ = [
-    "Module",
     "Buffer",
+    "from_tensor",
 ]
