@@ -20,3 +20,6 @@ class Module:
     @property
     def transfer_queue_index(self):
         return self._module.transfer_queue_index
+
+    def wait_idle(self):
+        self._module.wait_idle()

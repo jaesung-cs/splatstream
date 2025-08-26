@@ -1,7 +1,7 @@
 import torch
 
 from . import _core
-from . import singleton_module
+from .singleton_module import singleton_module
 
 
 class Buffer:
