@@ -8,12 +8,12 @@
 namespace vkgs {
 namespace core {
 
-class Module;
+class SemaphorePool;
 class Command;
 
 class Semaphore {
  public:
-  Semaphore(std::shared_ptr<Module> module);
+  Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore);
   ~Semaphore();
 
   VkSemaphore semaphore() const noexcept { return semaphore_; }
@@ -23,7 +23,7 @@ class Semaphore {
   void SignalBy(std::shared_ptr<Command> command, uint64_t value);
 
  private:
-  std::shared_ptr<Module> module_;
+  std::shared_ptr<SemaphorePool> semaphore_pool_;
 
   VkSemaphore semaphore_ = VK_NULL_HANDLE;
   uint64_t value_ = 0;

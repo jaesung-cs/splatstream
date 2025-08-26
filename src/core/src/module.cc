@@ -7,6 +7,7 @@
 
 #include "command_pool.h"
 #include "command.h"
+#include "semaphore_pool.h"
 #include "semaphore.h"
 
 namespace vkgs {
@@ -220,6 +221,7 @@ void Module::Init() {
   graphics_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), graphics_queue_index_);
   compute_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), compute_queue_index_);
   transfer_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), transfer_queue_index_);
+  semaphore_pool_ = std::make_shared<SemaphorePool>(shared_from_this());
 }
 
 void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
@@ -250,8 +252,7 @@ void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr) {
   VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
   command_buffer_submit_info.commandBuffer = cb;
 
-  // TODO: create semaphore from semaphore pool
-  auto semaphore = std::make_shared<Semaphore>(shared_from_this());
+  auto semaphore = semaphore_pool_->Allocate();
   auto value = semaphore->value();
 
   VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};

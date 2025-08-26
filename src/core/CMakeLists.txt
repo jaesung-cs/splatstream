@@ -8,6 +8,7 @@ add_library(vkgs_core SHARED
   src/command_pool.cc
   src/command.cc
   src/module.cc
+  src/semaphore_pool.cc
   src/semaphore.cc
   src/volk_impl.cc
   src/vma_impl.cc
