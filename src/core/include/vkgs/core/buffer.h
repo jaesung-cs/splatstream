@@ -25,6 +25,8 @@ class VKGS_CORE_API Buffer {
   VkBuffer stage_buffer() const noexcept { return stage_buffer_; }
   void* stage_buffer_map() const noexcept { return stage_buffer_map_; }
 
+  void WaitOn(std::shared_ptr<Semaphore> semaphore);
+
  private:
   std::shared_ptr<Module> module_;
   size_t size_ = 0;

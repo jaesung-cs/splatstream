@@ -20,7 +20,7 @@ class Semaphore {
   auto value() const noexcept { return value_; }
 
   void Wait();
-  void SignalBy(std::shared_ptr<Command> command, int64_t value);
+  void SignalBy(std::shared_ptr<Command> command, uint64_t value);
 
  private:
   std::shared_ptr<Module> module_;

@@ -28,7 +28,7 @@ void Semaphore::Wait() {
   vkWaitSemaphores(module_->device(), &wait_info, UINT64_MAX);
 }
 
-void Semaphore::SignalBy(std::shared_ptr<Command> command, int64_t value) {
+void Semaphore::SignalBy(std::shared_ptr<Command> command, uint64_t value) {
   command_ = command;
   value_ = value;
 }

@@ -37,5 +37,13 @@ Buffer::~Buffer() {
   vmaDestroyBuffer(allocator, buffer_, allocation_);
 }
 
+void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore) {
+  if (semaphore_) {
+    semaphore_->Wait();
+  }
+
+  semaphore_ = semaphore;
+}
+
 }  // namespace core
 }  // namespace vkgs

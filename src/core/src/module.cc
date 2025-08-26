@@ -270,6 +270,7 @@ void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr) {
   vkQueueSubmit2(transfer_queue_, 1, &submit_info, VK_NULL_HANDLE);
 
   semaphore->SignalBy(command, value + 1);
+  buffer->WaitOn(semaphore);
 }
 
 }  // namespace core
