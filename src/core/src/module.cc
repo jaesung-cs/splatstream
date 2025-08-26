@@ -226,7 +226,7 @@ void Module::Init() {
 
 void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
 
-void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr) {
+void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr, size_t size) {
   auto command = transfer_command_pool_->Allocate();
   auto cb = command->command_buffer();
 

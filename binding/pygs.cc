@@ -12,11 +12,9 @@ PYBIND11_MODULE(_core, m) {
       .def_property_readonly("graphics_queue_index", &vkgs::Module::graphics_queue_index)
       .def_property_readonly("compute_queue_index", &vkgs::Module::compute_queue_index)
       .def_property_readonly("transfer_queue_index", &vkgs::Module::transfer_queue_index)
-      .def("wait_idle", &vkgs::Module::WaitIdle)
-      .def("write_buffer", [](vkgs::Module* module, vkgs::Buffer* buffer, intptr_t ptr) {
-        module->WriteBuffer(*buffer, reinterpret_cast<void*>(ptr));
-      });
+      .def("wait_idle", &vkgs::Module::WaitIdle);
   py::class_<vkgs::Buffer>(m, "Buffer")
       .def(py::init<vkgs::Module&, size_t>())
-      .def_property_readonly("size", &vkgs::Buffer::size);
+      .def_property_readonly("size", &vkgs::Buffer::size)
+      .def("to_gpu", &vkgs::Buffer::ToGpu);
 }

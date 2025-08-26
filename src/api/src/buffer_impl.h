@@ -18,6 +18,8 @@ class Buffer::Impl {
   auto buffer() const noexcept { return buffer_; }
   size_t size() const noexcept { return buffer_->size(); }
 
+  void ToGpu(void* ptr, size_t size);
+
  private:
   std::shared_ptr<core::Buffer> buffer_;
 };

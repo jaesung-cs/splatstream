@@ -15,7 +15,7 @@ namespace core {
 class Module;
 class Semaphore;
 
-class VKGS_CORE_API Buffer {
+class VKGS_CORE_API Buffer : public std::enable_shared_from_this<Buffer> {
  public:
   Buffer(std::shared_ptr<Module> module, size_t size);
   ~Buffer();
@@ -24,6 +24,8 @@ class VKGS_CORE_API Buffer {
   VkBuffer buffer() const noexcept { return buffer_; }
   VkBuffer stage_buffer() const noexcept { return stage_buffer_; }
   void* stage_buffer_map() const noexcept { return stage_buffer_map_; }
+
+  void ToGpu(void* ptr, size_t size);
 
   void WaitOn(std::shared_ptr<Semaphore> semaphore);
 

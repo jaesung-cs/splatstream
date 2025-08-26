@@ -15,6 +15,4 @@ Module::Impl::Impl() {
 
 Module::Impl::~Impl() = default;
 
-void Module::Impl::WriteBuffer(Buffer& buffer, void* ptr) { module_->WriteBuffer(buffer.impl()->buffer(), ptr); }
-
 }  // namespace vkgs

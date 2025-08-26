@@ -23,8 +23,6 @@ class Module::Impl {
 
   void WaitIdle() { module_->WaitIdle(); }
 
-  void WriteBuffer(Buffer& buffer, void* ptr);
-
   auto module() const noexcept { return module_; }
 
  private:

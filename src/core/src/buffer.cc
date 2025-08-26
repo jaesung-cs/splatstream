@@ -37,6 +37,8 @@ Buffer::~Buffer() {
   vmaDestroyBuffer(allocator, buffer_, allocation_);
 }
 
+void Buffer::ToGpu(void* ptr, size_t size) { module_->WriteBuffer(shared_from_this(), ptr, size); }
+
 void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore) {
   if (semaphore_) {
     semaphore_->Wait();

@@ -15,7 +15,6 @@ class VKGS_API Module {
   Module();
   ~Module();
 
-  void WriteBuffer(Buffer& buffer, void* ptr);
   void WaitIdle();
 
   const std::string& device_name() const noexcept;
