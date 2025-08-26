@@ -5,6 +5,7 @@ find_package(Vulkan REQUIRED COMPONENTS volk)
 
 add_library(vkgs_core SHARED
   src/buffer.cc
+  src/command_pool.cc
   src/command.cc
   src/module.cc
   src/semaphore.cc

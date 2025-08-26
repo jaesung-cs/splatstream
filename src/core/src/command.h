@@ -8,15 +8,17 @@
 namespace vkgs {
 namespace core {
 
-class Module;
+class CommandPool;
 
 class Command {
  public:
-  Command(std::shared_ptr<Module> module, VkCommandBuffer cb);
+  Command(std::shared_ptr<CommandPool> command_pool, VkCommandBuffer cb);
   ~Command();
 
+  VkCommandBuffer command_buffer() const noexcept { return cb_; }
+
  private:
-  std::shared_ptr<Module> module_;
+  std::shared_ptr<CommandPool> command_pool_;
   VkCommandBuffer cb_ = VK_NULL_HANDLE;
 };
 

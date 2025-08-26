@@ -5,6 +5,7 @@
 
 #include "vkgs/core/buffer.h"
 
+#include "command_pool.h"
 #include "command.h"
 #include "semaphore.h"
 
@@ -198,18 +199,15 @@ Module::Module() {
   allocator_info.pVulkanFunctions = &functions;
   allocator_info.vulkanApiVersion = VK_API_VERSION_1_4;
   vmaCreateAllocator(&allocator_info, &allocator_);
-
-  // Command pool
-  VkCommandPoolCreateInfo command_pool_info = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-  command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-  command_pool_info.queueFamilyIndex = transfer_queue_index_;
-  vkCreateCommandPool(device_, &command_pool_info, NULL, &transfer_command_pool_);
 }
 
 Module::~Module() {
   WaitIdle();
 
-  vkDestroyCommandPool(device_, transfer_command_pool_, NULL);
+  graphics_command_pool_ = nullptr;
+  compute_command_pool_ = nullptr;
+  transfer_command_pool_ = nullptr;
+
   vmaDestroyAllocator(allocator_);
   vkDestroyDevice(device_, NULL);
   vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
@@ -218,18 +216,17 @@ Module::~Module() {
   volkFinalize();
 }
 
+void Module::Init() {
+  graphics_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), graphics_queue_index_);
+  compute_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), compute_queue_index_);
+  transfer_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), transfer_queue_index_);
+}
+
 void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
 
 void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr) {
-  // TODO: create command from command pool
-  VkCommandBuffer cb;
-  VkCommandBufferAllocateInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-  command_buffer_info.commandPool = transfer_command_pool_;
-  command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  command_buffer_info.commandBufferCount = 1;
-  vkAllocateCommandBuffers(device_, &command_buffer_info, &cb);
-
-  auto command = std::make_shared<Command>(shared_from_this(), cb);
+  auto command = transfer_command_pool_->Allocate();
+  auto cb = command->command_buffer();
 
   std::memcpy(buffer->stage_buffer_map(), ptr, buffer->size());
 

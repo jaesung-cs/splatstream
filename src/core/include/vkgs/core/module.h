@@ -14,11 +14,14 @@ namespace vkgs {
 namespace core {
 
 class Buffer;
+class CommandPool;
 
 class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
  public:
   Module();
   ~Module();
+
+  void Init();
 
   const std::string& device_name() const noexcept { return device_name_; }
   uint32_t graphics_queue_index() const noexcept { return graphics_queue_index_; }
@@ -49,7 +52,9 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
 
   VmaAllocator allocator_ = VK_NULL_HANDLE;
 
-  VkCommandPool transfer_command_pool_ = VK_NULL_HANDLE;
+  std::shared_ptr<CommandPool> graphics_command_pool_;
+  std::shared_ptr<CommandPool> compute_command_pool_;
+  std::shared_ptr<CommandPool> transfer_command_pool_;
 };
 
 }  // namespace core

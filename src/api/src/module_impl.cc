@@ -8,9 +8,12 @@
 
 namespace vkgs {
 
-Module::Impl::Impl() { module_ = std::make_shared<core::Module>(); }
+Module::Impl::Impl() {
+  module_ = std::make_shared<core::Module>();
+  module_->Init();
+}
 
-Module::Impl::~Impl() {}
+Module::Impl::~Impl() = default;
 
 void Module::Impl::WriteBuffer(Buffer& buffer, void* ptr) { module_->WriteBuffer(buffer.impl()->buffer(), ptr); }
 
