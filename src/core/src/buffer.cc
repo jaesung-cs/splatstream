@@ -28,9 +28,7 @@ Buffer::Buffer(std::shared_ptr<Module> module, size_t size) : module_(module), s
 }
 
 Buffer::~Buffer() {
-  if (semaphore_) {
-    semaphore_->Wait();
-  }
+  Wait();
 
   auto allocator = module_->allocator();
   vmaDestroyBuffer(allocator, stage_buffer_, stage_allocation_);
@@ -39,11 +37,12 @@ Buffer::~Buffer() {
 
 void Buffer::ToGpu(void* ptr, size_t size) { module_->WriteBuffer(shared_from_this(), ptr, size); }
 
-void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore) {
-  if (semaphore_) {
-    semaphore_->Wait();
-  }
+void Buffer::Wait() {
+  if (semaphore_) semaphore_->Wait();
+}
 
+void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore) {
+  Wait();
   semaphore_ = semaphore;
 }
 

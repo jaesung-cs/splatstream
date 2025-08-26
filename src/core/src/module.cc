@@ -230,6 +230,8 @@ void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr, size_t size)
   auto command = transfer_command_pool_->Allocate();
   auto cb = command->command_buffer();
 
+  buffer->Wait();
+
   std::memcpy(buffer->stage_buffer_map(), ptr, buffer->size());
 
   VkBufferCopy2 region = {VK_STRUCTURE_TYPE_BUFFER_COPY_2};

@@ -16,6 +16,9 @@ int main() {
   vkgs::Buffer buffer(module, 1024);
 
   std::vector<float> data(256);
+  std::fill(data.begin(), data.end(), 1.0f);
+  buffer.ToGpu(data.data(), data.size() * sizeof(float));
+  std::fill(data.begin(), data.end(), 2.0f);
   buffer.ToGpu(data.data(), data.size() * sizeof(float));
 
   std::cout << "Done" << std::endl;
