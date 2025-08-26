@@ -18,7 +18,7 @@ int main() {
   std::vector<float> data(256);
   module.WriteBuffer(buffer, data.data());
 
-  module.WaitIdle();
+  std::cout << "Done" << std::endl;
 
   return 0;
 }

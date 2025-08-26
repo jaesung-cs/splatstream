@@ -2,6 +2,8 @@
 
 #include "vkgs/core/module.h"
 
+#include "semaphore.h"
+
 namespace vkgs {
 namespace core {
 
@@ -26,7 +28,11 @@ Buffer::Buffer(std::shared_ptr<Module> module, size_t size) : module_(module), s
 }
 
 Buffer::~Buffer() {
-  auto allocator = module_.lock()->allocator();
+  if (semaphore_) {
+    semaphore_->Wait();
+  }
+
+  auto allocator = module_->allocator();
   vmaDestroyBuffer(allocator, stage_buffer_, stage_allocation_);
   vmaDestroyBuffer(allocator, buffer_, allocation_);
 }

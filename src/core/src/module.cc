@@ -5,6 +5,9 @@
 
 #include "vkgs/core/buffer.h"
 
+#include "command.h"
+#include "semaphore.h"
+
 namespace vkgs {
 namespace core {
 
@@ -162,8 +165,13 @@ Module::Module() {
 #endif
   };
 
+  VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES};
+  timeline_semaphore_features.timelineSemaphore = VK_TRUE;
+
   VkPhysicalDeviceSynchronization2Features synchronization_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
+  synchronization_features.pNext = &timeline_semaphore_features;
   synchronization_features.synchronization2 = VK_TRUE;
 
   VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
@@ -196,13 +204,6 @@ Module::Module() {
   command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
   command_pool_info.queueFamilyIndex = transfer_queue_index_;
   vkCreateCommandPool(device_, &command_pool_info, NULL, &transfer_command_pool_);
-
-  // Command buffer
-  VkCommandBufferAllocateInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-  command_buffer_info.commandPool = transfer_command_pool_;
-  command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  command_buffer_info.commandBufferCount = 1;
-  vkAllocateCommandBuffers(device_, &command_buffer_info, &transfer_command_buffer_);
 }
 
 Module::~Module() {
@@ -220,6 +221,16 @@ Module::~Module() {
 void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
 
 void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr) {
+  // TODO: create command from command pool
+  VkCommandBuffer cb;
+  VkCommandBufferAllocateInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+  command_buffer_info.commandPool = transfer_command_pool_;
+  command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  command_buffer_info.commandBufferCount = 1;
+  vkAllocateCommandBuffers(device_, &command_buffer_info, &cb);
+
+  auto command = std::make_shared<Command>(shared_from_this(), cb);
+
   std::memcpy(buffer->stage_buffer_map(), ptr, buffer->size());
 
   VkBufferCopy2 region = {VK_STRUCTURE_TYPE_BUFFER_COPY_2};
@@ -235,17 +246,30 @@ void Module::WriteBuffer(std::shared_ptr<Buffer> buffer, void* ptr) {
 
   VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(transfer_command_buffer_, &begin_info);
-  vkCmdCopyBuffer2(transfer_command_buffer_, &copy_info);
-  vkEndCommandBuffer(transfer_command_buffer_);
+  vkBeginCommandBuffer(cb, &begin_info);
+  vkCmdCopyBuffer2(cb, &copy_info);
+  vkEndCommandBuffer(cb);
 
-  VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-  command_buffer_info.commandBuffer = transfer_command_buffer_;
+  VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+  command_buffer_submit_info.commandBuffer = cb;
+
+  // TODO: create semaphore from semaphore pool
+  auto semaphore = std::make_shared<Semaphore>(shared_from_this());
+  auto value = semaphore->value();
+
+  VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+  signal_semaphore_info.semaphore = semaphore->semaphore();
+  signal_semaphore_info.value = value + 1;
+  signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 
   VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
   submit_info.commandBufferInfoCount = 1;
-  submit_info.pCommandBufferInfos = &command_buffer_info;
+  submit_info.pCommandBufferInfos = &command_buffer_submit_info;
+  submit_info.signalSemaphoreInfoCount = 1;
+  submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
   vkQueueSubmit2(transfer_queue_, 1, &submit_info, VK_NULL_HANDLE);
+
+  semaphore->SignalBy(command, value + 1);
 }
 
 }  // namespace core

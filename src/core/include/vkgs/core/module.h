@@ -50,7 +50,6 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   VmaAllocator allocator_ = VK_NULL_HANDLE;
 
   VkCommandPool transfer_command_pool_ = VK_NULL_HANDLE;
-  VkCommandBuffer transfer_command_buffer_ = VK_NULL_HANDLE;
 };
 
 }  // namespace core

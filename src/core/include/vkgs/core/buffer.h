@@ -13,6 +13,7 @@ namespace vkgs {
 namespace core {
 
 class Module;
+class Semaphore;
 
 class VKGS_CORE_API Buffer {
  public:
@@ -25,7 +26,7 @@ class VKGS_CORE_API Buffer {
   void* stage_buffer_map() const noexcept { return stage_buffer_map_; }
 
  private:
-  std::weak_ptr<Module> module_;
+  std::shared_ptr<Module> module_;
   size_t size_ = 0;
 
   VkBuffer buffer_ = VK_NULL_HANDLE;
@@ -34,6 +35,9 @@ class VKGS_CORE_API Buffer {
   VkBuffer stage_buffer_ = VK_NULL_HANDLE;
   VmaAllocation stage_allocation_ = VK_NULL_HANDLE;
   void* stage_buffer_map_ = nullptr;
+
+  // Semaphore to wait on.
+  std::shared_ptr<Semaphore> semaphore_;
 };
 
 }  // namespace core
