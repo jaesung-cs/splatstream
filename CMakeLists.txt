@@ -8,12 +8,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_subdirectory(src/core)
 add_subdirectory(src/api)
 
-# vkgs_exe
-add_executable(vkgs_exe
-  examples/vkgs_exe.cc
-)
-
-target_link_libraries(vkgs_exe
-  PRIVATE
-    vkgs::api
-)
+add_subdirectory(examples)
