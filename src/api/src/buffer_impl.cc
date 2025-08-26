@@ -10,6 +10,8 @@ Buffer::Impl::Impl(Module& module, size_t size) {
 
 Buffer::Impl::~Impl() {}
 
-void Buffer::Impl::ToGpu(void* ptr, size_t size) { buffer_->ToGpu(ptr, size); }
+void Buffer::Impl::ToGpu(const void* ptr, size_t size) { buffer_->ToGpu(ptr, size); }
+
+void Buffer::Impl::ToCpu(void* ptr, size_t size) { buffer_->ToCpu(ptr, size); }
 
 }  // namespace vkgs

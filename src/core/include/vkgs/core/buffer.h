@@ -24,8 +24,10 @@ class VKGS_CORE_API Buffer : public std::enable_shared_from_this<Buffer> {
   VkBuffer buffer() const noexcept { return buffer_; }
   VkBuffer stage_buffer() const noexcept { return stage_buffer_; }
   void* stage_buffer_map() const noexcept { return stage_buffer_map_; }
+  auto semaphore() const noexcept { return semaphore_; }
 
-  void ToGpu(void* ptr, size_t size);
+  void ToGpu(const void* ptr, size_t size);
+  void ToCpu(void* ptr, size_t size);
 
   void Wait();
 

@@ -21,6 +21,12 @@ int main() {
   std::fill(data.begin(), data.end(), 2.0f);
   buffer.ToGpu(data.data(), data.size() * sizeof(float));
 
+  std::vector<float> data2(256);
+  buffer.ToCpu(data2.data(), data2.size() * sizeof(float));
+
+  for (auto d : data2) std::cout << d << " ";
+  std::cout << std::endl;
+
   std::cout << "Done" << std::endl;
 
   return 0;

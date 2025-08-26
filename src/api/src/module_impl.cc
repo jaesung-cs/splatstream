@@ -4,8 +4,6 @@
 
 #include "vkgs/buffer.h"
 
-#include "buffer_impl.h"
-
 namespace vkgs {
 
 Module::Impl::Impl() {

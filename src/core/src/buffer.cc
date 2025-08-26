@@ -35,10 +35,15 @@ Buffer::~Buffer() {
   vmaDestroyBuffer(allocator, buffer_, allocation_);
 }
 
-void Buffer::ToGpu(void* ptr, size_t size) { module_->WriteBuffer(shared_from_this(), ptr, size); }
+void Buffer::ToGpu(const void* ptr, size_t size) { module_->CpuToBuffer(shared_from_this(), ptr, size); }
+
+void Buffer::ToCpu(void* ptr, size_t size) { module_->BufferToCpu(shared_from_this(), ptr, size); }
 
 void Buffer::Wait() {
-  if (semaphore_) semaphore_->Wait();
+  if (semaphore_) {
+    semaphore_->Wait();
+    semaphore_ = nullptr;
+  }
 }
 
 void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore) {

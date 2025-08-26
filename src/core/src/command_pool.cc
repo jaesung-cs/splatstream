@@ -10,7 +10,7 @@ namespace core {
 CommandPool::CommandPool(std::shared_ptr<Module> module, uint32_t queue_family_index)
     : module_(module), queue_family_index_(queue_family_index) {
   VkCommandPoolCreateInfo command_pool_info = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-  command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+  command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   command_pool_info.queueFamilyIndex = queue_family_index;
   vkCreateCommandPool(module_->device(), &command_pool_info, NULL, &command_pool_);
 }

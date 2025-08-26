@@ -16,5 +16,8 @@ PYBIND11_MODULE(_core, m) {
   py::class_<vkgs::Buffer>(m, "Buffer")
       .def(py::init<vkgs::Module&, size_t>())
       .def_property_readonly("size", &vkgs::Buffer::size)
-      .def("to_gpu", &vkgs::Buffer::ToGpu);
+      .def("to_gpu",
+           [](vkgs::Buffer* buffer, intptr_t ptr, size_t size) { buffer->ToGpu(reinterpret_cast<void*>(ptr), size); })
+      .def("to_cpu",
+           [](vkgs::Buffer* buffer, intptr_t ptr, size_t size) { buffer->ToCpu(reinterpret_cast<void*>(ptr), size); });
 }

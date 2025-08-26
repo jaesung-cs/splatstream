@@ -1,4 +1,6 @@
-import torch
+from typing import Any
+
+import numpy as np
 
 from . import _core
 from .singleton_module import singleton_module
@@ -13,14 +15,15 @@ class Buffer:
     def size(self):
         return self._buffer.size
 
+    def to_numpy(self, dtype: Any = np.uint8):
+        dtype = np.dtype(dtype)
+        buf = np.empty((self.size // dtype.itemsize), dtype=dtype)
+        self._buffer.to_cpu(buf.ctypes.data, self.size)
+        return buf
 
-def from_tensor(tensor: torch.Tensor):
-    if tensor.device == torch.device("cpu"):
-        size = tensor.numel() * tensor.element_size()
-        buffer = Buffer(size)
-        buffer._buffer.to_gpu(tensor.data_ptr(), size)
-        return buffer
-    elif tensor.device == torch.device("cuda"):
-        raise NotImplementedError("Not implemented for CUDA tensors")
-    else:
-        raise ValueError(f"Invalid device: {tensor.device}")
+
+def from_numpy(arr: np.ndarray):
+    size = arr.size * arr.itemsize
+    buffer = Buffer(size)
+    buffer._buffer.to_gpu(arr.ctypes.data, size)
+    return buffer

@@ -12,6 +12,8 @@ Buffer::~Buffer() = default;
 
 size_t Buffer::size() const noexcept { return impl_->size(); }
 
-void Buffer::ToGpu(void* ptr, size_t size) { impl_->ToGpu(ptr, size); }
+void Buffer::ToGpu(const void* ptr, size_t size) { impl_->ToGpu(ptr, size); }
+
+void Buffer::ToCpu(void* ptr, size_t size) { impl_->ToCpu(ptr, size); }
 
 }  // namespace vkgs
