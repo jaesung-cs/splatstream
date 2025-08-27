@@ -14,7 +14,7 @@ class Semaphore;
 
 class SemaphorePool : public std::enable_shared_from_this<SemaphorePool> {
  public:
-  SemaphorePool(std::shared_ptr<Module> module);
+  explicit SemaphorePool(Module* module);
   ~SemaphorePool();
 
   std::shared_ptr<Semaphore> Allocate();
@@ -23,7 +23,7 @@ class SemaphorePool : public std::enable_shared_from_this<SemaphorePool> {
   auto module() const noexcept { return module_; }
 
  private:
-  std::shared_ptr<Module> module_;
+  Module* module_;
 
   std::vector<VkSemaphore> semaphores_;
 };

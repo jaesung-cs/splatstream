@@ -7,7 +7,7 @@
 namespace vkgs {
 namespace core {
 
-CommandPool::CommandPool(std::shared_ptr<Module> module, uint32_t queue_family_index)
+CommandPool::CommandPool(Module* module, uint32_t queue_family_index)
     : module_(module), queue_family_index_(queue_family_index) {
   VkCommandPoolCreateInfo command_pool_info = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
   command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -31,8 +31,7 @@ std::shared_ptr<Command> CommandPool::Allocate() {
     command_buffers_.pop_back();
   }
 
-  auto command = std::make_shared<Command>(shared_from_this(), command_buffer);
-  return command;
+  return std::make_shared<Command>(shared_from_this(), command_buffer);
 }
 
 void CommandPool::Free(VkCommandBuffer command_buffer) { command_buffers_.push_back(command_buffer); }

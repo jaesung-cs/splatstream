@@ -14,7 +14,7 @@ class Command;
 
 class CommandPool : public std::enable_shared_from_this<CommandPool> {
  public:
-  CommandPool(std::shared_ptr<Module> module, uint32_t queue_family_index);
+  explicit CommandPool(Module* module, uint32_t queue_family_index);
   ~CommandPool();
 
   VkCommandPool command_pool() const noexcept { return command_pool_; }
@@ -24,7 +24,7 @@ class CommandPool : public std::enable_shared_from_this<CommandPool> {
   void Free(VkCommandBuffer command_buffer);
 
  private:
-  std::shared_ptr<Module> module_;
+  Module* module_;
   uint32_t queue_family_index_;
 
   VkCommandPool command_pool_ = VK_NULL_HANDLE;

@@ -7,9 +7,13 @@
 namespace vkgs {
 namespace core {
 
-SemaphorePool::SemaphorePool(std::shared_ptr<Module> module) : module_(module) {}
+SemaphorePool::SemaphorePool(Module* module) : module_(module) {}
 
-SemaphorePool::~SemaphorePool() = default;
+SemaphorePool::~SemaphorePool() {
+  for (auto semaphore : semaphores_) {
+    vkDestroySemaphore(module_->device(), semaphore, NULL);
+  }
+}
 
 std::shared_ptr<Semaphore> SemaphorePool::Allocate() {
   VkSemaphore semaphore;

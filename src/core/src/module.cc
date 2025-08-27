@@ -203,11 +203,14 @@ Module::Module() {
 }
 
 Module::~Module() {
+  std::cout << "Module successfully destroyed!" << std::endl;
+
   WaitIdle();
 
   graphics_command_pool_ = nullptr;
   compute_command_pool_ = nullptr;
   transfer_command_pool_ = nullptr;
+  semaphore_pool_ = nullptr;
 
   vmaDestroyAllocator(allocator_);
   vkDestroyDevice(device_, NULL);
@@ -218,10 +221,10 @@ Module::~Module() {
 }
 
 void Module::Init() {
-  graphics_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), graphics_queue_index_);
-  compute_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), compute_queue_index_);
-  transfer_command_pool_ = std::make_shared<CommandPool>(shared_from_this(), transfer_queue_index_);
-  semaphore_pool_ = std::make_shared<SemaphorePool>(shared_from_this());
+  graphics_command_pool_ = std::make_shared<CommandPool>(this, graphics_queue_index_);
+  compute_command_pool_ = std::make_shared<CommandPool>(this, compute_queue_index_);
+  transfer_command_pool_ = std::make_shared<CommandPool>(this, transfer_queue_index_);
+  semaphore_pool_ = std::make_shared<SemaphorePool>(this);
 }
 
 void Module::WaitIdle() { vkDeviceWaitIdle(device_); }

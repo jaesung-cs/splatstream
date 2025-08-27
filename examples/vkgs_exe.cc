@@ -17,12 +17,16 @@ int main() {
 
   std::vector<uint32_t> data(256);
   for (int i = 0; i < data.size(); ++i) data[i] = i;
+  std::cout << "ToGpu" << std::endl;
   buffer.ToGpu(data.data(), data.size() * sizeof(uint32_t));
   for (int i = 0; i < data.size(); ++i) data[i] = i * 2;
+  std::cout << "ToGpu" << std::endl;
   buffer.ToGpu(data.data(), data.size() * sizeof(uint32_t));
+  std::cout << "Fill" << std::endl;
   buffer.Fill(2);
 
   std::vector<uint32_t> data2(256);
+  std::cout << "ToCpu" << std::endl;
   buffer.ToCpu(data2.data(), data2.size() * sizeof(uint32_t));
 
   for (auto d : data2) std::cout << d << " ";
