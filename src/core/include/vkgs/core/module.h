@@ -35,6 +35,7 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   void WaitIdle();
   void CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t size);
   void BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size);
+  void FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value);
 
  private:
   std::string device_name_;

@@ -15,14 +15,15 @@ int main() {
 
   vkgs::Buffer buffer(module, 1024);
 
-  std::vector<float> data(256);
-  std::fill(data.begin(), data.end(), 1.0f);
-  buffer.ToGpu(data.data(), data.size() * sizeof(float));
-  std::fill(data.begin(), data.end(), 2.0f);
-  buffer.ToGpu(data.data(), data.size() * sizeof(float));
+  std::vector<uint32_t> data(256);
+  for (int i = 0; i < data.size(); ++i) data[i] = i;
+  buffer.ToGpu(data.data(), data.size() * sizeof(uint32_t));
+  for (int i = 0; i < data.size(); ++i) data[i] = i * 2;
+  buffer.ToGpu(data.data(), data.size() * sizeof(uint32_t));
+  buffer.Fill(2);
 
-  std::vector<float> data2(256);
-  buffer.ToCpu(data2.data(), data2.size() * sizeof(float));
+  std::vector<uint32_t> data2(256);
+  buffer.ToCpu(data2.data(), data2.size() * sizeof(uint32_t));
 
   for (auto d : data2) std::cout << d << " ";
   std::cout << std::endl;

@@ -18,9 +18,14 @@ void Semaphore::Wait() {
   wait_info.pSemaphores = &semaphore_;
   wait_info.pValues = &value_;
   vkWaitSemaphores(semaphore_pool_->module()->device(), &wait_info, UINT64_MAX);
+
+  // Successful wait of this semaphore guarantees the dependent wait semaphores, so release ownership.
+  wait_semaphores_.clear();
 }
 
-void Semaphore::SignalBy(std::shared_ptr<Command> command, uint64_t value) {
+void Semaphore::SignalBy(std::vector<std::shared_ptr<Semaphore>> wait_semaphores, std::shared_ptr<Command> command,
+                         uint64_t value) {
+  wait_semaphores_ = std::move(wait_semaphores);
   command_ = command;
   value_ = value;
 }

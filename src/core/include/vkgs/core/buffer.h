@@ -28,6 +28,7 @@ class VKGS_CORE_API Buffer : public std::enable_shared_from_this<Buffer> {
 
   void ToGpu(const void* ptr, size_t size);
   void ToCpu(void* ptr, size_t size);
+  void Fill(uint32_t value);
 
   void Wait();
 

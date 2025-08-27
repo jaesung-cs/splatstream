@@ -18,6 +18,7 @@ class VKGS_API Buffer {
 
   void ToGpu(const void* ptr, size_t size);
   void ToCpu(void* ptr, size_t size);
+  void Fill(uint32_t value);
 
   const auto* impl() const noexcept { return impl_.get(); }
 

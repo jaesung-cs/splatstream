@@ -254,12 +254,12 @@ void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t
   VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
   command_buffer_submit_info.commandBuffer = cb;
 
-  auto semaphore = semaphore_pool_->Allocate();
-  auto value = semaphore->value();
+  auto signal_semaphore = semaphore_pool_->Allocate();
+  auto signal_value = signal_semaphore->value();
 
   VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-  signal_semaphore_info.semaphore = semaphore->semaphore();
-  signal_semaphore_info.value = value + 1;
+  signal_semaphore_info.semaphore = signal_semaphore->semaphore();
+  signal_semaphore_info.value = signal_value + 1;
   signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 
   VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
@@ -269,8 +269,8 @@ void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
   vkQueueSubmit2(transfer_queue_, 1, &submit_info, VK_NULL_HANDLE);
 
-  semaphore->SignalBy(command, value + 1);
-  buffer->WaitOn(semaphore);
+  signal_semaphore->SignalBy({}, command, signal_value + 1);
+  buffer->WaitOn(signal_semaphore);
 }
 
 void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size) {
@@ -297,20 +297,22 @@ void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size)
   VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
   command_buffer_submit_info.commandBuffer = cb;
 
-  auto wait_semaphore = buffer->semaphore();
-  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
-  if (wait_semaphore) {
-    auto wait_value = wait_semaphore->value();
-
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = wait_semaphore->semaphore();
-    wait_semaphore_info.value = wait_value;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    wait_semaphore_infos.push_back(wait_semaphore_info);
+  std::vector<std::shared_ptr<Semaphore>> wait_semaphores;
+  if (auto wait_semaphore = buffer->semaphore()) {
+    wait_semaphores.push_back(wait_semaphore);
   }
 
   auto signal_semaphore = semaphore_pool_->Allocate();
   auto signal_value = signal_semaphore->value();
+
+  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+  for (auto wait_semaphore : wait_semaphores) {
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = wait_semaphore->semaphore();
+    wait_semaphore_info.value = wait_semaphore->value();
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    wait_semaphore_infos.push_back(wait_semaphore_info);
+  }
 
   VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
   signal_semaphore_info.semaphore = signal_semaphore->semaphore();
@@ -326,12 +328,60 @@ void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size)
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
   vkQueueSubmit2(transfer_queue_, 1, &submit_info, VK_NULL_HANDLE);
 
-  signal_semaphore->SignalBy(command, signal_value + 1);
+  signal_semaphore->SignalBy(wait_semaphores, command, signal_value + 1);
   buffer->WaitOn(signal_semaphore);
 
   buffer->Wait();
 
   std::memcpy(ptr, buffer->stage_buffer_map(), size);
+}
+
+void Module::FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value) {
+  auto command = transfer_command_pool_->Allocate();
+  auto cb = command->command_buffer();
+
+  VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  vkBeginCommandBuffer(cb, &begin_info);
+  vkCmdFillBuffer(cb, buffer->buffer(), 0, buffer->size(), value);
+  vkEndCommandBuffer(cb);
+
+  std::vector<std::shared_ptr<Semaphore>> wait_semaphores;
+  if (auto wait_semaphore = buffer->semaphore()) {
+    wait_semaphores.push_back(wait_semaphore);
+  }
+
+  auto signal_semaphore = semaphore_pool_->Allocate();
+  auto signal_value = signal_semaphore->value();
+
+  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+  for (auto wait_semaphore : wait_semaphores) {
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = wait_semaphore->semaphore();
+    wait_semaphore_info.value = wait_semaphore->value();
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    wait_semaphore_infos.push_back(wait_semaphore_info);
+  }
+
+  VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+  command_buffer_submit_info.commandBuffer = cb;
+
+  VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+  signal_semaphore_info.semaphore = signal_semaphore->semaphore();
+  signal_semaphore_info.value = signal_value + 1;
+  signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+
+  VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+  submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
+  submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
+  submit_info.commandBufferInfoCount = 1;
+  submit_info.pCommandBufferInfos = &command_buffer_submit_info;
+  submit_info.signalSemaphoreInfoCount = 1;
+  submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
+  vkQueueSubmit2(transfer_queue_, 1, &submit_info, VK_NULL_HANDLE);
+
+  signal_semaphore->SignalBy(wait_semaphores, command, signal_value + 1);
+  buffer->WaitOn(signal_semaphore);
 }
 
 }  // namespace core

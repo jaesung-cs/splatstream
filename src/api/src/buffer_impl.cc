@@ -14,4 +14,6 @@ void Buffer::Impl::ToGpu(const void* ptr, size_t size) { buffer_->ToGpu(ptr, siz
 
 void Buffer::Impl::ToCpu(void* ptr, size_t size) { buffer_->ToCpu(ptr, size); }
 
+void Buffer::Impl::Fill(uint32_t value) { buffer_->Fill(value); }
+
 }  // namespace vkgs
