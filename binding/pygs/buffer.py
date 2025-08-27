@@ -25,6 +25,10 @@ class Buffer:
         self._buffer.fill(value)
         return self
 
+    def sort(self):
+        self._buffer.sort()
+        return self
+
 
 def from_numpy(arr: np.ndarray):
     size = arr.size * arr.itemsize

@@ -18,6 +18,7 @@ class CommandPool;
 class SemaphorePool;
 class FencePool;
 class TaskMonitor;
+class Sorter;
 
 class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
  public:
@@ -32,12 +33,14 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
 
   auto allocator() const noexcept { return allocator_; }
+  auto physical_device() const noexcept { return physical_device_; }
   auto device() const noexcept { return device_; }
 
   void WaitIdle();
   void CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t size);
   void BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size);
   void FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value);
+  void SortBuffer(std::shared_ptr<Buffer> buffer);
 
  private:
   std::string device_name_;
@@ -63,6 +66,8 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   std::shared_ptr<SemaphorePool> semaphore_pool_;
   std::shared_ptr<FencePool> fence_pool_;
   std::shared_ptr<TaskMonitor> task_monitor_;
+
+  std::shared_ptr<Sorter> sorter_;
 };
 
 }  // namespace core

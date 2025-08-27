@@ -21,5 +21,6 @@ PYBIND11_MODULE(_core, m) {
            [](vkgs::Buffer* buffer, intptr_t ptr, size_t size) { buffer->ToGpu(reinterpret_cast<void*>(ptr), size); })
       .def("to_cpu",
            [](vkgs::Buffer* buffer, intptr_t ptr, size_t size) { buffer->ToCpu(reinterpret_cast<void*>(ptr), size); })
-      .def("fill", &vkgs::Buffer::Fill);
+      .def("fill", &vkgs::Buffer::Fill)
+      .def("sort", &vkgs::Buffer::Sort);
 }
