@@ -18,14 +18,14 @@ class SemaphorePool : public std::enable_shared_from_this<SemaphorePool> {
   ~SemaphorePool();
 
   std::shared_ptr<Semaphore> Allocate();
-  void Free(VkSemaphore semaphore);
+  void Free(VkSemaphore semaphore, uint64_t value);
 
   auto module() const noexcept { return module_; }
 
  private:
   Module* module_;
 
-  std::vector<VkSemaphore> semaphores_;
+  std::vector<std::pair<VkSemaphore, uint64_t>> semaphores_;
 };
 
 }  // namespace core

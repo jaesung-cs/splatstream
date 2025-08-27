@@ -17,6 +17,7 @@ class Buffer;
 class CommandPool;
 class SemaphorePool;
 class FencePool;
+class TaskMonitor;
 
 class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
  public:
@@ -61,6 +62,7 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   std::shared_ptr<CommandPool> transfer_command_pool_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
   std::shared_ptr<FencePool> fence_pool_;
+  std::shared_ptr<TaskMonitor> task_monitor_;
 };
 
 }  // namespace core

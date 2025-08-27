@@ -7,9 +7,13 @@ add_library(vkgs_core SHARED
   src/buffer.cc
   src/command_pool.cc
   src/command.cc
+  src/fence_pool.cc
+  src/fence.cc
   src/module.cc
   src/semaphore_pool.cc
   src/semaphore.cc
+  src/task_monitor.cc
+  src/task.cc
   src/volk_impl.cc
   src/vma_impl.cc
 )
