@@ -21,6 +21,10 @@ class Buffer:
         self._buffer.to_cpu(buf.ctypes.data, self.size)
         return buf
 
+    def fill(self, value: int):
+        self._buffer.fill(value)
+        return self
+
 
 def from_numpy(arr: np.ndarray):
     size = arr.size * arr.itemsize
