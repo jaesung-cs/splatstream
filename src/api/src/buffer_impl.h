@@ -21,6 +21,7 @@ class Buffer::Impl {
   void ToGpu(const void* ptr, size_t size);
   void ToCpu(void* ptr, size_t size);
   void Fill(uint32_t value);
+  void Sort();
 
  private:
   std::shared_ptr<core::Buffer> buffer_;

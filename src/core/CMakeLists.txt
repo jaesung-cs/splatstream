@@ -3,6 +3,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Vulkan REQUIRED COMPONENTS volk)
 
+include(FetchContent)
+FetchContent_Declare(
+  vk_radix_sort
+  GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
+  GIT_TAG        231e927f7f360c35c44933dae69c559e6126ccd3  # v0.1.1
+)
+
+FetchContent_MakeAvailable(vk_radix_sort)
+
+target_compile_definitions(vk_radix_sort PUBLIC VRDX_USE_VOLK)
+target_include_directories(vk_radix_sort PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
+
 add_library(vkgs_core SHARED
   src/buffer.cc
   src/command_pool.cc
@@ -12,6 +24,7 @@ add_library(vkgs_core SHARED
   src/module.cc
   src/semaphore_pool.cc
   src/semaphore.cc
+  src/sorter.cc
   src/task_monitor.cc
   src/task.cc
   src/volk_impl.cc
@@ -36,7 +49,8 @@ target_include_directories(vkgs_core
 target_link_libraries(vkgs_core
   PUBLIC
     Vulkan::Vulkan
-    Vulkan::volk
+  PRIVATE
+    vk_radix_sort
 )
 
 target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)

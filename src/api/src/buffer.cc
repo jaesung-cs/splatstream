@@ -18,4 +18,6 @@ void Buffer::ToCpu(void* ptr, size_t size) { impl_->ToCpu(ptr, size); }
 
 void Buffer::Fill(uint32_t value) { impl_->Fill(value); }
 
+void Buffer::Sort() { impl_->Sort(); }
+
 }  // namespace vkgs

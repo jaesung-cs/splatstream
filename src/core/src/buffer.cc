@@ -11,7 +11,8 @@ Buffer::Buffer(std::shared_ptr<Module> module, size_t size) : module_(module), s
   auto allocator = module->allocator();
   VkBufferCreateInfo buffer_info = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
   buffer_info.size = size;
-  buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+  buffer_info.usage =
+      VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   VmaAllocationCreateInfo allocation_info = {};
   allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
   vmaCreateBuffer(allocator, &buffer_info, &allocation_info, &buffer_, &allocation_, nullptr);
@@ -40,6 +41,8 @@ void Buffer::ToGpu(const void* ptr, size_t size) { module_->CpuToBuffer(shared_f
 void Buffer::ToCpu(void* ptr, size_t size) { module_->BufferToCpu(shared_from_this(), ptr, size); }
 
 void Buffer::Fill(uint32_t value) { module_->FillBuffer(shared_from_this(), value); }
+
+void Buffer::Sort() { module_->SortBuffer(shared_from_this()); }
 
 void Buffer::Wait() {
   if (semaphore_) {
