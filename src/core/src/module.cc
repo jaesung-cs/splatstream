@@ -5,6 +5,7 @@
 
 #include "vkgs/core/buffer.h"
 
+#include "queue.h"
 #include "command_pool.h"
 #include "command.h"
 #include "semaphore_pool.h"
@@ -61,7 +62,30 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 
 }  // namespace
 
-Module::Module() {
+Module::Module() = default;
+
+Module::~Module() {
+  std::cout << "Module successfully destroyed!" << std::endl;
+
+  WaitIdle();
+
+  graphics_command_pool_ = nullptr;
+  compute_command_pool_ = nullptr;
+  transfer_command_pool_ = nullptr;
+  semaphore_pool_ = nullptr;
+  fence_pool_ = nullptr;
+  task_monitor_ = nullptr;
+  sorter_ = nullptr;
+
+  vmaDestroyAllocator(allocator_);
+  vkDestroyDevice(device_, NULL);
+  vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
+  vkDestroyInstance(instance_, NULL);
+
+  volkFinalize();
+}
+
+void Module::Init() {
   volkInitialize();
 
   // Instance
@@ -124,6 +148,9 @@ Module::Module() {
   std::vector<VkQueueFamilyProperties> queue_family_properties(queue_family_count);
   vkGetPhysicalDeviceQueueFamilyProperties(physical_device_, &queue_family_count, queue_family_properties.data());
 
+  uint32_t graphics_queue_index = VK_QUEUE_FAMILY_IGNORED;
+  uint32_t compute_queue_index = VK_QUEUE_FAMILY_IGNORED;
+  uint32_t transfer_queue_index = VK_QUEUE_FAMILY_IGNORED;
   for (uint32_t i = 0; i < queue_family_count; i++) {
     auto type = queue_family_properties[i].queueFlags;
 
@@ -139,29 +166,28 @@ Module::Module() {
       special_purpose = true;
 
     // TODO: make exact rule for selecting queue.
-    if (graphics && graphics_queue_index_ == VK_QUEUE_FAMILY_IGNORED) graphics_queue_index_ = i;
-    if (!graphics && compute ||
-        graphics && graphics_queue_index_ != i && compute_queue_index_ == VK_QUEUE_FAMILY_IGNORED)
-      compute_queue_index_ = i;
-    if (!graphics && !compute && transfer && !special_purpose || graphics && graphics_queue_index_ != i &&
-                                                                     compute_queue_index_ != i &&
-                                                                     transfer_queue_index_ == VK_QUEUE_FAMILY_IGNORED)
-      transfer_queue_index_ = i;
+    if (graphics && graphics_queue_index == VK_QUEUE_FAMILY_IGNORED) graphics_queue_index = i;
+    if (!graphics && compute || graphics && graphics_queue_index != i && compute_queue_index == VK_QUEUE_FAMILY_IGNORED)
+      compute_queue_index = i;
+    if (!graphics && !compute && transfer && !special_purpose || graphics && graphics_queue_index != i &&
+                                                                     compute_queue_index != i &&
+                                                                     transfer_queue_index == VK_QUEUE_FAMILY_IGNORED)
+      transfer_queue_index = i;
   }
 
   // Device
   float queue_priority = 1.0f;
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos(3);
   queue_create_infos[0] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[0].queueFamilyIndex = graphics_queue_index_;
+  queue_create_infos[0].queueFamilyIndex = graphics_queue_index;
   queue_create_infos[0].queueCount = 1;
   queue_create_infos[0].pQueuePriorities = &queue_priority;
   queue_create_infos[1] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[1].queueFamilyIndex = compute_queue_index_;
+  queue_create_infos[1].queueFamilyIndex = compute_queue_index;
   queue_create_infos[1].queueCount = 1;
   queue_create_infos[1].pQueuePriorities = &queue_priority;
   queue_create_infos[2] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[2].queueFamilyIndex = transfer_queue_index_;
+  queue_create_infos[2].queueFamilyIndex = transfer_queue_index;
   queue_create_infos[2].queueCount = 1;
   queue_create_infos[2].pQueuePriorities = &queue_priority;
 
@@ -190,9 +216,16 @@ Module::Module() {
   device_info.ppEnabledExtensionNames = device_extensions.data();
   vkCreateDevice(physical_device_, &device_info, NULL, &device_);
 
-  vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
-  vkGetDeviceQueue(device_, compute_queue_index_, 0, &compute_queue_);
-  vkGetDeviceQueue(device_, transfer_queue_index_, 0, &transfer_queue_);
+  VkQueue graphics_queue = VK_NULL_HANDLE;
+  VkQueue compute_queue = VK_NULL_HANDLE;
+  VkQueue transfer_queue = VK_NULL_HANDLE;
+  vkGetDeviceQueue(device_, graphics_queue_index, 0, &graphics_queue);
+  vkGetDeviceQueue(device_, compute_queue_index, 0, &compute_queue);
+  vkGetDeviceQueue(device_, transfer_queue_index, 0, &transfer_queue);
+
+  graphics_queue_ = std::make_shared<Queue>(graphics_queue_index, graphics_queue);
+  compute_queue_ = std::make_shared<Queue>(compute_queue_index, compute_queue);
+  transfer_queue_ = std::make_shared<Queue>(transfer_queue_index, transfer_queue);
 
   // Allocator
   VmaVulkanFunctions functions = {};
@@ -206,38 +239,19 @@ Module::Module() {
   allocator_info.pVulkanFunctions = &functions;
   allocator_info.vulkanApiVersion = VK_API_VERSION_1_4;
   vmaCreateAllocator(&allocator_info, &allocator_);
-}
 
-Module::~Module() {
-  std::cout << "Module successfully destroyed!" << std::endl;
-
-  WaitIdle();
-
-  graphics_command_pool_ = nullptr;
-  compute_command_pool_ = nullptr;
-  transfer_command_pool_ = nullptr;
-  semaphore_pool_ = nullptr;
-  fence_pool_ = nullptr;
-  task_monitor_ = nullptr;
-  sorter_ = nullptr;
-
-  vmaDestroyAllocator(allocator_);
-  vkDestroyDevice(device_, NULL);
-  vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
-  vkDestroyInstance(instance_, NULL);
-
-  volkFinalize();
-}
-
-void Module::Init() {
-  graphics_command_pool_ = std::make_shared<CommandPool>(this, graphics_queue_index_);
-  compute_command_pool_ = std::make_shared<CommandPool>(this, compute_queue_index_);
-  transfer_command_pool_ = std::make_shared<CommandPool>(this, transfer_queue_index_);
+  graphics_command_pool_ = std::make_shared<CommandPool>(this, graphics_queue_index);
+  compute_command_pool_ = std::make_shared<CommandPool>(this, compute_queue_index);
+  transfer_command_pool_ = std::make_shared<CommandPool>(this, transfer_queue_index);
   semaphore_pool_ = std::make_shared<SemaphorePool>(this);
   fence_pool_ = std::make_shared<FencePool>(this);
   task_monitor_ = std::make_shared<TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(this);
 }
+
+uint32_t Module::graphics_queue_index() const { return graphics_queue_->queue_family_index(); }
+uint32_t Module::compute_queue_index() const { return compute_queue_->queue_family_index(); }
+uint32_t Module::transfer_queue_index() const { return transfer_queue_->queue_family_index(); }
 
 void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
 
@@ -284,13 +298,12 @@ void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->WaitOn(signal_semaphore, transfer_queue_, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(std::vector<std::shared_ptr<Semaphore>>{}, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
+  task_monitor_->Add(std::make_shared<Task>(command, std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
 }
 
 void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size) {
@@ -347,13 +360,14 @@ void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size)
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->WaitOn(signal_semaphore, transfer_queue_, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(wait_semaphores, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
+  auto semaphores = wait_semaphores;
+  semaphores.push_back(signal_semaphore);
+  task_monitor_->Add(std::make_shared<Task>(command, semaphores, fence));
 
   buffer->Wait();
 
@@ -402,16 +416,21 @@ void Module::FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value) {
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->WaitOn(signal_semaphore, transfer_queue_, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(wait_semaphores, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
+  auto semaphores = wait_semaphores;
+  wait_semaphores.push_back(signal_semaphore);
+  task_monitor_->Add(std::make_shared<Task>(command, semaphores, fence));
 }
 
 void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
+  if (buffer->queue() && buffer->queue() != compute_queue_) {
+    TransferOwnership(buffer, compute_queue_, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+  }
+
   auto command = transfer_command_pool_->Allocate();
   auto cb = command->command_buffer();
   auto signal_semaphore = semaphore_pool_->Allocate();
@@ -453,13 +472,64 @@ void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(compute_queue_->queue(), 1, &submit_info, fence->fence());
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->WaitOn(signal_semaphore, compute_queue_, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                 VK_ACCESS_2_SHADER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(wait_semaphores, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
+  auto semaphores = wait_semaphores;
+  semaphores.push_back(signal_semaphore);
+  task_monitor_->Add(std::make_shared<Task>(command, semaphores, fence));
+}
+
+void Module::TransferOwnership(std::shared_ptr<Buffer> buffer, std::shared_ptr<Queue> dst_queue,
+                               VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask) {
+  auto src_queue = buffer->queue();
+
+  VkSubmitInfo2 subimt_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+  submit_info.waitSemaphoreInfoCount;
+  submit_info.pWaitSemaphoreInfos;
+  submit_info.commandBufferInfoCount;
+  submit_info.pCommandBufferInfos;
+  submit_info.signalSemaphoreInfoCount;
+  submit_info.pSignalSemaphoreInfos;
+
+  VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+  barrier.srcStageMask = 0;
+  barrier.srcAccessMask = 0;
+  barrier.dstStageMask = 0;
+  barrier.dstAccessMask = 0;
+  barrier.srcQueueFamilyIndex = src_queue->queue_family_index();
+  barrier.dstQueueFamilyIndex = dst_queue->queue_family_index();
+  barrier.buffer = buffer->buffer();
+  barrier.offset = 0;
+  barrier.size = buffer->size();
+
+  VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+  dependency_info.bufferMemoryBarrierCount = 1;
+  dependency_info.pBufferMemoryBarriers = &barrier;
+
+  VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  // Release
+  auto semaphore0 = semaphore_pool_->Allocate();
+  auto command0 = src_queue->AllocateCommandBuffer();
+  auto cb0 = command0->command_buffer();
+  vkBeginCommandBuffer(cb0, &begin_info);
+  vkCmdPipelineBarrier2(cb0, &dependency_info);
+  vkEndCommandBuffer(cb0);
+
+  auto fence0 = fence_pool_->Allocate();
+  vkQueueSubmit2(src_queue->queue(), 1, &submit_info, fence0);
+  task_monitor_->Add(std::shared_ptr<Task>(command0, {semaphore0}, fence0));
+
+  // Acquire
+  auto cb1 = dst_queue->AllocateCommandBuffer();
+  vkBeginCommandBuffer(cb1, &begin_info);
+  vkCmdPipelineBarrier2(cb1, &dependency_info);
+  vkEndCommandBuffer(cb1);
 }
 
 }  // namespace core

@@ -14,6 +14,7 @@ namespace vkgs {
 namespace core {
 
 class Buffer;
+class Queue;
 class CommandPool;
 class SemaphorePool;
 class FencePool;
@@ -28,9 +29,9 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   void Init();
 
   const std::string& device_name() const noexcept { return device_name_; }
-  uint32_t graphics_queue_index() const noexcept { return graphics_queue_index_; }
-  uint32_t compute_queue_index() const noexcept { return compute_queue_index_; }
-  uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
+  uint32_t graphics_queue_index() const;
+  uint32_t compute_queue_index() const;
+  uint32_t transfer_queue_index() const;
 
   auto allocator() const noexcept { return allocator_; }
   auto physical_device() const noexcept { return physical_device_; }
@@ -43,23 +44,20 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   void SortBuffer(std::shared_ptr<Buffer> buffer);
 
  private:
+  void TransferOwnership(std::shared_ptr<Buffer> buffer, std::shared_ptr<Queue> dst_queue,
+                         VkPipelineStageFlags2 dst_stage_mask, VkAccessFlags2 dst_access_mask);
+
   std::string device_name_;
 
   VkInstance instance_ = VK_NULL_HANDLE;
   VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
   VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
   VkDevice device_ = VK_NULL_HANDLE;
-
-  uint32_t graphics_queue_index_ = VK_QUEUE_FAMILY_IGNORED;
-  uint32_t compute_queue_index_ = VK_QUEUE_FAMILY_IGNORED;
-  uint32_t transfer_queue_index_ = VK_QUEUE_FAMILY_IGNORED;
-
-  VkQueue graphics_queue_ = VK_NULL_HANDLE;
-  VkQueue compute_queue_ = VK_NULL_HANDLE;
-  VkQueue transfer_queue_ = VK_NULL_HANDLE;
-
   VmaAllocator allocator_ = VK_NULL_HANDLE;
 
+  std::shared_ptr<Queue> graphics_queue_;
+  std::shared_ptr<Queue> compute_queue_;
+  std::shared_ptr<Queue> transfer_queue_;
   std::shared_ptr<CommandPool> graphics_command_pool_;
   std::shared_ptr<CommandPool> compute_command_pool_;
   std::shared_ptr<CommandPool> transfer_command_pool_;

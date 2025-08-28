@@ -51,9 +51,13 @@ void Buffer::Wait() {
   }
 }
 
-void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore) {
+void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore, std::shared_ptr<Queue> queue,
+                    VkPipelineStageFlags2 stage_mask, VkAccessFlags2 access_mask) {
   Wait();
   semaphore_ = semaphore;
+  queue_ = queue;
+  stage_mask_ = stage_mask;
+  access_mask_ = access_mask;
 }
 
 }  // namespace core
