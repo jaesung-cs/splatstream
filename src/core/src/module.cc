@@ -200,7 +200,6 @@ Module::Module() {
   functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
 
   VmaAllocatorCreateInfo allocator_info = {};
-  allocator_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
   allocator_info.physicalDevice = physical_device_;
   allocator_info.device = device_;
   allocator_info.instance = instance_;
