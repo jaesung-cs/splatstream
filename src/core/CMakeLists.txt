@@ -7,10 +7,13 @@ include(FetchContent)
 FetchContent_Declare(
   vk_radix_sort
   GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        25305deb3819be9b0eafa88fa0ff035c1d84cbd2  # v0.0.0
+  GIT_TAG        231e927f7f360c35c44933dae69c559e6126ccd3  # v0.1.1
 )
 
 FetchContent_MakeAvailable(vk_radix_sort)
+
+target_compile_definitions(vk_radix_sort PUBLIC VRDX_USE_VOLK)
+target_include_directories(vk_radix_sort PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
 
 add_library(vkgs_core SHARED
   src/buffer.cc
@@ -46,7 +49,6 @@ target_include_directories(vkgs_core
 target_link_libraries(vkgs_core
   PUBLIC
     Vulkan::Vulkan
-    Vulkan::volk
   PRIVATE
     vk_radix_sort
 )

@@ -167,18 +167,14 @@ Module::Module() {
 
   std::vector<const char*> device_extensions = {
       VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+      VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 #ifdef __APPLE__
       "VK_KHR_portability_subset",
 #endif
   };
 
-  VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features = {
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES};
-  buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
-
   VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES};
-  timeline_semaphore_features.pNext = &buffer_device_address_features;
   timeline_semaphore_features.timelineSemaphore = VK_TRUE;
 
   VkPhysicalDeviceSynchronization2Features synchronization_features = {
