@@ -22,6 +22,7 @@ add_library(vkgs_core SHARED
   src/fence_pool.cc
   src/fence.cc
   src/module.cc
+  src/queue.cc
   src/semaphore_pool.cc
   src/semaphore.cc
   src/sorter.cc

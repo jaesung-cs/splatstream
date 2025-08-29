@@ -5,7 +5,6 @@
 
 #include "vkgs/core/buffer.h"
 
-#include "command_pool.h"
 #include "command.h"
 #include "semaphore_pool.h"
 #include "semaphore.h"
@@ -14,6 +13,7 @@
 #include "task_monitor.h"
 #include "task.h"
 #include "sorter.h"
+#include "queue.h"
 
 namespace vkgs {
 namespace core {
@@ -124,6 +124,9 @@ Module::Module() {
   std::vector<VkQueueFamilyProperties> queue_family_properties(queue_family_count);
   vkGetPhysicalDeviceQueueFamilyProperties(physical_device_, &queue_family_count, queue_family_properties.data());
 
+  uint32_t graphics_queue_index = VK_QUEUE_FAMILY_IGNORED;
+  uint32_t compute_queue_index = VK_QUEUE_FAMILY_IGNORED;
+  uint32_t transfer_queue_index = VK_QUEUE_FAMILY_IGNORED;
   for (uint32_t i = 0; i < queue_family_count; i++) {
     auto type = queue_family_properties[i].queueFlags;
 
@@ -139,29 +142,28 @@ Module::Module() {
       special_purpose = true;
 
     // TODO: make exact rule for selecting queue.
-    if (graphics && graphics_queue_index_ == VK_QUEUE_FAMILY_IGNORED) graphics_queue_index_ = i;
-    if (!graphics && compute ||
-        graphics && graphics_queue_index_ != i && compute_queue_index_ == VK_QUEUE_FAMILY_IGNORED)
-      compute_queue_index_ = i;
-    if (!graphics && !compute && transfer && !special_purpose || graphics && graphics_queue_index_ != i &&
-                                                                     compute_queue_index_ != i &&
-                                                                     transfer_queue_index_ == VK_QUEUE_FAMILY_IGNORED)
-      transfer_queue_index_ = i;
+    if (graphics && graphics_queue_index == VK_QUEUE_FAMILY_IGNORED) graphics_queue_index = i;
+    if (!graphics && compute || graphics && graphics_queue_index != i && compute_queue_index == VK_QUEUE_FAMILY_IGNORED)
+      compute_queue_index = i;
+    if (!graphics && !compute && transfer && !special_purpose || graphics && graphics_queue_index != i &&
+                                                                     compute_queue_index != i &&
+                                                                     transfer_queue_index == VK_QUEUE_FAMILY_IGNORED)
+      transfer_queue_index = i;
   }
 
   // Device
   float queue_priority = 1.0f;
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos(3);
   queue_create_infos[0] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[0].queueFamilyIndex = graphics_queue_index_;
+  queue_create_infos[0].queueFamilyIndex = graphics_queue_index;
   queue_create_infos[0].queueCount = 1;
   queue_create_infos[0].pQueuePriorities = &queue_priority;
   queue_create_infos[1] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[1].queueFamilyIndex = compute_queue_index_;
+  queue_create_infos[1].queueFamilyIndex = compute_queue_index;
   queue_create_infos[1].queueCount = 1;
   queue_create_infos[1].pQueuePriorities = &queue_priority;
   queue_create_infos[2] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[2].queueFamilyIndex = transfer_queue_index_;
+  queue_create_infos[2].queueFamilyIndex = transfer_queue_index;
   queue_create_infos[2].queueCount = 1;
   queue_create_infos[2].pQueuePriorities = &queue_priority;
 
@@ -190,9 +192,16 @@ Module::Module() {
   device_info.ppEnabledExtensionNames = device_extensions.data();
   vkCreateDevice(physical_device_, &device_info, NULL, &device_);
 
-  vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
-  vkGetDeviceQueue(device_, compute_queue_index_, 0, &compute_queue_);
-  vkGetDeviceQueue(device_, transfer_queue_index_, 0, &transfer_queue_);
+  VkQueue graphics_queue;
+  VkQueue compute_queue;
+  VkQueue transfer_queue;
+  vkGetDeviceQueue(device_, graphics_queue_index, 0, &graphics_queue);
+  vkGetDeviceQueue(device_, compute_queue_index, 0, &compute_queue);
+  vkGetDeviceQueue(device_, transfer_queue_index, 0, &transfer_queue);
+
+  graphics_queue_ = std::make_shared<Queue>(this, graphics_queue, graphics_queue_index);
+  compute_queue_ = std::make_shared<Queue>(this, compute_queue, compute_queue_index);
+  transfer_queue_ = std::make_shared<Queue>(this, transfer_queue, transfer_queue_index);
 
   // Allocator
   VmaVulkanFunctions functions = {};
@@ -213,9 +222,9 @@ Module::~Module() {
 
   WaitIdle();
 
-  graphics_command_pool_ = nullptr;
-  compute_command_pool_ = nullptr;
-  transfer_command_pool_ = nullptr;
+  graphics_queue_ = nullptr;
+  compute_queue_ = nullptr;
+  transfer_queue_ = nullptr;
   semaphore_pool_ = nullptr;
   fence_pool_ = nullptr;
   task_monitor_ = nullptr;
@@ -230,25 +239,26 @@ Module::~Module() {
 }
 
 void Module::Init() {
-  graphics_command_pool_ = std::make_shared<CommandPool>(this, graphics_queue_index_);
-  compute_command_pool_ = std::make_shared<CommandPool>(this, compute_queue_index_);
-  transfer_command_pool_ = std::make_shared<CommandPool>(this, transfer_queue_index_);
   semaphore_pool_ = std::make_shared<SemaphorePool>(this);
   fence_pool_ = std::make_shared<FencePool>(this);
   task_monitor_ = std::make_shared<TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(this);
 }
 
+uint32_t Module::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }
+uint32_t Module::compute_queue_index() const noexcept { return compute_queue_->family_index(); }
+uint32_t Module::transfer_queue_index() const noexcept { return transfer_queue_->family_index(); }
+
 void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
 
 void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t size) {
-  auto command = transfer_command_pool_->Allocate();
+  auto command = transfer_queue_->AllocateCommandBuffer();
   auto cb = command->command_buffer();
   auto signal_semaphore = semaphore_pool_->Allocate();
   auto signal_value = signal_semaphore->value();
   auto fence = fence_pool_->Allocate();
 
-  buffer->Wait();
+  // TODO: wait for stage buffer to be available.
 
   std::memcpy(buffer->stage_buffer_map(), ptr, size);
 
@@ -271,6 +281,26 @@ void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t
 
   vkEndCommandBuffer(cb);
 
+  // Wait for all write/read operations.
+  std::vector<std::shared_ptr<Semaphore>> semaphores;
+  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+  for (const auto& [semaphore, _0, _1] : buffer->WriteWaitInfos()) {
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = semaphore->semaphore();
+    wait_semaphore_info.value = semaphore->value();
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    wait_semaphore_infos.push_back(wait_semaphore_info);
+    semaphores.push_back(semaphore);
+  }
+  for (const auto& [semaphore, _] : buffer->ReadWaitInfos()) {
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = semaphore->semaphore();
+    wait_semaphore_info.value = semaphore->value();
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    wait_semaphore_infos.push_back(wait_semaphore_info);
+    semaphores.push_back(semaphore);
+  }
+
   VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
   command_buffer_submit_info.commandBuffer = cb;
 
@@ -284,26 +314,22 @@ void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->ClearWaitInfo();
+  buffer->WaitOnWrite(signal_semaphore, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(std::vector<std::shared_ptr<Semaphore>>{}, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
+  semaphores.push_back(signal_semaphore);
+  task_monitor_->Add(std::make_shared<Task>(command, semaphores, fence));
 }
 
 void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size) {
-  auto command = transfer_command_pool_->Allocate();
+  auto command = transfer_queue_->AllocateCommandBuffer();
   auto cb = command->command_buffer();
   auto signal_semaphore = semaphore_pool_->Allocate();
   auto signal_value = signal_semaphore->value();
   auto fence = fence_pool_->Allocate();
-
-  std::vector<std::shared_ptr<Semaphore>> wait_semaphores;
-  if (auto wait_semaphore = buffer->semaphore()) {
-    wait_semaphores.push_back(wait_semaphore);
-  }
 
   VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -323,13 +349,16 @@ void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size)
 
   vkEndCommandBuffer(cb);
 
+  // Wait for all write operations.
+  std::vector<std::shared_ptr<Semaphore>> semaphores;
   std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
-  for (auto wait_semaphore : wait_semaphores) {
+  for (const auto& [semaphore, _0, _1] : buffer->WriteWaitInfos()) {
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = wait_semaphore->semaphore();
-    wait_semaphore_info.value = wait_semaphore->value();
+    wait_semaphore_info.semaphore = semaphore->semaphore();
+    wait_semaphore_info.value = semaphore->value();
     wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     wait_semaphore_infos.push_back(wait_semaphore_info);
+    semaphores.push_back(semaphore);
   }
 
   VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
@@ -347,30 +376,25 @@ void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size)
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
+
+  semaphores.push_back(signal_semaphore);
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->ClearWaitInfo();
+  buffer->WaitOnWrite(signal_semaphore, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(wait_semaphores, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
-
-  buffer->Wait();
+  task_monitor_->Add(std::make_shared<Task>(command, semaphores, fence));
 
   std::memcpy(ptr, buffer->stage_buffer_map(), size);
 }
 
 void Module::FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value) {
-  auto command = transfer_command_pool_->Allocate();
+  auto command = transfer_queue_->AllocateCommandBuffer();
   auto cb = command->command_buffer();
   auto signal_semaphore = semaphore_pool_->Allocate();
   auto signal_value = signal_semaphore->value();
   auto fence = fence_pool_->Allocate();
-
-  std::vector<std::shared_ptr<Semaphore>> wait_semaphores;
-  if (auto wait_semaphore = buffer->semaphore()) {
-    wait_semaphores.push_back(wait_semaphore);
-  }
 
   VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -378,13 +402,24 @@ void Module::FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value) {
   vkCmdFillBuffer(cb, buffer->buffer(), 0, buffer->size(), value);
   vkEndCommandBuffer(cb);
 
+  // Wait for all read/write operations.
+  std::vector<std::shared_ptr<Semaphore>> semaphores;
   std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
-  for (auto wait_semaphore : wait_semaphores) {
+  for (const auto& [semaphore, _0, _1] : buffer->WriteWaitInfos()) {
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = wait_semaphore->semaphore();
-    wait_semaphore_info.value = wait_semaphore->value();
+    wait_semaphore_info.semaphore = semaphore->semaphore();
+    wait_semaphore_info.value = semaphore->value();
     wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     wait_semaphore_infos.push_back(wait_semaphore_info);
+    semaphores.push_back(semaphore);
+  }
+  for (const auto& [semaphore, _] : buffer->ReadWaitInfos()) {
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = semaphore->semaphore();
+    wait_semaphore_info.value = semaphore->value();
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    wait_semaphore_infos.push_back(wait_semaphore_info);
+    semaphores.push_back(semaphore);
   }
 
   VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
@@ -402,26 +437,22 @@ void Module::FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value) {
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->ClearWaitInfo();
+  buffer->WaitOnWrite(signal_semaphore, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(wait_semaphores, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
+  semaphores.push_back(signal_semaphore);
+  task_monitor_->Add(std::make_shared<Task>(command, semaphores, fence));
 }
 
 void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
-  auto command = transfer_command_pool_->Allocate();
+  auto command = transfer_queue_->AllocateCommandBuffer();
   auto cb = command->command_buffer();
   auto signal_semaphore = semaphore_pool_->Allocate();
   auto signal_value = signal_semaphore->value();
   auto fence = fence_pool_->Allocate();
-
-  std::vector<std::shared_ptr<Semaphore>> wait_semaphores;
-  if (auto wait_semaphore = buffer->semaphore()) {
-    wait_semaphores.push_back(wait_semaphore);
-  }
 
   VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -429,13 +460,24 @@ void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
   sorter_->Sort(cb, buffer);
   vkEndCommandBuffer(cb);
 
+  // Wait for all read/write operations.
+  std::vector<std::shared_ptr<Semaphore>> semaphores;
   std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
-  for (auto wait_semaphore : wait_semaphores) {
+  for (const auto& [semaphore, _0, _1] : buffer->WriteWaitInfos()) {
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = wait_semaphore->semaphore();
-    wait_semaphore_info.value = wait_semaphore->value();
+    wait_semaphore_info.semaphore = semaphore->semaphore();
+    wait_semaphore_info.value = semaphore->value();
     wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     wait_semaphore_infos.push_back(wait_semaphore_info);
+    semaphores.push_back(semaphore);
+  }
+  for (const auto& [semaphore, _] : buffer->ReadWaitInfos()) {
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = semaphore->semaphore();
+    wait_semaphore_info.value = semaphore->value();
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    wait_semaphore_infos.push_back(wait_semaphore_info);
+    semaphores.push_back(semaphore);
   }
 
   VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
@@ -453,13 +495,14 @@ void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
   submit_info.pCommandBufferInfos = &command_buffer_submit_info;
   submit_info.signalSemaphoreInfoCount = 1;
   submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_, 1, &submit_info, fence->fence());
+  vkQueueSubmit2(compute_queue_->queue(), 1, &submit_info, fence->fence());
 
   signal_semaphore->SetValue(signal_value + 1);
-  buffer->WaitOn(signal_semaphore);
+  buffer->ClearWaitInfo();
+  buffer->WaitOnWrite(signal_semaphore, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-  task_monitor_->Add(std::make_shared<Task>(wait_semaphores, command,
-                                            std::vector<std::shared_ptr<Semaphore>>{signal_semaphore}, fence));
+  semaphores.push_back(signal_semaphore);
+  task_monitor_->Add(std::make_shared<Task>(command, semaphores, fence));
 }
 
 }  // namespace core

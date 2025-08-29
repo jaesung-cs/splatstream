@@ -29,7 +29,7 @@ Buffer::Buffer(std::shared_ptr<Module> module, size_t size) : module_(module), s
 }
 
 Buffer::~Buffer() {
-  Wait();
+  WaitForWrite();
 
   auto allocator = module_->allocator();
   vmaDestroyBuffer(allocator, stage_buffer_, stage_allocation_);
@@ -44,16 +44,37 @@ void Buffer::Fill(uint32_t value) { module_->FillBuffer(shared_from_this(), valu
 
 void Buffer::Sort() { module_->SortBuffer(shared_from_this()); }
 
-void Buffer::Wait() {
-  if (semaphore_) {
-    semaphore_->Wait();
-    semaphore_ = nullptr;
+void Buffer::WaitForRead() {
+  for (auto& write_wait_info : write_wait_infos_) {
+    write_wait_info.semaphore->Wait();
   }
+  write_wait_infos_.clear();
 }
 
-void Buffer::WaitOn(std::shared_ptr<Semaphore> semaphore) {
-  Wait();
-  semaphore_ = semaphore;
+void Buffer::WaitForWrite() {
+  for (auto& write_wait_info : write_wait_infos_) {
+    write_wait_info.semaphore->Wait();
+  }
+  write_wait_infos_.clear();
+
+  for (auto& read_wait_info : read_wait_infos_) {
+    read_wait_info.semaphore->Wait();
+  }
+  read_wait_infos_.clear();
+}
+
+void Buffer::ClearWaitInfo() {
+  write_wait_infos_.clear();
+  read_wait_infos_.clear();
+}
+
+void Buffer::WaitOnWrite(std::shared_ptr<Semaphore> semaphore, VkPipelineStageFlags2 stage_mask,
+                         VkAccessFlags2 access_mask) {
+  write_wait_infos_.emplace_back(WriteWaitInfo{semaphore, stage_mask, access_mask});
+}
+
+void Buffer::WaitOnRead(std::shared_ptr<Semaphore> semaphore, VkPipelineStageFlags2 stage_mask) {
+  read_wait_infos_.emplace_back(ReadWaitInfo{semaphore, stage_mask});
 }
 
 }  // namespace core

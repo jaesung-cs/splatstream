@@ -13,8 +13,8 @@ class Fence;
 
 class Task {
  public:
-  Task(std::vector<std::shared_ptr<Semaphore>> wait_semaphores, std::shared_ptr<Command> command,
-       std::vector<std::shared_ptr<Semaphore>> signal_semaphores, std::shared_ptr<Fence> fence);
+  Task(std::shared_ptr<Command> command, std::vector<std::shared_ptr<Semaphore>> semaphores,
+       std::shared_ptr<Fence> fence);
 
   ~Task();
 
@@ -22,8 +22,7 @@ class Task {
   void Wait();
 
  private:
-  std::vector<std::shared_ptr<Semaphore>> wait_semaphores_;
-  std::vector<std::shared_ptr<Semaphore>> signal_semaphores_;
+  std::vector<std::shared_ptr<Semaphore>> semaphores_;
   std::shared_ptr<Command> command_;
   std::shared_ptr<Fence> fence_;
 };
