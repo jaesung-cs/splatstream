@@ -22,6 +22,7 @@ class Semaphore {
   void Wait();
 
   void SetValue(uint64_t value);
+  void Increment() { value_++; }
 
  private:
   std::shared_ptr<SemaphorePool> semaphore_pool_;

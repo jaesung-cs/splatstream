@@ -5,9 +5,7 @@
 namespace vkgs {
 namespace core {
 
-Task::Task(std::shared_ptr<Command> command, std::vector<std::shared_ptr<Semaphore>> semaphores,
-           std::shared_ptr<Fence> fence)
-    : semaphores_(std::move(semaphores)), command_(command), fence_(fence) {}
+Task::Task(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence) : command_(command), fence_(fence) {}
 
 Task::~Task() { Wait(); }
 

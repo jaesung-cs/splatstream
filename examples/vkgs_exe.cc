@@ -30,14 +30,12 @@ int main() {
   for (auto d : data2) std::cout << d << " ";
   std::cout << std::endl;
 
-  /*
   std::cout << "Sort" << std::endl;
   buffer.Sort();
   std::cout << "ToCpu" << std::endl;
   buffer.ToCpu(data2.data(), data2.size() * sizeof(uint32_t));
   for (auto d : data2) std::cout << d << " ";
   std::cout << std::endl;
-  */
 
   std::cout << "Done" << std::endl;
 

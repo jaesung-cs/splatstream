@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "volk.h"
 #include "vk_mem_alloc.h"
@@ -36,6 +37,7 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   auto allocator() const noexcept { return allocator_; }
   auto physical_device() const noexcept { return physical_device_; }
   auto device() const noexcept { return device_; }
+  auto semaphore_pool() const noexcept { return semaphore_pool_; }
 
   void WaitIdle();
   void CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t size);
@@ -44,6 +46,17 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   void SortBuffer(std::shared_ptr<Buffer> buffer);
 
  private:
+  void SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
+                      std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
+                      VkPipelineStageFlags2 stage, VkAccessFlags2 access);
+  void SyncBufferWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
+                       std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
+                       VkPipelineStageFlags2 stage, VkAccessFlags2 access);
+  void SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
+                           std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
+                           VkPipelineStageFlags2 read_stage, VkAccessFlags2 read_access,
+                           VkPipelineStageFlags2 write_stage, VkAccessFlags2 write_access);
+
   std::string device_name_;
 
   VkInstance instance_ = VK_NULL_HANDLE;
