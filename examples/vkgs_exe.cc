@@ -39,5 +39,7 @@ int main() {
 
   std::cout << "Done" << std::endl;
 
+  buffer.Sort();
+  // Destroy while buffer is being sorted.
   return 0;
 }
