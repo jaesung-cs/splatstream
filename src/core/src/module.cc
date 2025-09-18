@@ -285,7 +285,7 @@ void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInf
                             std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
                             VkPipelineStageFlags2 stage, VkAccessFlags2 access) {
   if (buffer->queue()) {
-    if (buffer->queue() == queue) {
+    if (buffer->queue() == queue && buffer->write_stage_mask()) {
       // Barrier
       VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
       barrier.srcStageMask = buffer->write_stage_mask();
@@ -300,14 +300,75 @@ void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInf
       dependency_info.pBufferMemoryBarriers = &barrier;
       vkCmdPipelineBarrier2(cb, &dependency_info);
     } else if (buffer->queue() != queue) {
+      if (buffer->queue()->family_index() != queue->family_index()) {
+        // Release
+        auto rel_command = buffer->queue()->AllocateCommandBuffer();
+        VkCommandBuffer rel_cb = rel_command->command_buffer();
+        auto fence = fence_pool_->Allocate();
+
+        VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(rel_cb, &begin_info);
+
+        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+        barrier.srcStageMask = buffer->write_stage_mask();
+        barrier.srcAccessMask = buffer->write_access_mask();
+        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
+        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.buffer = buffer->buffer();
+        barrier.offset = 0;
+        barrier.size = size;
+        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+        dependency_info.bufferMemoryBarrierCount = 1;
+        dependency_info.pBufferMemoryBarriers = &barrier;
+        vkCmdPipelineBarrier2(rel_cb, &dependency_info);
+
+        vkEndCommandBuffer(rel_cb);
+
+        VkCommandBufferSubmitInfo command_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+        command_info.commandBuffer = rel_cb;
+
+        VkSemaphoreSignalInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO};
+        signal_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
+        signal_semaphore_info.value = buffer->queue()->semaphore()->value() + 1;
+
+        VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+        submit_info.commandBufferInfoCount = 1;
+        submit_info.pCommandBufferInfos = &command_info;
+        vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
+
+        auto task = std::make_shared<Task>(rel_command, fence, std::vector<std::shared_ptr<Buffer>>{buffer});
+        task_monitor_->Add(task);
+
+        buffer->queue()->semaphore()->Increment();
+        buffer->SetQueueTimeline(buffer->queue(), buffer->queue()->semaphore()->value());
+        buffer->SetReadStageMask(0);
+        buffer->SetWriteStageMask(0);
+        buffer->SetWriteAccessMask(0);
+      }
+
       // Semaphore
-      // TODO: Release
       VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
       wait_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
       wait_semaphore_info.value = buffer->timeline();
       wait_semaphore_info.stageMask = stage;
       wait_semaphore_infos.push_back(wait_semaphore_info);
-      // TODO: Acquire
+
+      if (buffer->queue()->family_index() != queue->family_index()) {
+        // Acquire
+        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+        barrier.dstStageMask = stage;
+        barrier.dstAccessMask = access;
+        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
+        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.buffer = buffer->buffer();
+        barrier.offset = 0;
+        barrier.size = size;
+        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+        dependency_info.bufferMemoryBarrierCount = 1;
+        dependency_info.pBufferMemoryBarriers = &barrier;
+        vkCmdPipelineBarrier2(cb, &dependency_info);
+      }
     }
   }
 }
@@ -341,14 +402,75 @@ void Module::SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubm
       dependency_info.pBufferMemoryBarriers = barriers.data();
       vkCmdPipelineBarrier2(cb, &dependency_info);
     } else if (buffer->queue() != queue) {
+      if (buffer->queue()->family_index() != queue->family_index()) {
+        // Release
+        auto rel_command = buffer->queue()->AllocateCommandBuffer();
+        VkCommandBuffer rel_cb = rel_command->command_buffer();
+        auto fence = fence_pool_->Allocate();
+
+        VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(rel_cb, &begin_info);
+
+        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+        barrier.srcStageMask = buffer->write_stage_mask();
+        barrier.srcAccessMask = buffer->write_access_mask();
+        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
+        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.buffer = buffer->buffer();
+        barrier.offset = 0;
+        barrier.size = size;
+        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+        dependency_info.bufferMemoryBarrierCount = 1;
+        dependency_info.pBufferMemoryBarriers = &barrier;
+        vkCmdPipelineBarrier2(rel_cb, &dependency_info);
+
+        vkEndCommandBuffer(rel_cb);
+
+        VkCommandBufferSubmitInfo command_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+        command_info.commandBuffer = rel_cb;
+
+        VkSemaphoreSignalInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO};
+        signal_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
+        signal_semaphore_info.value = buffer->queue()->semaphore()->value() + 1;
+
+        VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+        submit_info.commandBufferInfoCount = 1;
+        submit_info.pCommandBufferInfos = &command_info;
+        vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
+
+        auto task = std::make_shared<Task>(rel_command, fence, std::vector<std::shared_ptr<Buffer>>{buffer});
+        task_monitor_->Add(task);
+
+        buffer->queue()->semaphore()->Increment();
+        buffer->SetQueueTimeline(buffer->queue(), buffer->queue()->semaphore()->value());
+        buffer->SetReadStageMask(0);
+        buffer->SetWriteStageMask(0);
+        buffer->SetWriteAccessMask(0);
+      }
+
       // Semaphore
-      // TODO: Release
       VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
       wait_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
       wait_semaphore_info.value = buffer->timeline();
       wait_semaphore_info.stageMask = read_stage;
       wait_semaphore_infos.push_back(wait_semaphore_info);
-      // TODO: Acquire
+
+      if (buffer->queue()->family_index() != queue->family_index()) {
+        // Acquire
+        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+        barrier.dstStageMask = read_stage;
+        barrier.dstAccessMask = read_access;
+        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
+        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.buffer = buffer->buffer();
+        barrier.offset = 0;
+        barrier.size = size;
+        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+        dependency_info.bufferMemoryBarrierCount = 1;
+        dependency_info.pBufferMemoryBarriers = &barrier;
+        vkCmdPipelineBarrier2(cb, &dependency_info);
+      }
     }
   }
 }
