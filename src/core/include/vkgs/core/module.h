@@ -15,7 +15,6 @@ namespace vkgs {
 namespace core {
 
 class Buffer;
-class CommandPool;
 class SemaphorePool;
 class FencePool;
 class TaskMonitor;

@@ -300,7 +300,9 @@ void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInf
       dependency_info.pBufferMemoryBarriers = &barrier;
       vkCmdPipelineBarrier2(cb, &dependency_info);
     } else if (buffer->queue() != queue) {
-      if (buffer->queue()->family_index() != queue->family_index()) {
+      auto src_queue_family_index = buffer->queue()->family_index();
+      auto dst_queue_family_index = queue->family_index();
+      if (src_queue_family_index != dst_queue_family_index) {
         // Release
         auto rel_command = buffer->queue()->AllocateCommandBuffer();
         VkCommandBuffer rel_cb = rel_command->command_buffer();
@@ -313,8 +315,8 @@ void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInf
         VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
         barrier.srcStageMask = buffer->write_stage_mask();
         barrier.srcAccessMask = buffer->write_access_mask();
-        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
-        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.srcQueueFamilyIndex = src_queue_family_index;
+        barrier.dstQueueFamilyIndex = dst_queue_family_index;
         barrier.buffer = buffer->buffer();
         barrier.offset = 0;
         barrier.size = size;
@@ -328,13 +330,15 @@ void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInf
         VkCommandBufferSubmitInfo command_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
         command_info.commandBuffer = rel_cb;
 
-        VkSemaphoreSignalInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO};
+        VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
         signal_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
         signal_semaphore_info.value = buffer->queue()->semaphore()->value() + 1;
 
         VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
         submit_info.commandBufferInfoCount = 1;
         submit_info.pCommandBufferInfos = &command_info;
+        submit_info.signalSemaphoreInfoCount = 1;
+        submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
         vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
 
         auto task = std::make_shared<Task>(rel_command, fence, std::vector<std::shared_ptr<Buffer>>{buffer});
@@ -359,8 +363,8 @@ void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInf
         VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
         barrier.dstStageMask = stage;
         barrier.dstAccessMask = access;
-        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
-        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.srcQueueFamilyIndex = src_queue_family_index;
+        barrier.dstQueueFamilyIndex = dst_queue_family_index;
         barrier.buffer = buffer->buffer();
         barrier.offset = 0;
         barrier.size = size;
@@ -402,7 +406,9 @@ void Module::SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubm
       dependency_info.pBufferMemoryBarriers = barriers.data();
       vkCmdPipelineBarrier2(cb, &dependency_info);
     } else if (buffer->queue() != queue) {
-      if (buffer->queue()->family_index() != queue->family_index()) {
+      auto src_queue_family_index = buffer->queue()->family_index();
+      auto dst_queue_family_index = queue->family_index();
+      if (src_queue_family_index != dst_queue_family_index) {
         // Release
         auto rel_command = buffer->queue()->AllocateCommandBuffer();
         VkCommandBuffer rel_cb = rel_command->command_buffer();
@@ -415,8 +421,8 @@ void Module::SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubm
         VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
         barrier.srcStageMask = buffer->write_stage_mask();
         barrier.srcAccessMask = buffer->write_access_mask();
-        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
-        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.srcQueueFamilyIndex = src_queue_family_index;
+        barrier.dstQueueFamilyIndex = dst_queue_family_index;
         barrier.buffer = buffer->buffer();
         barrier.offset = 0;
         barrier.size = size;
@@ -430,13 +436,15 @@ void Module::SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubm
         VkCommandBufferSubmitInfo command_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
         command_info.commandBuffer = rel_cb;
 
-        VkSemaphoreSignalInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO};
+        VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
         signal_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
         signal_semaphore_info.value = buffer->queue()->semaphore()->value() + 1;
 
         VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
         submit_info.commandBufferInfoCount = 1;
         submit_info.pCommandBufferInfos = &command_info;
+        submit_info.signalSemaphoreInfoCount = 1;
+        submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
         vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
 
         auto task = std::make_shared<Task>(rel_command, fence, std::vector<std::shared_ptr<Buffer>>{buffer});
@@ -461,8 +469,8 @@ void Module::SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubm
         VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
         barrier.dstStageMask = read_stage;
         barrier.dstAccessMask = read_access;
-        barrier.srcQueueFamilyIndex = buffer->queue()->family_index();
-        barrier.dstQueueFamilyIndex = queue->family_index();
+        barrier.srcQueueFamilyIndex = src_queue_family_index;
+        barrier.dstQueueFamilyIndex = dst_queue_family_index;
         barrier.buffer = buffer->buffer();
         barrier.offset = 0;
         barrier.size = size;
