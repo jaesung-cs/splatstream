@@ -8,13 +8,17 @@ namespace vkgs {
 namespace core {
 
 class Task;
+class Command;
+class Fence;
+class Buffer;
 
 class TaskMonitor {
  public:
   TaskMonitor();
   ~TaskMonitor();
 
-  void Add(std::shared_ptr<Task> task);
+  void Add(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence,
+           const std::vector<std::shared_ptr<Buffer>>& buffers);
 
  private:
   void gc();

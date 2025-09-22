@@ -13,7 +13,8 @@ class Buffer;
 
 class Task {
  public:
-  Task(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Buffer>> buffers);
+  Task(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence,
+       const std::vector<std::shared_ptr<Buffer>>& buffers);
 
   ~Task();
 

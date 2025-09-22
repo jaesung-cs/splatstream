@@ -341,8 +341,7 @@ void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInf
         submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
         vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
 
-        auto task = std::make_shared<Task>(rel_command, fence, std::vector<std::shared_ptr<Buffer>>{buffer});
-        task_monitor_->Add(task);
+        task_monitor_->Add(rel_command, fence, {buffer});
 
         buffer->queue()->semaphore()->Increment();
         buffer->SetQueueTimeline(buffer->queue(), buffer->queue()->semaphore()->value());
@@ -447,8 +446,7 @@ void Module::SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubm
         submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
         vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
 
-        auto task = std::make_shared<Task>(rel_command, fence, std::vector<std::shared_ptr<Buffer>>{buffer});
-        task_monitor_->Add(task);
+        task_monitor_->Add(rel_command, fence, {buffer});
 
         buffer->queue()->semaphore()->Increment();
         buffer->SetQueueTimeline(buffer->queue(), buffer->queue()->semaphore()->value());
@@ -540,7 +538,7 @@ void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t
   buffer->SetReadStageMask(0);
   buffer->SetWriteStageMask(stage);
   buffer->SetWriteAccessMask(access);
-  task_monitor_->Add(std::make_shared<Task>(command, fence, std::vector<std::shared_ptr<Buffer>>{buffer}));
+  task_monitor_->Add(command, fence, {buffer});
 }
 
 void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size) {
@@ -596,10 +594,9 @@ void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size)
   buffer->SetQueueTimeline(queue, queue->semaphore()->value());
   buffer->AddReadStageMask(stage);
 
-  auto task = std::make_shared<Task>(command, fence, std::vector<std::shared_ptr<Buffer>>{buffer});
-  task_monitor_->Add(task);
+  task_monitor_->Add(command, fence, {buffer});
 
-  task->Wait();
+  fence->Wait();
   std::memcpy(ptr, buffer->stage_buffer_map(), size);
 }
 
@@ -647,7 +644,7 @@ void Module::FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value) {
   buffer->SetWriteStageMask(stage);
   buffer->SetWriteAccessMask(access);
 
-  task_monitor_->Add(std::make_shared<Task>(command, fence, std::vector<std::shared_ptr<Buffer>>{buffer}));
+  task_monitor_->Add(command, fence, {buffer});
 }
 
 void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
@@ -697,7 +694,7 @@ void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
   buffer->SetWriteStageMask(write_stage);
   buffer->SetWriteAccessMask(write_access);
 
-  task_monitor_->Add(std::make_shared<Task>(command, fence, std::vector<std::shared_ptr<Buffer>>{buffer}));
+  task_monitor_->Add(command, fence, {buffer});
 }
 
 }  // namespace core
