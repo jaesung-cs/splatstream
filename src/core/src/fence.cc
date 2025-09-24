@@ -16,7 +16,7 @@ Fence::~Fence() {
 }
 
 bool Fence::IsSignaled() {
-  VkResult result = vkWaitForFences(fence_pool_->module()->device(), 1, &fence_, VK_TRUE, UINT64_MAX);
+  VkResult result = vkWaitForFences(fence_pool_->module()->device(), 1, &fence_, VK_TRUE, 0);
   return result == VK_SUCCESS;
 }
 
