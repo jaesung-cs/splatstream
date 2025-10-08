@@ -1,9 +1,9 @@
 #ifndef VKGS_CORE_MODULE_H
 #define VKGS_CORE_MODULE_H
 
-#include <string>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "volk.h"
 #include "vk_mem_alloc.h"
@@ -15,6 +15,7 @@ namespace core {
 
 class Device;
 class Sorter;
+class GaussianSplats;
 
 class VKGS_CORE_API Module {
  public:
@@ -25,6 +26,8 @@ class VKGS_CORE_API Module {
   uint32_t graphics_queue_index() const noexcept;
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
+
+  std::shared_ptr<GaussianSplats> load_from_ply(const std::string& path);
 
  private:
   std::shared_ptr<Device> device_;

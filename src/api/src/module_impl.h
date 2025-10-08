@@ -8,6 +8,8 @@
 
 #include "vkgs/core/module.h"
 
+#include "vkgs/gaussian_splats.h"
+
 namespace vkgs {
 
 class Module::Impl {
@@ -21,7 +23,7 @@ class Module::Impl {
   uint32_t compute_queue_index() const noexcept { return module_->compute_queue_index(); }
   uint32_t transfer_queue_index() const noexcept { return module_->transfer_queue_index(); }
 
-  auto module() const noexcept { return module_; }
+  GaussianSplats load_from_ply(const std::string& path);
 
  private:
   std::shared_ptr<core::Module> module_;

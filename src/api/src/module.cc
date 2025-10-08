@@ -1,5 +1,7 @@
 #include "vkgs/module.h"
 
+#include "vkgs/gaussian_splats.h"
+
 #include "module_impl.h"
 
 namespace vkgs {
@@ -12,5 +14,7 @@ const std::string& Module::device_name() const noexcept { return impl_->device_n
 uint32_t Module::graphics_queue_index() const noexcept { return impl_->graphics_queue_index(); }
 uint32_t Module::compute_queue_index() const noexcept { return impl_->compute_queue_index(); }
 uint32_t Module::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
+
+GaussianSplats Module::load_from_ply(const std::string& path) { return impl_->load_from_ply(path); }
 
 }  // namespace vkgs

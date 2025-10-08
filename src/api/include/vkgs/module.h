@@ -8,6 +8,8 @@
 
 namespace vkgs {
 
+class GaussianSplats;
+
 class VKGS_API Module {
  public:
   Module();
@@ -19,6 +21,8 @@ class VKGS_API Module {
   uint32_t graphics_queue_index() const noexcept;
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
+
+  GaussianSplats load_from_ply(const std::string& path);
 
   const auto* impl() const noexcept { return impl_.get(); }
 

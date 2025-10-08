@@ -16,11 +16,13 @@ target_compile_definitions(vk_radix_sort PUBLIC VRDX_USE_VOLK)
 target_include_directories(vk_radix_sort PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
 
 add_library(vkgs_core SHARED
+  src/buffer.cc
   src/command_pool.cc
   src/command.cc
   src/device.cc
   src/fence_pool.cc
   src/fence.cc
+  src/gaussian_splats.cc
   src/module.cc
   src/queue.cc
   src/semaphore_pool.cc
