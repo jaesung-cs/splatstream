@@ -9,14 +9,17 @@ namespace core {
 
 class Task;
 class Command;
+class Semaphore;
 class Fence;
+class Buffer;
 
 class TaskMonitor {
  public:
   TaskMonitor();
   ~TaskMonitor();
 
-  void Add(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence);
+  void Add(std::shared_ptr<Command> command, std::shared_ptr<Semaphore> semaphore, std::shared_ptr<Fence> fence,
+           std::vector<std::shared_ptr<Buffer>> buffers);
 
  private:
   void gc();

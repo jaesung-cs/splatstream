@@ -14,6 +14,7 @@ namespace vkgs {
 namespace core {
 
 class Device;
+class TaskMonitor;
 class Sorter;
 class GaussianSplats;
 
@@ -31,6 +32,7 @@ class VKGS_CORE_API Module {
 
  private:
   std::shared_ptr<Device> device_;
+  std::shared_ptr<TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
 };
 

@@ -4,9 +4,10 @@
 #include <vector>
 
 #include "queue.h"
+#include "semaphore.h"
+#include "fence.h"
 #include "semaphore_pool.h"
 #include "fence_pool.h"
-#include "task_monitor.h"
 
 namespace vkgs {
 namespace core {
@@ -194,7 +195,6 @@ Device::Device() {
 
   semaphore_pool_ = std::make_shared<SemaphorePool>(device_);
   fence_pool_ = std::make_shared<FencePool>(device_);
-  task_monitor_ = std::make_shared<TaskMonitor>();
 
   graphics_queue_ = std::make_shared<Queue>(device_, graphics_queue, graphics_queue_index);
   compute_queue_ = std::make_shared<Queue>(device_, compute_queue, compute_queue_index);
@@ -224,7 +224,6 @@ Device::~Device() {
   transfer_queue_ = nullptr;
   semaphore_pool_ = nullptr;
   fence_pool_ = nullptr;
-  task_monitor_ = nullptr;
 
   vmaDestroyAllocator(allocator_);
   vkDestroyDevice(device_, NULL);
@@ -237,6 +236,9 @@ Device::~Device() {
 uint32_t Device::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }
 uint32_t Device::compute_queue_index() const noexcept { return compute_queue_->family_index(); }
 uint32_t Device::transfer_queue_index() const noexcept { return transfer_queue_->family_index(); }
+
+std::shared_ptr<Semaphore> Device::AllocateSemaphore() { return semaphore_pool_->Allocate(); }
+std::shared_ptr<Fence> Device::AllocateFence() { return fence_pool_->Allocate(); }
 
 void Device::WaitIdle() { vkDeviceWaitIdle(device_); }
 

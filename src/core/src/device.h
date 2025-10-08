@@ -11,9 +11,10 @@ namespace vkgs {
 namespace core {
 
 class Queue;
+class Semaphore;
+class Fence;
 class SemaphorePool;
 class FencePool;
-class TaskMonitor;
 
 class Device {
  public:
@@ -28,7 +29,13 @@ class Device {
   auto allocator() const noexcept { return allocator_; }
   auto physical_device() const noexcept { return physical_device_; }
   auto device() const noexcept { return device_; }
-  auto semaphore_pool() const noexcept { return semaphore_pool_; }
+
+  auto graphics_queue() const noexcept { return graphics_queue_; }
+  auto compute_queue() const noexcept { return compute_queue_; }
+  auto transfer_queue() const noexcept { return transfer_queue_; }
+
+  std::shared_ptr<Semaphore> AllocateSemaphore();
+  std::shared_ptr<Fence> AllocateFence();
 
   void WaitIdle();
 
@@ -47,7 +54,6 @@ class Device {
   std::shared_ptr<Queue> transfer_queue_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
   std::shared_ptr<FencePool> fence_pool_;
-  std::shared_ptr<TaskMonitor> task_monitor_;
 };
 
 }  // namespace core

@@ -9,9 +9,10 @@ TaskMonitor::TaskMonitor() = default;
 
 TaskMonitor::~TaskMonitor() = default;
 
-void TaskMonitor::Add(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence) {
+void TaskMonitor::Add(std::shared_ptr<Command> command, std::shared_ptr<Semaphore> semaphore,
+                      std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Buffer>> buffers) {
   gc();
-  tasks_.push_back(std::make_shared<Task>(command, fence));
+  tasks_.push_back(std::make_shared<Task>(command, semaphore, fence, std::move(buffers)));
 }
 
 void TaskMonitor::gc() {
