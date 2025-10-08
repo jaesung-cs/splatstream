@@ -9,21 +9,18 @@
 namespace vkgs {
 namespace core {
 
-class Module;
 class Fence;
 
 class FencePool : public std::enable_shared_from_this<FencePool> {
  public:
-  explicit FencePool(Module* module);
+  explicit FencePool(VkDevice device);
   ~FencePool();
-
-  auto module() const noexcept { return module_; }
 
   std::shared_ptr<Fence> Allocate();
   void Free(VkFence fence);
 
  private:
-  Module* module_;
+  VkDevice device_;
   std::vector<VkFence> fences_;
 };
 

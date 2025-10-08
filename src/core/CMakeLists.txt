@@ -18,6 +18,7 @@ target_include_directories(vk_radix_sort PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
 add_library(vkgs_core SHARED
   src/command_pool.cc
   src/command.cc
+  src/device.cc
   src/fence_pool.cc
   src/fence.cc
   src/module.cc

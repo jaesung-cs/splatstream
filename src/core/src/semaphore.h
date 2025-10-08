@@ -9,11 +9,10 @@ namespace vkgs {
 namespace core {
 
 class SemaphorePool;
-class Command;
 
 class Semaphore {
  public:
-  Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
+  Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
   ~Semaphore();
 
   VkSemaphore semaphore() const noexcept { return semaphore_; }
@@ -25,6 +24,7 @@ class Semaphore {
   void Increment() { value_++; }
 
  private:
+  VkDevice device_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
 
   VkSemaphore semaphore_;

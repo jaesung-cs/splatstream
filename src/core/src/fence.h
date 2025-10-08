@@ -12,7 +12,7 @@ class FencePool;
 
 class Fence {
  public:
-  Fence(std::shared_ptr<FencePool> fence_pool, VkFence fence);
+  Fence(VkDevice device, std::shared_ptr<FencePool> fence_pool, VkFence fence);
   ~Fence();
 
   VkFence fence() const noexcept { return fence_; }
@@ -21,6 +21,7 @@ class Fence {
   void Wait();
 
  private:
+  VkDevice device_;
   std::shared_ptr<FencePool> fence_pool_;
   VkFence fence_ = VK_NULL_HANDLE;
 };

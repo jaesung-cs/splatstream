@@ -1,14 +1,13 @@
 #include "semaphore.h"
 
-#include "vkgs/core/module.h"
-
 #include "semaphore_pool.h"
 
 namespace vkgs {
 namespace core {
 
-Semaphore::Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value)
-    : semaphore_pool_(semaphore_pool), semaphore_(semaphore), value_(value) {}
+Semaphore::Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore,
+                     uint64_t value)
+    : device_(device), semaphore_pool_(semaphore_pool), semaphore_(semaphore), value_(value) {}
 
 Semaphore::~Semaphore() {
   Wait();
@@ -20,7 +19,7 @@ void Semaphore::Wait() {
   wait_info.semaphoreCount = 1;
   wait_info.pSemaphores = &semaphore_;
   wait_info.pValues = &value_;
-  vkWaitSemaphores(semaphore_pool_->module()->device(), &wait_info, UINT64_MAX);
+  vkWaitSemaphores(device_, &wait_info, UINT64_MAX);
 }
 
 void Semaphore::SetValue(uint64_t value) { value_ = value; }

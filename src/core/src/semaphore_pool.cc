@@ -1,17 +1,15 @@
 #include "semaphore_pool.h"
 
-#include "vkgs/core/module.h"
-
 #include "semaphore.h"
 
 namespace vkgs {
 namespace core {
 
-SemaphorePool::SemaphorePool(Module* module) : module_(module) {}
+SemaphorePool::SemaphorePool(VkDevice device) : device_(device) {}
 
 SemaphorePool::~SemaphorePool() {
   for (auto semaphore : semaphores_) {
-    vkDestroySemaphore(module_->device(), semaphore.first, NULL);
+    vkDestroySemaphore(device_, semaphore.first, NULL);
   }
 }
 
@@ -25,14 +23,14 @@ std::shared_ptr<Semaphore> SemaphorePool::Allocate() {
 
     VkSemaphoreCreateInfo semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     semaphore_info.pNext = &timeline_semaphore_info;
-    vkCreateSemaphore(module_->device(), &semaphore_info, NULL, &semaphore.first);
+    vkCreateSemaphore(device_, &semaphore_info, NULL, &semaphore.first);
     semaphore.second = 0;
   } else {
     semaphore = semaphores_.back();
     semaphores_.pop_back();
   }
 
-  return std::make_shared<Semaphore>(shared_from_this(), semaphore.first, semaphore.second);
+  return std::make_shared<Semaphore>(device_, shared_from_this(), semaphore.first, semaphore.second);
 }
 
 void SemaphorePool::Free(VkSemaphore semaphore, uint64_t value) { semaphores_.emplace_back(semaphore, value); }

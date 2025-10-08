@@ -9,12 +9,11 @@
 namespace vkgs {
 namespace core {
 
-class Module;
 class Command;
 
 class CommandPool : public std::enable_shared_from_this<CommandPool> {
  public:
-  explicit CommandPool(Module* module, uint32_t queue_family_index);
+  explicit CommandPool(VkDevice device, uint32_t queue_family_index);
   ~CommandPool();
 
   VkCommandPool command_pool() const noexcept { return command_pool_; }
@@ -24,7 +23,7 @@ class CommandPool : public std::enable_shared_from_this<CommandPool> {
   void Free(VkCommandBuffer command_buffer);
 
  private:
-  Module* module_;
+  VkDevice device_;
   uint32_t queue_family_index_;
 
   VkCommandPool command_pool_ = VK_NULL_HANDLE;

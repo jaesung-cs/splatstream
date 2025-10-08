@@ -8,28 +8,23 @@
 namespace vkgs {
 namespace core {
 
-class Module;
-class Semaphore;
-
 class Queue {
  public:
-  Queue(Module* module, VkQueue queue, uint32_t family_index);
+  Queue(VkDevice device, VkQueue queue, uint32_t family_index);
   ~Queue() = default;
 
   auto queue() const noexcept { return queue_; }
   auto family_index() const noexcept { return family_index_; }
-  std::shared_ptr<Semaphore> semaphore() const noexcept { return semaphore_; }
 
   std::shared_ptr<Command> AllocateCommandBuffer();
 
  private:
-  Module* module_;
+  VkDevice device_;
 
   VkQueue queue_ = VK_NULL_HANDLE;
   uint32_t family_index_ = 0;
 
   std::shared_ptr<CommandPool> command_pool_;
-  std::shared_ptr<Semaphore> semaphore_;
 };
 
 }  // namespace core

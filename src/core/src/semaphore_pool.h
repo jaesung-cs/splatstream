@@ -9,21 +9,18 @@
 namespace vkgs {
 namespace core {
 
-class Module;
 class Semaphore;
 
 class SemaphorePool : public std::enable_shared_from_this<SemaphorePool> {
  public:
-  explicit SemaphorePool(Module* module);
+  explicit SemaphorePool(VkDevice device);
   ~SemaphorePool();
 
   std::shared_ptr<Semaphore> Allocate();
   void Free(VkSemaphore semaphore, uint64_t value);
 
-  auto module() const noexcept { return module_; }
-
  private:
-  Module* module_;
+  VkDevice device_;
 
   std::vector<std::pair<VkSemaphore, uint64_t>> semaphores_;
 };
