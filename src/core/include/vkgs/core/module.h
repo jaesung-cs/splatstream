@@ -20,12 +20,10 @@ class TaskMonitor;
 class Sorter;
 class Queue;
 
-class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
+class VKGS_CORE_API Module {
  public:
   Module();
   ~Module();
-
-  void Init();
 
   const std::string& device_name() const noexcept { return device_name_; }
   uint32_t graphics_queue_index() const noexcept;

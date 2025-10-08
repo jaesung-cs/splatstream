@@ -242,8 +242,6 @@ Module::~Module() {
   volkFinalize();
 }
 
-void Module::Init() {}
-
 uint32_t Module::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }
 uint32_t Module::compute_queue_index() const noexcept { return compute_queue_->family_index(); }
 uint32_t Module::transfer_queue_index() const noexcept { return transfer_queue_->family_index(); }
