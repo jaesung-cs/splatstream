@@ -2,8 +2,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_library(vkgs_api SHARED
-  src/buffer_impl.cc
-  src/buffer.cc
   src/module_impl.cc
   src/module.cc
 )

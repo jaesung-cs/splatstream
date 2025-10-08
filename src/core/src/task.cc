@@ -5,9 +5,7 @@
 namespace vkgs {
 namespace core {
 
-Task::Task(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence,
-           const std::vector<std::shared_ptr<Buffer>>& buffers)
-    : command_(command), fence_(fence), buffers_(buffers) {}
+Task::Task(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence) : command_(command), fence_(fence) {}
 
 Task::~Task() { Wait(); }
 

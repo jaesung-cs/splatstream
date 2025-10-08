@@ -2,8 +2,6 @@
 
 #include "vkgs/core/module.h"
 
-#include "vkgs/buffer.h"
-
 namespace vkgs {
 
 Module::Impl::Impl() {

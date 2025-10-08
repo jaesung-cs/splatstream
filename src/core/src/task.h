@@ -2,19 +2,16 @@
 #define VKGS_CORE_TASK_H
 
 #include <memory>
-#include <vector>
 
 namespace vkgs {
 namespace core {
 
 class Command;
 class Fence;
-class Buffer;
 
 class Task {
  public:
-  Task(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence,
-       const std::vector<std::shared_ptr<Buffer>>& buffers);
+  Task(std::shared_ptr<Command> command, std::shared_ptr<Fence> fence);
 
   ~Task();
 
@@ -24,7 +21,6 @@ class Task {
  private:
   std::shared_ptr<Command> command_;
   std::shared_ptr<Fence> fence_;
-  std::vector<std::shared_ptr<Buffer>> buffers_;
 };
 
 }  // namespace core

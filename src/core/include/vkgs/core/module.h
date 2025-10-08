@@ -14,7 +14,6 @@
 namespace vkgs {
 namespace core {
 
-class Buffer;
 class SemaphorePool;
 class FencePool;
 class TaskMonitor;
@@ -39,23 +38,8 @@ class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
   auto semaphore_pool() const noexcept { return semaphore_pool_; }
 
   void WaitIdle();
-  void CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t size);
-  void BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size);
-  void FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value);
-  void SortBuffer(std::shared_ptr<Buffer> buffer);
 
  private:
-  void SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                      std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                      VkPipelineStageFlags2 stage, VkAccessFlags2 access);
-  void SyncBufferWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                       std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                       VkPipelineStageFlags2 stage, VkAccessFlags2 access);
-  void SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                           std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                           VkPipelineStageFlags2 read_stage, VkAccessFlags2 read_access,
-                           VkPipelineStageFlags2 write_stage, VkAccessFlags2 write_access);
-
   std::string device_name_;
 
   VkInstance instance_ = VK_NULL_HANDLE;

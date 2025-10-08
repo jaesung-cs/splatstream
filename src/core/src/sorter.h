@@ -1,8 +1,6 @@
 #ifndef VKGS_CORE_SORTER_H
 #define VKGS_CORE_SORTER_H
 
-#include <memory>
-
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
@@ -12,14 +10,13 @@ namespace vkgs {
 namespace core {
 
 class Module;
-class Buffer;
 
 class Sorter {
  public:
   explicit Sorter(Module* module);
   ~Sorter();
 
-  void Sort(VkCommandBuffer cb, std::shared_ptr<Buffer> buffer);
+  void Sort(VkCommandBuffer cb, VkBuffer buffer, size_t size);
 
  private:
   Module* module_;

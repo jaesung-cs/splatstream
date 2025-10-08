@@ -8,8 +8,6 @@
 
 namespace vkgs {
 
-class Buffer;
-
 class VKGS_API Module {
  public:
   Module();

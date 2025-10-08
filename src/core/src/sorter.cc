@@ -1,7 +1,6 @@
 #include "sorter.h"
 
 #include "vkgs/core/module.h"
-#include "vkgs/core/buffer.h"
 
 namespace vkgs {
 namespace core {
@@ -21,8 +20,8 @@ Sorter::~Sorter() {
   vrdxDestroySorter(sorter_);
 }
 
-void Sorter::Sort(VkCommandBuffer cb, std::shared_ptr<Buffer> buffer) {
-  auto element_count = buffer->size() / sizeof(uint32_t);
+void Sorter::Sort(VkCommandBuffer cb, VkBuffer buffer, size_t size) {
+  auto element_count = size / sizeof(uint32_t);
 
   VrdxSorterStorageRequirements requirements;
   vrdxGetSorterStorageRequirements(sorter_, element_count, &requirements);
@@ -43,7 +42,7 @@ void Sorter::Sort(VkCommandBuffer cb, std::shared_ptr<Buffer> buffer) {
     storage_size_ = requirements.size;
   }
 
-  vrdxCmdSort(cb, sorter_, element_count, buffer->buffer(), 0, storage_, 0, VK_NULL_HANDLE, 0);
+  vrdxCmdSort(cb, sorter_, element_count, buffer, 0, storage_, 0, VK_NULL_HANDLE, 0);
 }
 
 }  // namespace core
