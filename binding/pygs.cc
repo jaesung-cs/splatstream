@@ -10,6 +10,5 @@ PYBIND11_MODULE(_core, m) {
       .def_property_readonly("device_name", &vkgs::Module::device_name)
       .def_property_readonly("graphics_queue_index", &vkgs::Module::graphics_queue_index)
       .def_property_readonly("compute_queue_index", &vkgs::Module::compute_queue_index)
-      .def_property_readonly("transfer_queue_index", &vkgs::Module::transfer_queue_index)
-      .def("wait_idle", &vkgs::Module::WaitIdle);
+      .def_property_readonly("transfer_queue_index", &vkgs::Module::transfer_queue_index);
 }

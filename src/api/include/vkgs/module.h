@@ -15,8 +15,6 @@ class VKGS_API Module {
   Module();
   ~Module();
 
-  void WaitIdle();
-
   const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;
   uint32_t compute_queue_index() const noexcept;
