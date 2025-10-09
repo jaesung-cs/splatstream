@@ -19,11 +19,14 @@ add_library(vkgs_core SHARED
   src/buffer.cc
   src/command_pool.cc
   src/command.cc
+  src/compute_pipeline.cc
+  src/descriptor_set_layout.cc
   src/device.cc
   src/fence_pool.cc
   src/fence.cc
   src/gaussian_splats.cc
   src/module.cc
+  src/pipeline_layout.cc
   src/queue.cc
   src/semaphore_pool.cc
   src/semaphore.cc

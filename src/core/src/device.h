@@ -21,6 +21,8 @@ class Device {
   Device();
   ~Device();
 
+  operator VkDevice() const noexcept { return device_; }
+
   const std::string& device_name() const noexcept { return device_name_; }
   uint32_t graphics_queue_index() const noexcept;
   uint32_t compute_queue_index() const noexcept;

@@ -17,6 +17,9 @@ class Device;
 class TaskMonitor;
 class Sorter;
 class GaussianSplats;
+class DescriptorSetLayout;
+class PipelineLayout;
+class ComputePipeline;
 
 class VKGS_CORE_API Module {
  public:
@@ -34,6 +37,11 @@ class VKGS_CORE_API Module {
   std::shared_ptr<Device> device_;
   std::shared_ptr<TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
+
+  std::shared_ptr<DescriptorSetLayout> ply_dset_layout_;
+  std::shared_ptr<DescriptorSetLayout> gsplat_dset_layout_;
+  std::shared_ptr<PipelineLayout> parse_ply_pipeline_layout_;
+  std::shared_ptr<ComputePipeline> parse_ply_pipeline_;
 };
 
 }  // namespace core

@@ -169,8 +169,13 @@ Device::Device() {
 #endif
   };
 
+  VkPhysicalDevice16BitStorageFeatures k16bit_storage_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES};
+  k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
+
   VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES};
+  timeline_semaphore_features.pNext = &k16bit_storage_features;
   timeline_semaphore_features.timelineSemaphore = VK_TRUE;
 
   VkPhysicalDeviceSynchronization2Features synchronization_features = {

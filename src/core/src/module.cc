@@ -15,6 +15,10 @@
 #include "queue.h"
 #include "command.h"
 #include "task_monitor.h"
+#include "descriptor_set_layout.h"
+#include "pipeline_layout.h"
+#include "compute_pipeline.h"
+#include "vulkan/vulkan_core.h"
 
 namespace vkgs {
 namespace core {
@@ -22,7 +26,23 @@ namespace core {
 Module::Module() {
   device_ = std::make_shared<Device>();
   task_monitor_ = std::make_shared<TaskMonitor>();
-  sorter_ = std::make_shared<Sorter>(device_->device(), device_->physical_device(), device_->allocator());
+  sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device(), device_->allocator());
+
+  ply_dset_layout_ =
+      DescriptorSetLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT}});
+
+  gsplat_dset_layout_ =
+      DescriptorSetLayout::Create(*device_, {
+                                                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                                {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                                {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                                {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                            });
+
+  parse_ply_pipeline_layout_ = PipelineLayout::Create(*device_, {*ply_dset_layout_, *gsplat_dset_layout_},
+                                                      {{VK_SHADER_STAGE_COMPUTE_BIT, 0, 4}});
+
+  parse_ply_pipeline_ = ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
 }
 
 const std::string& Module::device_name() const noexcept { return device_->device_name(); }
