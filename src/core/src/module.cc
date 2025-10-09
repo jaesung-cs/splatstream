@@ -6,6 +6,7 @@
 
 #include "vkgs/core/gaussian_splats.h"
 
+#include "generated/parse_ply.h"
 #include "device.h"
 #include "sorter.h"
 #include "buffer.h"

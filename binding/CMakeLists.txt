@@ -28,8 +28,4 @@ set_property(TARGET pygs PROPERTY INSTALL_RPATH
   "${origin_token}/"
 )
 
-install(
-  TARGETS vkgs_api vkgs_core pygs
-  LIBRARY DESTINATION pygs
-  RUNTIME DESTINATION pygs
-)
+install(TARGETS vkgs_api vkgs_core pygs DESTINATION pygs)

@@ -11,3 +11,4 @@ models/
 
 bin/
 lib/
+generated/
