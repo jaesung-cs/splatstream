@@ -1,22 +1,11 @@
 from . import _core
 
+singleton_module = _core.Module()
 
-class Module:
-    def __init__(self):
-        self._module = _core.Module()
 
-    @property
-    def device_name(self):
-        return self._module.device_name
+def load_from_ply(path: str) -> _core.GaussianSplats:
+    return singleton_module.load_from_ply(path)
 
-    @property
-    def graphics_queue_index(self):
-        return self._module.graphics_queue_index
 
-    @property
-    def compute_queue_index(self):
-        return self._module.compute_queue_index
-
-    @property
-    def transfer_queue_index(self):
-        return self._module.transfer_queue_index
+def draw(splats: _core.GaussianSplats) -> _core.RenderedImage:
+    return singleton_module.draw(splats)

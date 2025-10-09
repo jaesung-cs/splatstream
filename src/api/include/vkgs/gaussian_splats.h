@@ -14,6 +14,7 @@ class VKGS_API GaussianSplats {
 
   size_t size() const;
 
+  const auto* impl() const noexcept { return impl_.get(); }
   auto* impl() noexcept { return impl_.get(); }
 
  private:

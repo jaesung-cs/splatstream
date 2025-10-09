@@ -2,6 +2,7 @@
 
 #include "vkgs/module.h"
 #include "vkgs/gaussian_splats.h"
+#include "vkgs/rendered_image.h"
 
 int main() {
   std::cout << "Hello vkgs" << std::endl;
@@ -15,6 +16,10 @@ int main() {
   auto gaussian_splats = module.load_from_ply("models/bonsai_30000.ply");
   std::cout << "loaded gaussian splats" << std::endl;
   std::cout << "size: " << gaussian_splats.size() << std::endl;
+
+  auto rendered_image = module.draw(gaussian_splats);
+  std::cout << "rendered image" << std::endl;
+  std::cout << "size: " << rendered_image.data().size() << std::endl;
 
   return 0;
 }

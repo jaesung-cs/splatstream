@@ -1,6 +1,7 @@
 #include "vkgs/module.h"
 
 #include "vkgs/gaussian_splats.h"
+#include "vkgs/rendered_image.h"
 
 #include "module_impl.h"
 
@@ -16,5 +17,7 @@ uint32_t Module::compute_queue_index() const noexcept { return impl_->compute_qu
 uint32_t Module::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
 
 GaussianSplats Module::load_from_ply(const std::string& path) { return impl_->load_from_ply(path); }
+
+RenderedImage Module::draw(GaussianSplats splats) { return impl_->draw(splats); }
 
 }  // namespace vkgs

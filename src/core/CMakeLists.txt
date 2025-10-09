@@ -24,9 +24,11 @@ add_library(vkgs_core SHARED
   src/fence_pool.cc
   src/fence.cc
   src/gaussian_splats.cc
+  src/image.cc
   src/module.cc
   src/pipeline_layout.cc
   src/queue.cc
+  src/rendered_image.cc
   src/semaphore_pool.cc
   src/semaphore.cc
   src/sorter.cc

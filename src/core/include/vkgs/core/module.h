@@ -17,9 +17,9 @@ class Device;
 class TaskMonitor;
 class Sorter;
 class GaussianSplats;
-class DescriptorSetLayout;
 class PipelineLayout;
 class ComputePipeline;
+class RenderedImage;
 
 class VKGS_CORE_API Module {
  public:
@@ -32,13 +32,13 @@ class VKGS_CORE_API Module {
   uint32_t transfer_queue_index() const noexcept;
 
   std::shared_ptr<GaussianSplats> load_from_ply(const std::string& path);
+  std::shared_ptr<RenderedImage> draw(std::shared_ptr<GaussianSplats> splats);
 
  private:
   std::shared_ptr<Device> device_;
   std::shared_ptr<TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
 
-  std::shared_ptr<DescriptorSetLayout> parse_ply_dset_layout_;
   std::shared_ptr<PipelineLayout> parse_ply_pipeline_layout_;
   std::shared_ptr<ComputePipeline> parse_ply_pipeline_;
 };

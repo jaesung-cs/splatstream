@@ -6,9 +6,11 @@
 #include <sstream>
 
 #include "vkgs/core/gaussian_splats.h"
+#include "vkgs/core/rendered_image.h"
 
 #include "generated/parse_ply.h"
 #include "buffer.h"
+#include "image.h"
 #include "device.h"
 #include "sorter.h"
 #include "buffer.h"
@@ -264,6 +266,69 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
   sem->Increment();
 
   return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity);
+}
+
+std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> splats) {
+  constexpr uint32_t width = 1024;
+  constexpr uint32_t height = 1024;
+
+  auto image = Image::Create(device_, VK_FORMAT_R8G8B8A8_UNORM, width, height,
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+  // TODO: draw to image
+
+  auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
+  std::vector<uint8_t> image_buffer(width * height * 4);
+  {
+    auto fence = device_->AllocateFence();
+    auto command = device_->compute_queue()->AllocateCommandBuffer();
+    auto cb = command->command_buffer();
+
+    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb, &begin_info);
+
+    VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.srcStageMask = 0;
+    image_memory_barrier.srcAccessMask = 0;
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    image_memory_barrier.image = *image;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
+
+    VkBufferImageCopy region;
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {width, height, 1};
+    vkCmdCopyImageToBuffer(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *buffer, 1, &region);
+
+    vkEndCommandBuffer(cb);
+
+    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    command_buffer_info.commandBuffer = cb;
+
+    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit_info.commandBufferInfoCount = 1;
+    submit_info.pCommandBufferInfos = &command_buffer_info;
+
+    vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit_info, fence->fence());
+    task_monitor_->Add(fence, {command, image, buffer});
+
+    fence->Wait();
+
+    // TODO: wait for transfer
+    std::memcpy(image_buffer.data(), buffer->data(), buffer->size());
+  }
+
+  return std::make_shared<RenderedImage>(width, height, std::move(image_buffer));
 }
 
 }  // namespace core

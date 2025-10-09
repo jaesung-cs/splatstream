@@ -12,3 +12,5 @@ models/
 bin/
 lib/
 generated/
+
+test.png
