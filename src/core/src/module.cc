@@ -64,7 +64,7 @@ Module::Module() {
   parse_ply_pipeline_ = ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
 }
 
-Module::~Module() { device_->WaitIdle(); }
+Module::~Module() = default;
 
 const std::string& Module::device_name() const noexcept { return device_->device_name(); }
 uint32_t Module::graphics_queue_index() const noexcept { return device_->graphics_queue_index(); }
@@ -135,19 +135,15 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
   auto ply_stage =
-      Buffer::Create(*device_, device_->allocator(),
-                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size, true);
-  auto ply_buffer = Buffer::Create(*device_, device_->allocator(),
-                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
+      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size, true);
+  auto ply_buffer =
+      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
 
-  auto position = Buffer::Create(*device_, device_->allocator(),
-                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+  auto position = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                  point_count * 3 * sizeof(float));
-  auto cov3d = Buffer::Create(*device_, device_->allocator(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              point_count * 6 * sizeof(float));
-  auto sh = Buffer::Create(*device_, device_->allocator(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
-  auto opacity =
-      Buffer::Create(*device_, device_->allocator(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
+  auto cov3d = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
+  auto sh = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
+  auto opacity = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
   std::memcpy(ply_stage->data(), ply_offsets.data(), ply_offsets.size() * sizeof(uint32_t));
   std::memcpy(ply_stage->data<char>() + ply_offsets.size() * sizeof(uint32_t), buffer.data(), buffer.size());
@@ -199,7 +195,7 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
     submit.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit, fence0->fence());
-    task_monitor_->Add(command0, sem, fence0, {ply_stage, ply_buffer});
+    task_monitor_->Add(fence0, {command0, sem, ply_stage, ply_buffer});
   }
 
   {
@@ -262,7 +258,7 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
     submit.pCommandBufferInfos = &command_buffer_info;
 
     vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit, fence1->fence());
-    task_monitor_->Add(command1, sem, fence1, {ply_buffer, position, cov3d, sh, opacity});
+    task_monitor_->Add(fence1, {command1, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
   }
 
   sem->Increment();

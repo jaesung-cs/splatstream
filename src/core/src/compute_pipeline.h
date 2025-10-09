@@ -6,10 +6,12 @@
 
 #include "volk.h"
 
+#include "object.h"
+
 namespace vkgs {
 namespace core {
 
-class ComputePipeline {
+class ComputePipeline : public Object {
  public:
   template <size_t N>
   static std::shared_ptr<ComputePipeline> Create(VkDevice device, VkPipelineLayout pipeline_layout,
@@ -19,7 +21,7 @@ class ComputePipeline {
 
  public:
   ComputePipeline(VkDevice device, VkPipelineLayout pipeline_layout, const uint32_t* shader, size_t size);
-  ~ComputePipeline();
+  ~ComputePipeline() override;
 
   operator VkPipeline() const noexcept { return pipeline_; }
 

@@ -7,15 +7,12 @@
 namespace vkgs {
 namespace core {
 
-class Command;
-class Semaphore;
 class Fence;
-class Buffer;
+class Object;
 
 class Task {
  public:
-  Task(std::shared_ptr<Command> command, std::shared_ptr<Semaphore> semaphore, std::shared_ptr<Fence> fence,
-       std::vector<std::shared_ptr<Buffer>> buffers);
+  Task(std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Object>> objects);
 
   ~Task();
 
@@ -23,10 +20,8 @@ class Task {
   void Wait();
 
  private:
-  std::shared_ptr<Command> command_;
-  std::shared_ptr<Semaphore> semaphore_;
   std::shared_ptr<Fence> fence_;
-  std::vector<std::shared_ptr<Buffer>> buffers_;
+  std::vector<std::shared_ptr<Object>> objects_;
 };
 
 }  // namespace core

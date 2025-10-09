@@ -5,15 +5,17 @@
 
 #include "volk.h"
 
+#include "object.h"
+
 namespace vkgs {
 namespace core {
 
 class SemaphorePool;
 
-class Semaphore {
+class Semaphore : public Object {
  public:
   Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
-  ~Semaphore();
+  ~Semaphore() override;
 
   VkSemaphore semaphore() const noexcept { return semaphore_; }
   auto value() const noexcept { return value_; }

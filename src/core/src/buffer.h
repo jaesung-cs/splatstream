@@ -6,17 +6,21 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
+#include "object.h"
+
 namespace vkgs {
 namespace core {
 
-class Buffer {
+class Device;
+
+class Buffer : public Object {
  public:
-  static std::shared_ptr<Buffer> Create(VkDevice device, VmaAllocator allocator, VkBufferUsageFlags usage,
-                                        VkDeviceSize size, bool host = false);
+  static std::shared_ptr<Buffer> Create(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size,
+                                        bool host = false);
 
  public:
-  Buffer(VkDevice device, VmaAllocator allocator, VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
-  ~Buffer();
+  Buffer(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
+  ~Buffer() override;
 
   operator VkBuffer() const noexcept { return buffer_; }
 
@@ -35,8 +39,7 @@ class Buffer {
   }
 
  private:
-  VkDevice device_;
-  VmaAllocator allocator_;
+  std::shared_ptr<Device> device_;
 
   VkDeviceSize size_ = 0;
   VkBuffer buffer_ = VK_NULL_HANDLE;
