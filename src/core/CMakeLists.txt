@@ -20,7 +20,6 @@ add_library(vkgs_core SHARED
   src/command_pool.cc
   src/command.cc
   src/compute_pipeline.cc
-  src/descriptor_set_layout.cc
   src/device.cc
   src/fence_pool.cc
   src/fence.cc

@@ -11,19 +11,21 @@ namespace core {
 
 class PipelineLayout {
  public:
-  static std::shared_ptr<PipelineLayout> Create(VkDevice device, const std::vector<VkDescriptorSetLayout>& set_layouts,
+  static std::shared_ptr<PipelineLayout> Create(VkDevice device,
+                                                const std::vector<VkDescriptorSetLayoutBinding>& bindings,
                                                 const std::vector<VkPushConstantRange>& push_constants);
 
  public:
-  PipelineLayout(VkDevice device, const std::vector<VkDescriptorSetLayout>& set_layouts,
+  PipelineLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding>& bindings,
                  const std::vector<VkPushConstantRange>& push_constants);
   ~PipelineLayout();
 
-  operator VkPipelineLayout() const noexcept { return layout_; }
+  operator VkPipelineLayout() const noexcept { return pipeline_layout_; }
 
  private:
   VkDevice device_;
-  VkPipelineLayout layout_ = VK_NULL_HANDLE;
+  VkDescriptorSetLayout descriptor_set_layout_ = VK_NULL_HANDLE;
+  VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
 };
 
 }  // namespace core
