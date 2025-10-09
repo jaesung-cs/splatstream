@@ -163,7 +163,6 @@ Device::Device() {
 
   std::vector<const char*> device_extensions = {
       VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-      VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 #ifdef __APPLE__
       "VK_KHR_portability_subset",
 #endif

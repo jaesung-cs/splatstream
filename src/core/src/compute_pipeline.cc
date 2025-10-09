@@ -9,7 +9,7 @@ ComputePipeline::ComputePipeline(VkDevice device, VkPipelineLayout pipeline_layo
   shader_module_info.codeSize = size * sizeof(uint32_t);
   shader_module_info.pCode = shader;
   VkShaderModule shader_module;
-  vkCreateShaderModule(device_, &shader_module_info, nullptr, &shader_module);
+  vkCreateShaderModule(device_, &shader_module_info, NULL, &shader_module);
 
   VkComputePipelineCreateInfo pipeline_info = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
   pipeline_info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -18,11 +18,11 @@ ComputePipeline::ComputePipeline(VkDevice device, VkPipelineLayout pipeline_layo
   pipeline_info.stage.pName = "main";
   pipeline_info.layout = pipeline_layout;
 
-  vkCreateComputePipelines(device_, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline_);
+  vkCreateComputePipelines(device_, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &pipeline_);
   vkDestroyShaderModule(device_, shader_module, NULL);
 }
 
-ComputePipeline::~ComputePipeline() { vkDestroyPipeline(device_, pipeline_, nullptr); }
+ComputePipeline::~ComputePipeline() { vkDestroyPipeline(device_, pipeline_, NULL); }
 
 }  // namespace core
 }  // namespace vkgs

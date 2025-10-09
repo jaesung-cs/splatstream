@@ -8,4 +8,6 @@ GaussianSplats::GaussianSplats() : impl_(std::make_shared<Impl>()) {}
 
 GaussianSplats::~GaussianSplats() = default;
 
+size_t GaussianSplats::size() const { return impl_->size(); }
+
 }  // namespace vkgs

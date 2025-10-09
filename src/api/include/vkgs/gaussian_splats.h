@@ -12,6 +12,10 @@ class VKGS_API GaussianSplats {
   GaussianSplats();
   ~GaussianSplats();
 
+  size_t size() const;
+
+  auto* impl() noexcept { return impl_.get(); }
+
  private:
   class Impl;
   std::shared_ptr<Impl> impl_;

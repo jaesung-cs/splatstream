@@ -11,6 +11,7 @@ std::shared_ptr<DescriptorSetLayout> DescriptorSetLayout::Create(
 DescriptorSetLayout::DescriptorSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding>& bindings)
     : device_(device) {
   VkDescriptorSetLayoutCreateInfo layout_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+  layout_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT;
   layout_info.bindingCount = bindings.size();
   layout_info.pBindings = bindings.data();
   vkCreateDescriptorSetLayout(device_, &layout_info, nullptr, &layout_);

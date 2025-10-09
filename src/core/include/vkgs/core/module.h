@@ -24,7 +24,7 @@ class ComputePipeline;
 class VKGS_CORE_API Module {
  public:
   Module();
-  ~Module() = default;
+  ~Module();
 
   const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;
@@ -38,8 +38,7 @@ class VKGS_CORE_API Module {
   std::shared_ptr<TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
 
-  std::shared_ptr<DescriptorSetLayout> ply_dset_layout_;
-  std::shared_ptr<DescriptorSetLayout> gsplat_dset_layout_;
+  std::shared_ptr<DescriptorSetLayout> parse_ply_dset_layout_;
   std::shared_ptr<PipelineLayout> parse_ply_pipeline_layout_;
   std::shared_ptr<ComputePipeline> parse_ply_pipeline_;
 };

@@ -12,6 +12,10 @@ class GaussianSplats::Impl {
   Impl();
   ~Impl();
 
+  void SetGaussianSplats(std::shared_ptr<core::GaussianSplats> gaussian_splats) { gaussian_splats_ = gaussian_splats; }
+
+  size_t size() const;
+
  private:
   std::shared_ptr<core::GaussianSplats> gaussian_splats_;
 };
