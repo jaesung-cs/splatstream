@@ -1,10 +1,9 @@
 #ifndef VKGS_CORE_MODULE_H
 #define VKGS_CORE_MODULE_H
 
-#include <string>
 #include <cstdint>
 #include <memory>
-#include <vector>
+#include <string>
 
 #include "volk.h"
 #include "vk_mem_alloc.h"
@@ -14,65 +13,38 @@
 namespace vkgs {
 namespace core {
 
-class Buffer;
-class SemaphorePool;
-class FencePool;
+class Device;
 class TaskMonitor;
 class Sorter;
-class Queue;
+class GaussianSplats;
+class PipelineLayout;
+class ComputePipeline;
+class GraphicsPipeline;
+class RenderedImage;
 
-class VKGS_CORE_API Module : public std::enable_shared_from_this<Module> {
+class VKGS_CORE_API Module {
  public:
   Module();
   ~Module();
 
-  void Init();
-
-  const std::string& device_name() const noexcept { return device_name_; }
+  const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
-  auto allocator() const noexcept { return allocator_; }
-  auto physical_device() const noexcept { return physical_device_; }
-  auto device() const noexcept { return device_; }
-  auto semaphore_pool() const noexcept { return semaphore_pool_; }
-
-  void WaitIdle();
-  void CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t size);
-  void BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size);
-  void FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value);
-  void SortBuffer(std::shared_ptr<Buffer> buffer);
+  std::shared_ptr<GaussianSplats> load_from_ply(const std::string& path);
+  std::shared_ptr<RenderedImage> draw(std::shared_ptr<GaussianSplats> splats);
 
  private:
-  void SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                      std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                      VkPipelineStageFlags2 stage, VkAccessFlags2 access);
-  void SyncBufferWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                       std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                       VkPipelineStageFlags2 stage, VkAccessFlags2 access);
-  void SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                           std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                           VkPipelineStageFlags2 read_stage, VkAccessFlags2 read_access,
-                           VkPipelineStageFlags2 write_stage, VkAccessFlags2 write_access);
-
-  std::string device_name_;
-
-  VkInstance instance_ = VK_NULL_HANDLE;
-  VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
-  VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
-  VkDevice device_ = VK_NULL_HANDLE;
-
-  VmaAllocator allocator_ = VK_NULL_HANDLE;
-
-  std::shared_ptr<Queue> graphics_queue_;
-  std::shared_ptr<Queue> compute_queue_;
-  std::shared_ptr<Queue> transfer_queue_;
-  std::shared_ptr<SemaphorePool> semaphore_pool_;
-  std::shared_ptr<FencePool> fence_pool_;
+  std::shared_ptr<Device> device_;
   std::shared_ptr<TaskMonitor> task_monitor_;
-
   std::shared_ptr<Sorter> sorter_;
+
+  std::shared_ptr<PipelineLayout> parse_ply_pipeline_layout_;
+  std::shared_ptr<ComputePipeline> parse_ply_pipeline_;
+
+  std::shared_ptr<PipelineLayout> splat_pipeline_layout_;
+  std::shared_ptr<GraphicsPipeline> splat_pipeline_;
 };
 
 }  // namespace core

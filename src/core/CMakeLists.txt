@@ -19,10 +19,17 @@ add_library(vkgs_core SHARED
   src/buffer.cc
   src/command_pool.cc
   src/command.cc
+  src/compute_pipeline.cc
+  src/device.cc
   src/fence_pool.cc
   src/fence.cc
+  src/gaussian_splats.cc
+  src/graphics_pipeline.cc
+  src/image.cc
   src/module.cc
+  src/pipeline_layout.cc
   src/queue.cc
+  src/rendered_image.cc
   src/semaphore_pool.cc
   src/semaphore.cc
   src/sorter.cc
@@ -55,6 +62,10 @@ target_link_libraries(vkgs_core
 )
 
 target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
+
+add_shader(vkgs_core shader/parse_ply.comp parse_ply)
+add_shader(vkgs_core shader/splat.frag splat_frag)
+add_shader(vkgs_core shader/splat.vert splat_vert)
 
 set_target_properties(vkgs_core PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

@@ -1,700 +1,482 @@
 #include "vkgs/core/module.h"
 
 #include <iostream>
-#include <vector>
-#include <array>
+#include <fstream>
+#include <unordered_map>
+#include <sstream>
 
-#include "vkgs/core/buffer.h"
+#include "vkgs/core/gaussian_splats.h"
+#include "vkgs/core/rendered_image.h"
 
-#include "command.h"
-#include "semaphore_pool.h"
-#include "semaphore.h"
-#include "fence_pool.h"
-#include "fence.h"
-#include "task_monitor.h"
-#include "task.h"
+#include "generated/parse_ply.h"
+#include "generated/splat_vert.h"
+#include "generated/splat_frag.h"
+#include "buffer.h"
+#include "image.h"
+#include "device.h"
 #include "sorter.h"
+#include "buffer.h"
+#include "semaphore.h"
+#include "fence.h"
 #include "queue.h"
-
-namespace vkgs {
-namespace core {
+#include "command.h"
+#include "task_monitor.h"
+#include "pipeline_layout.h"
+#include "compute_pipeline.h"
+#include "graphics_pipeline.h"
 
 namespace {
 
-VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                        VkDebugUtilsMessageTypeFlagsEXT message_type,
-                        const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data) {
-  const char* level = nullptr;
-  switch (message_severity) {
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-      level = "VERBOSE";
-      break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-      level = "WARNING";
-      break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-      level = "ERROR  ";
-      break;
-    default:
-      level = "UNKNOWN";
-      break;
-  }
+auto WorkgroupSize(size_t count, uint32_t local_size) { return (count + local_size - 1) / local_size; }
 
-  const char* type = nullptr;
-  switch (message_type) {
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
-      type = "GENERAL    ";
-      break;
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
-      type = "VALIDATION ";
-      break;
-    case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
-      type = "PERFORMANCE";
-      break;
-    default:
-      type = "UNKNOWN    ";
-      break;
+void cmdPushDescriptorSet(VkCommandBuffer cb, VkPipelineBindPoint bind_point, VkPipelineLayout pipeline_layout,
+                          const std::vector<VkBuffer>& buffers) {
+  std::vector<VkDescriptorBufferInfo> buffer_infos(buffers.size());
+  std::vector<VkWriteDescriptorSet> writes(buffers.size());
+  for (int i = 0; i < buffers.size(); ++i) {
+    buffer_infos[i] = {buffers[i], 0, VK_WHOLE_SIZE};
+    writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    writes[i].dstBinding = i;
+    writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[i].descriptorCount = 1;
+    writes[i].pBufferInfo = &buffer_infos[i];
   }
-
-  std::cerr << "Vulkan Validation [" << level << "] [" << type << "] " << callback_data->pMessage << std::endl;
-  return VK_FALSE;
+  vkCmdPushDescriptorSet(cb, bind_point, pipeline_layout, 0, writes.size(), writes.data());
 }
 
 }  // namespace
 
+namespace vkgs {
+namespace core {
+
 Module::Module() {
-  volkInitialize();
-
-  // Instance
-  VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
-  app_info.pApplicationName = "vkgs";
-  app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
-  app_info.pEngineName = "vkgs";
-  app_info.engineVersion = VK_MAKE_VERSION(0, 0, 0);
-  app_info.apiVersion = VK_API_VERSION_1_4;
-
-  VkDebugUtilsMessengerCreateInfoEXT messenger_info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-  messenger_info.messageSeverity =
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  messenger_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  messenger_info.pfnUserCallback = &debug_callback;
-
-  std::vector<const char*> validation_layers = {
-      "VK_LAYER_KHRONOS_validation",
-  };
-
-  std::vector<const char*> extensions = {
-      VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-#ifdef __APPLE__
-      VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
-#endif
-  };
-
-  VkInstanceCreateInfo instance_info = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
-#ifdef __APPLE__
-  instance_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#endif
-  instance_info.pNext = &messenger_info;
-  instance_info.pApplicationInfo = &app_info;
-  instance_info.enabledLayerCount = validation_layers.size();
-  instance_info.ppEnabledLayerNames = validation_layers.data();
-  instance_info.enabledExtensionCount = extensions.size();
-  instance_info.ppEnabledExtensionNames = extensions.data();
-  vkCreateInstance(&instance_info, NULL, &instance_);
-
-  volkLoadInstance(instance_);
-
-  vkCreateDebugUtilsMessengerEXT(instance_, &messenger_info, NULL, &messenger_);
-
-  // Physical device
-  uint32_t physical_device_count = 0;
-  vkEnumeratePhysicalDevices(instance_, &physical_device_count, NULL);
-  std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
-  vkEnumeratePhysicalDevices(instance_, &physical_device_count, physical_devices.data());
-  physical_device_ = physical_devices[0];
-
-  VkPhysicalDeviceProperties device_properties;
-  vkGetPhysicalDeviceProperties(physical_device_, &device_properties);
-  device_name_ = device_properties.deviceName;
-
-  // Queue
-  uint32_t queue_family_count = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device_, &queue_family_count, NULL);
-  std::vector<VkQueueFamilyProperties> queue_family_properties(queue_family_count);
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device_, &queue_family_count, queue_family_properties.data());
-
-  uint32_t graphics_queue_index = VK_QUEUE_FAMILY_IGNORED;
-  uint32_t compute_queue_index = VK_QUEUE_FAMILY_IGNORED;
-  uint32_t transfer_queue_index = VK_QUEUE_FAMILY_IGNORED;
-  for (uint32_t i = 0; i < queue_family_count; i++) {
-    auto type = queue_family_properties[i].queueFlags;
-
-    bool graphics = false;
-    bool compute = false;
-    bool transfer = false;
-    bool special_purpose = false;
-    if (type & VK_QUEUE_GRAPHICS_BIT) graphics = true;
-    if (type & VK_QUEUE_COMPUTE_BIT) compute = true;
-    if (type & VK_QUEUE_TRANSFER_BIT) transfer = true;
-    if (type & (VK_QUEUE_VIDEO_DECODE_BIT_KHR | VK_QUEUE_VIDEO_ENCODE_BIT_KHR | VK_QUEUE_OPTICAL_FLOW_BIT_NV |
-                VK_QUEUE_DATA_GRAPH_BIT_ARM))
-      special_purpose = true;
-
-    // TODO: make exact rule for selecting queue.
-    if (graphics && graphics_queue_index == VK_QUEUE_FAMILY_IGNORED) graphics_queue_index = i;
-    if (!graphics && compute || graphics && graphics_queue_index != i && compute_queue_index == VK_QUEUE_FAMILY_IGNORED)
-      compute_queue_index = i;
-    if (!graphics && !compute && transfer && !special_purpose || graphics && graphics_queue_index != i &&
-                                                                     compute_queue_index != i &&
-                                                                     transfer_queue_index == VK_QUEUE_FAMILY_IGNORED)
-      transfer_queue_index = i;
-  }
-
-  // Device
-  float queue_priority = 1.0f;
-  std::vector<VkDeviceQueueCreateInfo> queue_create_infos(3);
-  queue_create_infos[0] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[0].queueFamilyIndex = graphics_queue_index;
-  queue_create_infos[0].queueCount = 1;
-  queue_create_infos[0].pQueuePriorities = &queue_priority;
-  queue_create_infos[1] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[1].queueFamilyIndex = compute_queue_index;
-  queue_create_infos[1].queueCount = 1;
-  queue_create_infos[1].pQueuePriorities = &queue_priority;
-  queue_create_infos[2] = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-  queue_create_infos[2].queueFamilyIndex = transfer_queue_index;
-  queue_create_infos[2].queueCount = 1;
-  queue_create_infos[2].pQueuePriorities = &queue_priority;
-
-  std::vector<const char*> device_extensions = {
-      VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-      VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
-#ifdef __APPLE__
-      "VK_KHR_portability_subset",
-#endif
-  };
-
-  VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features = {
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES};
-  timeline_semaphore_features.timelineSemaphore = VK_TRUE;
-
-  VkPhysicalDeviceSynchronization2Features synchronization_features = {
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
-  synchronization_features.pNext = &timeline_semaphore_features;
-  synchronization_features.synchronization2 = VK_TRUE;
-
-  VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-  device_info.pNext = &synchronization_features;
-  device_info.queueCreateInfoCount = queue_create_infos.size();
-  device_info.pQueueCreateInfos = queue_create_infos.data();
-  device_info.enabledExtensionCount = device_extensions.size();
-  device_info.ppEnabledExtensionNames = device_extensions.data();
-  vkCreateDevice(physical_device_, &device_info, NULL, &device_);
-
-  VkQueue graphics_queue;
-  VkQueue compute_queue;
-  VkQueue transfer_queue;
-  vkGetDeviceQueue(device_, graphics_queue_index, 0, &graphics_queue);
-  vkGetDeviceQueue(device_, compute_queue_index, 0, &compute_queue);
-  vkGetDeviceQueue(device_, transfer_queue_index, 0, &transfer_queue);
-
-  semaphore_pool_ = std::make_shared<SemaphorePool>(this);
-  fence_pool_ = std::make_shared<FencePool>(this);
+  device_ = std::make_shared<Device>();
   task_monitor_ = std::make_shared<TaskMonitor>();
-  sorter_ = std::make_shared<Sorter>(this);
+  sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device(), device_->allocator());
 
-  graphics_queue_ = std::make_shared<Queue>(this, graphics_queue, graphics_queue_index);
-  compute_queue_ = std::make_shared<Queue>(this, compute_queue, compute_queue_index);
-  transfer_queue_ = std::make_shared<Queue>(this, transfer_queue, transfer_queue_index);
+  parse_ply_pipeline_layout_ =
+      PipelineLayout::Create(*device_,
+                             {
+                                 {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                 {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                 {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                 {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                 {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                             },
+                             {{VK_SHADER_STAGE_COMPUTE_BIT, 0, 4}});
 
-  // Allocator
-  VmaVulkanFunctions functions = {};
-  functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
-  functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+  parse_ply_pipeline_ = ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
 
-  VmaAllocatorCreateInfo allocator_info = {};
-  allocator_info.physicalDevice = physical_device_;
-  allocator_info.device = device_;
-  allocator_info.instance = instance_;
-  allocator_info.pVulkanFunctions = &functions;
-  allocator_info.vulkanApiVersion = VK_API_VERSION_1_4;
-  vmaCreateAllocator(&allocator_info, &allocator_);
+  splat_pipeline_layout_ =
+      PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
+
+  splat_pipeline_ =
+      GraphicsPipeline::Create(*device_, *splat_pipeline_layout_, splat_vert, splat_frag, VK_FORMAT_R8G8B8A8_UNORM);
 }
 
-Module::~Module() {
-  std::cout << "Module successfully destroyed!" << std::endl;
+Module::~Module() = default;
 
-  WaitIdle();
+const std::string& Module::device_name() const noexcept { return device_->device_name(); }
+uint32_t Module::graphics_queue_index() const noexcept { return device_->graphics_queue_index(); }
+uint32_t Module::compute_queue_index() const noexcept { return device_->compute_queue_index(); }
+uint32_t Module::transfer_queue_index() const noexcept { return device_->transfer_queue_index(); }
 
-  graphics_queue_ = nullptr;
-  compute_queue_ = nullptr;
-  transfer_queue_ = nullptr;
-  semaphore_pool_ = nullptr;
-  fence_pool_ = nullptr;
-  task_monitor_ = nullptr;
-  sorter_ = nullptr;
+std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
+  std::ifstream in(path, std::ios::binary);
 
-  vmaDestroyAllocator(allocator_);
-  vkDestroyDevice(device_, NULL);
-  vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
-  vkDestroyInstance(instance_, NULL);
+  // parse header
+  std::unordered_map<std::string, int> offsets;
+  int offset = 0;
+  uint32_t point_count = 0;
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line == "end_header") break;
 
-  volkFinalize();
-}
-
-void Module::Init() {}
-
-uint32_t Module::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }
-uint32_t Module::compute_queue_index() const noexcept { return compute_queue_->family_index(); }
-uint32_t Module::transfer_queue_index() const noexcept { return transfer_queue_->family_index(); }
-
-void Module::WaitIdle() { vkDeviceWaitIdle(device_); }
-
-void Module::SyncBufferWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                             std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                             VkPipelineStageFlags2 stage, VkAccessFlags2 access) {
-  if (buffer->queue()) {
-    if (buffer->queue() == queue) {
-      // Barrier
-      VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-      barrier.srcStageMask = buffer->write_stage_mask() | buffer->read_stage_mask();
-      barrier.srcAccessMask = buffer->write_access_mask();
-      barrier.dstStageMask = stage;
-      barrier.dstAccessMask = access;
-      barrier.buffer = buffer->buffer();
-      barrier.offset = 0;
-      barrier.size = size;
-      VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-      dependency_info.bufferMemoryBarrierCount = 1;
-      dependency_info.pBufferMemoryBarriers = &barrier;
-      vkCmdPipelineBarrier2(cb, &dependency_info);
-    } else if (buffer->queue() != queue) {
-      // Semaphore
-      VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-      wait_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
-      wait_semaphore_info.value = buffer->timeline();
-      wait_semaphore_info.stageMask = stage;
-      wait_semaphore_infos.push_back(wait_semaphore_info);
-    }
-  }
-}
-
-void Module::SyncBufferRead(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                            std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                            VkPipelineStageFlags2 stage, VkAccessFlags2 access) {
-  if (buffer->queue()) {
-    if (buffer->queue() == queue && buffer->write_stage_mask()) {
-      // Barrier
-      VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-      barrier.srcStageMask = buffer->write_stage_mask();
-      barrier.srcAccessMask = buffer->write_access_mask();
-      barrier.dstStageMask = stage;
-      barrier.dstAccessMask = access;
-      barrier.buffer = buffer->buffer();
-      barrier.offset = 0;
-      barrier.size = size;
-      VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-      dependency_info.bufferMemoryBarrierCount = 1;
-      dependency_info.pBufferMemoryBarriers = &barrier;
-      vkCmdPipelineBarrier2(cb, &dependency_info);
-    } else if (buffer->queue() != queue) {
-      auto src_queue_family_index = buffer->queue()->family_index();
-      auto dst_queue_family_index = queue->family_index();
-      if (src_queue_family_index != dst_queue_family_index) {
-        // Release
-        auto rel_command = buffer->queue()->AllocateCommandBuffer();
-        VkCommandBuffer rel_cb = rel_command->command_buffer();
-        auto fence = fence_pool_->Allocate();
-
-        VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(rel_cb, &begin_info);
-
-        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-        barrier.srcStageMask = buffer->write_stage_mask();
-        barrier.srcAccessMask = buffer->write_access_mask();
-        barrier.srcQueueFamilyIndex = src_queue_family_index;
-        barrier.dstQueueFamilyIndex = dst_queue_family_index;
-        barrier.buffer = buffer->buffer();
-        barrier.offset = 0;
-        barrier.size = size;
-        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-        dependency_info.bufferMemoryBarrierCount = 1;
-        dependency_info.pBufferMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(rel_cb, &dependency_info);
-
-        vkEndCommandBuffer(rel_cb);
-
-        VkCommandBufferSubmitInfo command_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-        command_info.commandBuffer = rel_cb;
-
-        VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-        signal_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
-        signal_semaphore_info.value = buffer->queue()->semaphore()->value() + 1;
-
-        VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-        submit_info.commandBufferInfoCount = 1;
-        submit_info.pCommandBufferInfos = &command_info;
-        submit_info.signalSemaphoreInfoCount = 1;
-        submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-        vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
-
-        task_monitor_->Add(rel_command, fence, {buffer});
-
-        buffer->queue()->semaphore()->Increment();
-        buffer->SetQueueTimeline(buffer->queue(), buffer->queue()->semaphore()->value());
-        buffer->SetReadStageMask(0);
-        buffer->SetWriteStageMask(0);
-        buffer->SetWriteAccessMask(0);
+    std::istringstream iss(line);
+    std::string word;
+    iss >> word;
+    if (word == "property") {
+      int size = 0;
+      std::string type, property;
+      iss >> type >> property;
+      if (type == "float") {
+        size = 4;
       }
-
-      // Semaphore
-      VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-      wait_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
-      wait_semaphore_info.value = buffer->timeline();
-      wait_semaphore_info.stageMask = stage;
-      wait_semaphore_infos.push_back(wait_semaphore_info);
-
-      if (buffer->queue()->family_index() != queue->family_index()) {
-        // Acquire
-        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-        barrier.dstStageMask = stage;
-        barrier.dstAccessMask = access;
-        barrier.srcQueueFamilyIndex = src_queue_family_index;
-        barrier.dstQueueFamilyIndex = dst_queue_family_index;
-        barrier.buffer = buffer->buffer();
-        barrier.offset = 0;
-        barrier.size = size;
-        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-        dependency_info.bufferMemoryBarrierCount = 1;
-        dependency_info.pBufferMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(cb, &dependency_info);
+      offsets[property] = offset;
+      offset += size;
+    } else if (word == "element") {
+      std::string type;
+      size_t count;
+      iss >> type >> count;
+      if (type == "vertex") {
+        point_count = count;
       }
     }
   }
-}
 
-void Module::SyncBufferReadWrite(VkCommandBuffer cb, std::vector<VkSemaphoreSubmitInfo>& wait_semaphore_infos,
-                                 std::shared_ptr<Buffer> buffer, VkDeviceSize size, std::shared_ptr<Queue> queue,
-                                 VkPipelineStageFlags2 read_stage, VkAccessFlags2 read_access,
-                                 VkPipelineStageFlags2 write_stage, VkAccessFlags2 write_access) {
-  if (buffer->queue()) {
-    if (buffer->queue() == queue) {
-      // Barrier
-      std::array<VkBufferMemoryBarrier2, 2> barriers = {};
-      barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-      barriers[0].srcStageMask = buffer->write_stage_mask();
-      barriers[0].srcAccessMask = buffer->write_access_mask();
-      barriers[0].dstStageMask = read_stage;
-      barriers[0].dstAccessMask = read_access;
-      barriers[0].buffer = buffer->buffer();
-      barriers[0].offset = 0;
-      barriers[0].size = size;
-      barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-      barriers[1].srcStageMask = buffer->write_stage_mask() | buffer->read_stage_mask();
-      barriers[1].srcAccessMask = buffer->write_access_mask();
-      barriers[1].dstStageMask = write_stage;
-      barriers[1].dstAccessMask = write_access;
-      barriers[1].buffer = buffer->buffer();
-      barriers[1].offset = 0;
-      barriers[1].size = size;
-      VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-      dependency_info.bufferMemoryBarrierCount = barriers.size();
-      dependency_info.pBufferMemoryBarriers = barriers.data();
-      vkCmdPipelineBarrier2(cb, &dependency_info);
-    } else if (buffer->queue() != queue) {
-      auto src_queue_family_index = buffer->queue()->family_index();
-      auto dst_queue_family_index = queue->family_index();
-      if (src_queue_family_index != dst_queue_family_index) {
-        // Release
-        auto rel_command = buffer->queue()->AllocateCommandBuffer();
-        VkCommandBuffer rel_cb = rel_command->command_buffer();
-        auto fence = fence_pool_->Allocate();
-
-        VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(rel_cb, &begin_info);
-
-        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-        barrier.srcStageMask = buffer->write_stage_mask();
-        barrier.srcAccessMask = buffer->write_access_mask();
-        barrier.srcQueueFamilyIndex = src_queue_family_index;
-        barrier.dstQueueFamilyIndex = dst_queue_family_index;
-        barrier.buffer = buffer->buffer();
-        barrier.offset = 0;
-        barrier.size = size;
-        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-        dependency_info.bufferMemoryBarrierCount = 1;
-        dependency_info.pBufferMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(rel_cb, &dependency_info);
-
-        vkEndCommandBuffer(rel_cb);
-
-        VkCommandBufferSubmitInfo command_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-        command_info.commandBuffer = rel_cb;
-
-        VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-        signal_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
-        signal_semaphore_info.value = buffer->queue()->semaphore()->value() + 1;
-
-        VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-        submit_info.commandBufferInfoCount = 1;
-        submit_info.pCommandBufferInfos = &command_info;
-        submit_info.signalSemaphoreInfoCount = 1;
-        submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-        vkQueueSubmit2(buffer->queue()->queue(), 1, &submit_info, fence->fence());
-
-        task_monitor_->Add(rel_command, fence, {buffer});
-
-        buffer->queue()->semaphore()->Increment();
-        buffer->SetQueueTimeline(buffer->queue(), buffer->queue()->semaphore()->value());
-        buffer->SetReadStageMask(0);
-        buffer->SetWriteStageMask(0);
-        buffer->SetWriteAccessMask(0);
-      }
-
-      // Semaphore
-      VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-      wait_semaphore_info.semaphore = buffer->queue()->semaphore()->semaphore();
-      wait_semaphore_info.value = buffer->timeline();
-      wait_semaphore_info.stageMask = read_stage;
-      wait_semaphore_infos.push_back(wait_semaphore_info);
-
-      if (buffer->queue()->family_index() != queue->family_index()) {
-        // Acquire
-        VkBufferMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-        barrier.dstStageMask = read_stage;
-        barrier.dstAccessMask = read_access;
-        barrier.srcQueueFamilyIndex = src_queue_family_index;
-        barrier.dstQueueFamilyIndex = dst_queue_family_index;
-        barrier.buffer = buffer->buffer();
-        barrier.offset = 0;
-        barrier.size = size;
-        VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-        dependency_info.bufferMemoryBarrierCount = 1;
-        dependency_info.pBufferMemoryBarriers = &barrier;
-        vkCmdPipelineBarrier2(cb, &dependency_info);
-      }
-    }
+  std::vector<uint32_t> ply_offsets(60);
+  ply_offsets[0] = offsets["x"] / 4;
+  ply_offsets[1] = offsets["y"] / 4;
+  ply_offsets[2] = offsets["z"] / 4;
+  ply_offsets[3] = offsets["scale_0"] / 4;
+  ply_offsets[4] = offsets["scale_1"] / 4;
+  ply_offsets[5] = offsets["scale_2"] / 4;
+  ply_offsets[6] = offsets["rot_1"] / 4;  // qx
+  ply_offsets[7] = offsets["rot_2"] / 4;  // qy
+  ply_offsets[8] = offsets["rot_3"] / 4;  // qz
+  ply_offsets[9] = offsets["rot_0"] / 4;  // qw
+  ply_offsets[10 + 0] = offsets["f_dc_0"] / 4;
+  ply_offsets[10 + 16] = offsets["f_dc_1"] / 4;
+  ply_offsets[10 + 32] = offsets["f_dc_2"] / 4;
+  for (int i = 0; i < 15; ++i) {
+    ply_offsets[10 + 1 + i] = offsets["f_rest_" + std::to_string(i)] / 4;
+    ply_offsets[10 + 17 + i] = offsets["f_rest_" + std::to_string(15 + i)] / 4;
+    ply_offsets[10 + 33 + i] = offsets["f_rest_" + std::to_string(30 + i)] / 4;
   }
+  ply_offsets[58] = offsets["opacity"] / 4;
+  ply_offsets[59] = offset / 4;
+
+  std::cout << "offset: " << offset << std::endl;
+  std::cout << "point_count: " << point_count << std::endl;
+
+  std::vector<char> buffer(offset * point_count);
+  in.read(buffer.data(), buffer.size());
+
+  // allocate buffers
+  auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
+  auto ply_stage =
+      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size, true);
+  auto ply_buffer =
+      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
+
+  auto position = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
+  auto cov3d = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
+  auto sh = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
+  auto opacity = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
+
+  std::memcpy(ply_stage->data(), ply_offsets.data(), ply_offsets.size() * sizeof(uint32_t));
+  std::memcpy(ply_stage->data<char>() + ply_offsets.size() * sizeof(uint32_t), buffer.data(), buffer.size());
+
+  auto sem = device_->AllocateSemaphore();
+  {
+    auto command0 = device_->transfer_queue()->AllocateCommandBuffer();
+    auto cb0 = command0->command_buffer();
+    auto fence0 = device_->AllocateFence();
+
+    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb0, &begin_info);
+
+    VkBufferCopy region;
+    region.srcOffset = 0;
+    region.dstOffset = 0;
+    region.size = buffer_size;
+    vkCmdCopyBuffer(cb0, *ply_stage, *ply_buffer, 1, &region);
+
+    // Release barrier
+    VkBufferMemoryBarrier2 release_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+    release_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    release_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    release_barrier.srcQueueFamilyIndex = device_->transfer_queue()->family_index();
+    release_barrier.dstQueueFamilyIndex = device_->compute_queue()->family_index();
+    release_barrier.buffer = *ply_buffer;
+    release_barrier.offset = 0;
+    release_barrier.size = VK_WHOLE_SIZE;
+    VkDependencyInfo release_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    release_dependency_info.bufferMemoryBarrierCount = 1;
+    release_dependency_info.pBufferMemoryBarriers = &release_barrier;
+    vkCmdPipelineBarrier2(cb0, &release_dependency_info);
+
+    vkEndCommandBuffer(cb0);
+
+    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    command_buffer_info.commandBuffer = cb0;
+
+    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signal_semaphore_info.semaphore = sem->semaphore();
+    signal_semaphore_info.value = sem->value() + 1;
+    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+
+    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit.commandBufferInfoCount = 1;
+    submit.pCommandBufferInfos = &command_buffer_info;
+    submit.signalSemaphoreInfoCount = 1;
+    submit.pSignalSemaphoreInfos = &signal_semaphore_info;
+
+    vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit, fence0->fence());
+    task_monitor_->Add(fence0, {command0, sem, ply_stage, ply_buffer});
+  }
+
+  {
+    auto command1 = device_->compute_queue()->AllocateCommandBuffer();
+    auto cb1 = command1->command_buffer();
+    auto fence1 = device_->AllocateFence();
+
+    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb1, &begin_info);
+
+    // Acquire barrier
+    VkBufferMemoryBarrier2 acquire_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+    acquire_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    acquire_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    acquire_barrier.srcQueueFamilyIndex = device_->transfer_queue()->family_index();
+    acquire_barrier.dstQueueFamilyIndex = device_->compute_queue()->family_index();
+    acquire_barrier.buffer = *ply_buffer;
+    acquire_barrier.offset = 0;
+    acquire_barrier.size = VK_WHOLE_SIZE;
+    VkDependencyInfo acquire_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    acquire_dependency_info.bufferMemoryBarrierCount = 1;
+    acquire_dependency_info.pBufferMemoryBarriers = &acquire_barrier;
+    vkCmdPipelineBarrier2(cb1, &acquire_dependency_info);
+
+    // ply_buffer -> gaussian_splats
+    vkCmdPushConstants(cb1, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(point_count),
+                       &point_count);
+    cmdPushDescriptorSet(cb1, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_layout_,
+                         {*ply_buffer, *position, *cov3d, *opacity, *sh});
+
+    vkCmdBindPipeline(cb1, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
+    vkCmdDispatch(cb1, WorkgroupSize(point_count, 256), 1, 1);
+
+    // Visibility barrier
+    VkMemoryBarrier2 visibility_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
+    visibility_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    visibility_barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    visibility_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    visibility_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    VkDependencyInfo visibility_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    visibility_dependency_info.memoryBarrierCount = 1;
+    visibility_dependency_info.pMemoryBarriers = &visibility_barrier;
+    vkCmdPipelineBarrier2(cb1, &visibility_dependency_info);
+
+    vkEndCommandBuffer(cb1);
+
+    // Acquire
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = sem->semaphore();
+    wait_semaphore_info.value = sem->value() + 1;
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+
+    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    command_buffer_info.commandBuffer = cb1;
+
+    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit.waitSemaphoreInfoCount = 1;
+    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
+    submit.commandBufferInfoCount = 1;
+    submit.pCommandBufferInfos = &command_buffer_info;
+
+    vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit, fence1->fence());
+    task_monitor_->Add(fence1, {command1, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
+  }
+
+  sem->Increment();
+
+  return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity);
 }
 
-void Module::CpuToBuffer(std::shared_ptr<Buffer> buffer, const void* ptr, size_t size) {
-  auto queue = transfer_queue_;
-  auto semaphore = queue->semaphore();
+std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> splats) {
+  constexpr uint32_t width = 1024;
+  constexpr uint32_t height = 1024;
 
-  auto command = queue->AllocateCommandBuffer();
-  auto cb = command->command_buffer();
-  auto fence = fence_pool_->Allocate();
+  auto image = Image::Create(device_, VK_FORMAT_R8G8B8A8_UNORM, width, height,
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+  auto sem = device_->AllocateSemaphore();
 
-  VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-  VkAccessFlags2 access = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+  // Graphics queue
+  {
+    // TODO: calculate instances in compute queue
+    float s = 0.2f;
+    std::vector<float> instances_data = {
+        0.0f, 0.0f, 0.f, 1.f, s, 0.f, 0.f, s, 1.f, 0.f, 0.f, 1.f,  //
+        0.0f, 0.5f, 0.f, 1.f, s, 0.f, 0.f, s, 0.f, 1.f, 0.f, 1.f,  //
+        0.5f, 0.0f, 0.f, 1.f, s, 0.f, 0.f, s, 0.f, 0.f, 1.f, 1.f,  //
+    };
+    auto instances_stage =
+        Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, instances_data.size() * sizeof(float), true);
+    auto instances = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                    instances_data.size() * sizeof(float));
 
-  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+    std::vector<uint32_t> index_data = {
+        0, 1, 2,  2,  1, 3,   //
+        4, 5, 6,  6,  5, 7,   //
+        8, 9, 10, 10, 9, 11,  //
+    };
+    auto index_stage =
+        Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+    auto index = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                index_data.size() * sizeof(uint32_t));
 
-  // TODO: wait for stage buffer to be available.
-  std::memcpy(buffer->stage_buffer_map(), ptr, size);
+    std::memcpy(instances_stage->data(), instances_data.data(), instances_data.size() * sizeof(float));
+    std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
 
-  VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(cb, &begin_info);
+    auto fence = device_->AllocateFence();
+    auto command = device_->graphics_queue()->AllocateCommandBuffer();
+    auto cb = command->command_buffer();
 
-  SyncBufferWrite(cb, wait_semaphore_infos, buffer, size, queue, stage, access);
+    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb, &begin_info);
 
-  // Copy
-  VkBufferCopy2 region = {VK_STRUCTURE_TYPE_BUFFER_COPY_2};
-  region.srcOffset = 0;
-  region.dstOffset = 0;
-  region.size = size;
+    VkBufferCopy region = {0, 0, instances_data.size() * sizeof(float)};
+    vkCmdCopyBuffer(cb, *instances_stage, *instances, 1, &region);
 
-  VkCopyBufferInfo2 copy_info = {VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2};
-  copy_info.srcBuffer = buffer->stage_buffer();
-  copy_info.dstBuffer = buffer->buffer();
-  copy_info.regionCount = 1;
-  copy_info.pRegions = &region;
-  vkCmdCopyBuffer2(cb, &copy_info);
+    region = {0, 0, index_data.size() * sizeof(uint32_t)};
+    vkCmdCopyBuffer(cb, *index_stage, *index, 1, &region);
 
-  vkEndCommandBuffer(cb);
+    VkMemoryBarrier2 memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
+    memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
+    memory_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT;
+    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.memoryBarrierCount = 1;
+    dependency_info.pMemoryBarriers = &memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
 
-  VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-  command_buffer_submit_info.commandBuffer = cb;
+    // Layout transition to color attachment
+    VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    image_memory_barrier.image = *image;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
 
-  VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-  signal_semaphore_info.semaphore = queue->semaphore()->semaphore();
-  signal_semaphore_info.value = queue->semaphore()->value() + 1;
-  signal_semaphore_info.stageMask = stage;
+    // Rendering
+    VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    color_attachment.imageView = image->image_view();
+    color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.clearValue.color = {0.f, 0.f, 0.f, 1.f};
+    VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+    rendering_info.renderArea.offset = {0, 0};
+    rendering_info.renderArea.extent = {width, height};
+    rendering_info.layerCount = 1;
+    rendering_info.colorAttachmentCount = 1;
+    rendering_info.pColorAttachments = &color_attachment;
+    vkCmdBeginRendering(cb, &rendering_info);
 
-  VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-  submit_info.commandBufferInfoCount = 1;
-  submit_info.pCommandBufferInfos = &command_buffer_submit_info;
-  submit_info.signalSemaphoreInfoCount = 1;
-  submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_);
+    cmdPushDescriptorSet(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_layout_, {*instances});
 
-  queue->semaphore()->Increment();
-  buffer->SetQueueTimeline(queue, queue->semaphore()->value());
-  buffer->SetReadStageMask(0);
-  buffer->SetWriteStageMask(stage);
-  buffer->SetWriteAccessMask(access);
-  task_monitor_->Add(command, fence, {buffer});
-}
+    VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
+    vkCmdSetViewport(cb, 0, 1, &viewport);
+    VkRect2D scissor = {0, 0, width, height};
+    vkCmdSetScissor(cb, 0, 1, &scissor);
 
-void Module::BufferToCpu(std::shared_ptr<Buffer> buffer, void* ptr, size_t size) {
-  auto queue = transfer_queue_;
-  auto command = queue->AllocateCommandBuffer();
-  auto cb = command->command_buffer();
+    vkCmdBindIndexBuffer(cb, *index, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(cb, index_data.size(), 1, 0, 0, 0);
 
-  auto fence = fence_pool_->Allocate();
+    vkCmdEndRendering(cb);
 
-  VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-  VkAccessFlags2 access = VK_ACCESS_2_TRANSFER_READ_BIT;
+    // Layout transition to transfer src, and release
+    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    image_memory_barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    image_memory_barrier.srcQueueFamilyIndex = device_->graphics_queue()->family_index();
+    image_memory_barrier.dstQueueFamilyIndex = device_->transfer_queue()->family_index();
+    image_memory_barrier.image = *image;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
 
-  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+    vkEndCommandBuffer(cb);
 
-  VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(cb, &begin_info);
+    // Submit
+    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    command_buffer_info.commandBuffer = cb;
 
-  SyncBufferRead(cb, wait_semaphore_infos, buffer, size, queue, stage, access);
+    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signal_semaphore_info.semaphore = sem->semaphore();
+    signal_semaphore_info.value = sem->value() + 1;
+    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-  // Copy
-  VkBufferCopy2 region = {VK_STRUCTURE_TYPE_BUFFER_COPY_2};
-  region.srcOffset = 0;
-  region.dstOffset = 0;
-  region.size = size;
-  VkCopyBufferInfo2 copy_info = {VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2};
-  copy_info.srcBuffer = buffer->buffer();
-  copy_info.dstBuffer = buffer->stage_buffer();
-  copy_info.regionCount = 1;
-  copy_info.pRegions = &region;
-  vkCmdCopyBuffer2(cb, &copy_info);
+    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit_info.commandBufferInfoCount = 1;
+    submit_info.pCommandBufferInfos = &command_buffer_info;
+    submit_info.signalSemaphoreInfoCount = 1;
+    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
-  vkEndCommandBuffer(cb);
+    vkQueueSubmit2(device_->graphics_queue()->queue(), 1, &submit_info, fence->fence());
+    task_monitor_->Add(fence, {command, image, instances_stage, instances, index_stage, index, sem});
+  }
 
-  VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-  command_buffer_submit_info.commandBuffer = cb;
+  auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
+  std::vector<uint8_t> image_buffer(width * height * 4);
+  {
+    auto fence = device_->AllocateFence();
+    auto command = device_->transfer_queue()->AllocateCommandBuffer();
+    auto cb = command->command_buffer();
 
-  VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-  signal_semaphore_info.semaphore = queue->semaphore()->semaphore();
-  signal_semaphore_info.value = queue->semaphore()->value() + 1;
-  signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb, &begin_info);
 
-  VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-  submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
-  submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
-  submit_info.commandBufferInfoCount = 1;
-  submit_info.pCommandBufferInfos = &command_buffer_submit_info;
-  submit_info.signalSemaphoreInfoCount = 1;
-  submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
+    // Acquire
+    VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    image_memory_barrier.srcQueueFamilyIndex = device_->graphics_queue()->family_index();
+    image_memory_barrier.dstQueueFamilyIndex = device_->transfer_queue()->family_index();
+    image_memory_barrier.image = *image;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
 
-  queue->semaphore()->Increment();
-  buffer->SetQueueTimeline(queue, queue->semaphore()->value());
-  buffer->AddReadStageMask(stage);
+    // Image to buffer
+    VkBufferImageCopy region;
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {width, height, 1};
+    vkCmdCopyImageToBuffer(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *buffer, 1, &region);
 
-  task_monitor_->Add(command, fence, {buffer});
+    vkEndCommandBuffer(cb);
 
-  fence->Wait();
-  std::memcpy(ptr, buffer->stage_buffer_map(), size);
-}
+    // Submit
+    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    command_buffer_info.commandBuffer = cb;
 
-void Module::FillBuffer(std::shared_ptr<Buffer> buffer, uint32_t value) {
-  auto queue = transfer_queue_;
-  auto command = queue->AllocateCommandBuffer();
-  auto cb = command->command_buffer();
-  auto fence = fence_pool_->Allocate();
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = sem->semaphore();
+    wait_semaphore_info.value = sem->value() + 1;
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 
-  VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-  VkAccessFlags2 access = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit_info.waitSemaphoreInfoCount = 1;
+    submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
+    submit_info.commandBufferInfoCount = 1;
+    submit_info.pCommandBufferInfos = &command_buffer_info;
 
-  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+    vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit_info, fence->fence());
+    task_monitor_->Add(fence, {command, image, buffer, sem});
 
-  VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(cb, &begin_info);
+    fence->Wait();
 
-  SyncBufferWrite(cb, wait_semaphore_infos, buffer, buffer->size(), queue, stage, access);
+    // TODO: wait for transfer
+    std::memcpy(image_buffer.data(), buffer->data(), buffer->size());
+  }
 
-  vkCmdFillBuffer(cb, buffer->buffer(), 0, buffer->size(), value);
+  sem->Increment();
 
-  vkEndCommandBuffer(cb);
-
-  VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-  command_buffer_submit_info.commandBuffer = cb;
-
-  VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-  signal_semaphore_info.semaphore = queue->semaphore()->semaphore();
-  signal_semaphore_info.value = queue->semaphore()->value() + 1;
-  signal_semaphore_info.stageMask = stage;
-
-  VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-  submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
-  submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
-  submit_info.commandBufferInfoCount = 1;
-  submit_info.pCommandBufferInfos = &command_buffer_submit_info;
-  submit_info.signalSemaphoreInfoCount = 1;
-  submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(transfer_queue_->queue(), 1, &submit_info, fence->fence());
-
-  queue->semaphore()->Increment();
-  buffer->SetQueueTimeline(queue, queue->semaphore()->value());
-  buffer->SetReadStageMask(0);
-  buffer->SetWriteStageMask(stage);
-  buffer->SetWriteAccessMask(access);
-
-  task_monitor_->Add(command, fence, {buffer});
-}
-
-void Module::SortBuffer(std::shared_ptr<Buffer> buffer) {
-  auto queue = compute_queue_;
-  auto command = queue->AllocateCommandBuffer();
-  auto cb = command->command_buffer();
-  auto fence = fence_pool_->Allocate();
-
-  VkPipelineStageFlags2 read_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-  VkPipelineStageFlags2 write_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-  VkAccessFlags2 read_access = VK_ACCESS_2_SHADER_READ_BIT;
-  VkAccessFlags2 write_access = VK_ACCESS_2_SHADER_WRITE_BIT;
-
-  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
-
-  VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(cb, &begin_info);
-
-  SyncBufferReadWrite(cb, wait_semaphore_infos, buffer, buffer->size(), queue, read_stage, read_access, write_stage,
-                      write_access);
-
-  sorter_->Sort(cb, buffer);
-
-  vkEndCommandBuffer(cb);
-
-  VkCommandBufferSubmitInfo command_buffer_submit_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-  command_buffer_submit_info.commandBuffer = cb;
-
-  VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-  signal_semaphore_info.semaphore = queue->semaphore()->semaphore();
-  signal_semaphore_info.value = queue->semaphore()->value() + 1;
-  signal_semaphore_info.stageMask = write_stage;
-
-  VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-  submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
-  submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
-  submit_info.commandBufferInfoCount = 1;
-  submit_info.pCommandBufferInfos = &command_buffer_submit_info;
-  submit_info.signalSemaphoreInfoCount = 1;
-  submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-  vkQueueSubmit2(compute_queue_->queue(), 1, &submit_info, fence->fence());
-
-  queue->semaphore()->Increment();
-  buffer->SetQueueTimeline(queue, queue->semaphore()->value());
-  buffer->SetReadStageMask(0);
-  buffer->SetWriteStageMask(write_stage);
-  buffer->SetWriteAccessMask(write_access);
-
-  task_monitor_->Add(command, fence, {buffer});
+  return std::make_shared<RenderedImage>(width, height, std::move(image_buffer));
 }
 
 }  // namespace core

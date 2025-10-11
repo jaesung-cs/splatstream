@@ -1,7 +1,6 @@
-from .singleton_module import wait_idle
-from .buffer import from_numpy
+from .module import load_from_ply, draw
 
 __all__ = [
-    "wait_idle",
-    "from_numpy",
+    "load_from_ply",
+    "draw",
 ]

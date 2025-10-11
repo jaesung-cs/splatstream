@@ -1,12 +1,14 @@
 #ifndef VKGS_MODULE_IMPL_H
 #define VKGS_MODULE_IMPL_H
 
+#include "vkgs/module.h"
+
 #include <memory>
 #include <string>
 
 #include "vkgs/core/module.h"
 
-#include "vkgs/module.h"
+#include "vkgs/gaussian_splats.h"
 
 namespace vkgs {
 
@@ -21,9 +23,9 @@ class Module::Impl {
   uint32_t compute_queue_index() const noexcept { return module_->compute_queue_index(); }
   uint32_t transfer_queue_index() const noexcept { return module_->transfer_queue_index(); }
 
-  void WaitIdle() { module_->WaitIdle(); }
+  GaussianSplats load_from_ply(const std::string& path);
 
-  auto module() const noexcept { return module_; }
+  RenderedImage draw(GaussianSplats splats);
 
  private:
   std::shared_ptr<core::Module> module_;

@@ -5,15 +5,17 @@
 
 #include "volk.h"
 
+#include "object.h"
+
 namespace vkgs {
 namespace core {
 
 class CommandPool;
 
-class Command {
+class Command : public Object {
  public:
   Command(std::shared_ptr<CommandPool> command_pool, VkCommandBuffer cb);
-  ~Command();
+  ~Command() override;
 
   VkCommandBuffer command_buffer() const noexcept { return cb_; }
 

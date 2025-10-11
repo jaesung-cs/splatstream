@@ -5,16 +5,17 @@
 
 #include "volk.h"
 
+#include "object.h"
+
 namespace vkgs {
 namespace core {
 
 class SemaphorePool;
-class Command;
 
-class Semaphore {
+class Semaphore : public Object {
  public:
-  Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
-  ~Semaphore();
+  Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
+  ~Semaphore() override;
 
   VkSemaphore semaphore() const noexcept { return semaphore_; }
   auto value() const noexcept { return value_; }
@@ -25,6 +26,7 @@ class Semaphore {
   void Increment() { value_++; }
 
  private:
+  VkDevice device_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
 
   VkSemaphore semaphore_;

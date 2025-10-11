@@ -7,5 +7,10 @@ _skbuild
 *.egg-info
 __pycache__
 
+models/
+
 bin/
 lib/
+generated/
+
+test.png

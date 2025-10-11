@@ -1,17 +1,15 @@
 #include "fence_pool.h"
 
-#include "vkgs/core/module.h"
-
 #include "fence.h"
 
 namespace vkgs {
 namespace core {
 
-FencePool::FencePool(Module* module) : module_(module) {}
+FencePool::FencePool(VkDevice device) : device_(device) {}
 
 FencePool::~FencePool() {
   for (auto fence : fences_) {
-    vkDestroyFence(module_->device(), fence, NULL);
+    vkDestroyFence(device_, fence, NULL);
   }
 }
 
@@ -19,12 +17,12 @@ std::shared_ptr<Fence> FencePool::Allocate() {
   VkFence fence;
   if (fences_.empty()) {
     VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    vkCreateFence(module_->device(), &fence_info, NULL, &fence);
+    vkCreateFence(device_, &fence_info, NULL, &fence);
   } else {
     fence = fences_.back();
     fences_.pop_back();
   }
-  return std::make_shared<Fence>(shared_from_this(), fence);
+  return std::make_shared<Fence>(device_, shared_from_this(), fence);
 }
 
 void FencePool::Free(VkFence fence) { fences_.push_back(fence); }

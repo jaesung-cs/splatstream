@@ -1,8 +1,6 @@
 #ifndef VKGS_CORE_SORTER_H
 #define VKGS_CORE_SORTER_H
 
-#include <memory>
-
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
@@ -11,18 +9,18 @@
 namespace vkgs {
 namespace core {
 
-class Module;
-class Buffer;
-
 class Sorter {
  public:
-  explicit Sorter(Module* module);
+  explicit Sorter(VkDevice device, VkPhysicalDevice physical_device, VmaAllocator allocator);
   ~Sorter();
 
-  void Sort(VkCommandBuffer cb, std::shared_ptr<Buffer> buffer);
+  void Sort(VkCommandBuffer cb, VkBuffer buffer, size_t size);
 
  private:
-  Module* module_;
+  VkDevice device_;
+  VkPhysicalDevice physical_device_;
+  VmaAllocator allocator_;
+
   VrdxSorter sorter_ = VK_NULL_HANDLE;
 
   VkBuffer storage_ = VK_NULL_HANDLE;
