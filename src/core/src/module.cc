@@ -9,6 +9,8 @@
 #include "vkgs/core/rendered_image.h"
 
 #include "generated/parse_ply.h"
+#include "generated/splat_vert.h"
+#include "generated/splat_frag.h"
 #include "buffer.h"
 #include "image.h"
 #include "device.h"
@@ -21,13 +23,13 @@
 #include "task_monitor.h"
 #include "pipeline_layout.h"
 #include "compute_pipeline.h"
-#include "vulkan/vulkan_core.h"
+#include "graphics_pipeline.h"
 
 namespace {
 
 auto WorkgroupSize(size_t count, uint32_t local_size) { return (count + local_size - 1) / local_size; }
 
-void cmdPushDescriptorSet(VkCommandBuffer cb, VkPipelineLayout pipeline_layout, uint32_t set,
+void cmdPushDescriptorSet(VkCommandBuffer cb, VkPipelineBindPoint bind_point, VkPipelineLayout pipeline_layout,
                           const std::vector<VkBuffer>& buffers) {
   std::vector<VkDescriptorBufferInfo> buffer_infos(buffers.size());
   std::vector<VkWriteDescriptorSet> writes(buffers.size());
@@ -39,7 +41,7 @@ void cmdPushDescriptorSet(VkCommandBuffer cb, VkPipelineLayout pipeline_layout, 
     writes[i].descriptorCount = 1;
     writes[i].pBufferInfo = &buffer_infos[i];
   }
-  vkCmdPushDescriptorSet(cb, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, set, writes.size(), writes.data());
+  vkCmdPushDescriptorSet(cb, bind_point, pipeline_layout, 0, writes.size(), writes.data());
 }
 
 }  // namespace
@@ -64,6 +66,12 @@ Module::Module() {
                              {{VK_SHADER_STAGE_COMPUTE_BIT, 0, 4}});
 
   parse_ply_pipeline_ = ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
+
+  splat_pipeline_layout_ =
+      PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
+
+  splat_pipeline_ =
+      GraphicsPipeline::Create(*device_, *splat_pipeline_layout_, splat_vert, splat_frag, VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 Module::~Module() = default;
@@ -141,8 +149,7 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
   auto ply_buffer =
       Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
 
-  auto position = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                 point_count * 3 * sizeof(float));
+  auto position = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
   auto cov3d = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
   auto sh = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
   auto opacity = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
@@ -226,7 +233,8 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
     // ply_buffer -> gaussian_splats
     vkCmdPushConstants(cb1, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(point_count),
                        &point_count);
-    cmdPushDescriptorSet(cb1, *parse_ply_pipeline_layout_, 0, {*ply_buffer, *position, *cov3d, *opacity, *sh});
+    cmdPushDescriptorSet(cb1, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_layout_,
+                         {*ply_buffer, *position, *cov3d, *opacity, *sh});
 
     vkCmdBindPipeline(cb1, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
     vkCmdDispatch(cb1, WorkgroupSize(point_count, 256), 1, 1);
@@ -274,33 +282,163 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
 
   auto image = Image::Create(device_, VK_FORMAT_R8G8B8A8_UNORM, width, height,
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-  // TODO: draw to image
+  auto sem = device_->AllocateSemaphore();
 
-  auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
-  std::vector<uint8_t> image_buffer(width * height * 4);
+  // Graphics queue
   {
+    // TODO: calculate instances in compute queue
+    float s = 0.2f;
+    std::vector<float> instances_data = {
+        0.0f, 0.0f, 0.f, 1.f, s, 0.f, 0.f, s, 1.f, 0.f, 0.f, 1.f,  //
+        0.0f, 0.5f, 0.f, 1.f, s, 0.f, 0.f, s, 0.f, 1.f, 0.f, 1.f,  //
+        0.5f, 0.0f, 0.f, 1.f, s, 0.f, 0.f, s, 0.f, 0.f, 1.f, 1.f,  //
+    };
+    auto instances_stage =
+        Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, instances_data.size() * sizeof(float), true);
+    auto instances = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                    instances_data.size() * sizeof(float));
+
+    std::vector<uint32_t> index_data = {
+        0, 1, 2,  2,  1, 3,   //
+        4, 5, 6,  6,  5, 7,   //
+        8, 9, 10, 10, 9, 11,  //
+    };
+    auto index_stage =
+        Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+    auto index = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                index_data.size() * sizeof(uint32_t));
+
+    std::memcpy(instances_stage->data(), instances_data.data(), instances_data.size() * sizeof(float));
+    std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
+
     auto fence = device_->AllocateFence();
-    auto command = device_->compute_queue()->AllocateCommandBuffer();
+    auto command = device_->graphics_queue()->AllocateCommandBuffer();
     auto cb = command->command_buffer();
 
     VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cb, &begin_info);
 
+    VkBufferCopy region = {0, 0, instances_data.size() * sizeof(float)};
+    vkCmdCopyBuffer(cb, *instances_stage, *instances, 1, &region);
+
+    region = {0, 0, index_data.size() * sizeof(uint32_t)};
+    vkCmdCopyBuffer(cb, *index_stage, *index, 1, &region);
+
+    VkMemoryBarrier2 memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
+    memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
+    memory_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT;
+    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.memoryBarrierCount = 1;
+    dependency_info.pMemoryBarriers = &memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
+
+    // Layout transition to color attachment
     VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.srcStageMask = 0;
-    image_memory_barrier.srcAccessMask = 0;
-    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     image_memory_barrier.image = *image;
     image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
+
+    // Rendering
+    VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    color_attachment.imageView = image->image_view();
+    color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.clearValue.color = {0.f, 0.f, 0.f, 1.f};
+    VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+    rendering_info.renderArea.offset = {0, 0};
+    rendering_info.renderArea.extent = {width, height};
+    rendering_info.layerCount = 1;
+    rendering_info.colorAttachmentCount = 1;
+    rendering_info.pColorAttachments = &color_attachment;
+    vkCmdBeginRendering(cb, &rendering_info);
+
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_);
+    cmdPushDescriptorSet(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_layout_, {*instances});
+
+    VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
+    vkCmdSetViewport(cb, 0, 1, &viewport);
+    VkRect2D scissor = {0, 0, width, height};
+    vkCmdSetScissor(cb, 0, 1, &scissor);
+
+    vkCmdBindIndexBuffer(cb, *index, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(cb, index_data.size(), 1, 0, 0, 0);
+
+    vkCmdEndRendering(cb);
+
+    // Layout transition to transfer src, and release
+    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    image_memory_barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    image_memory_barrier.srcQueueFamilyIndex = device_->graphics_queue()->family_index();
+    image_memory_barrier.dstQueueFamilyIndex = device_->transfer_queue()->family_index();
+    image_memory_barrier.image = *image;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
+
+    vkEndCommandBuffer(cb);
+
+    // Submit
+    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    command_buffer_info.commandBuffer = cb;
+
+    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signal_semaphore_info.semaphore = sem->semaphore();
+    signal_semaphore_info.value = sem->value() + 1;
+    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit_info.commandBufferInfoCount = 1;
+    submit_info.pCommandBufferInfos = &command_buffer_info;
+    submit_info.signalSemaphoreInfoCount = 1;
+    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
+
+    vkQueueSubmit2(device_->graphics_queue()->queue(), 1, &submit_info, fence->fence());
+    task_monitor_->Add(fence, {command, image, instances_stage, instances, index_stage, index, sem});
+  }
+
+  auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
+  std::vector<uint8_t> image_buffer(width * height * 4);
+  {
+    auto fence = device_->AllocateFence();
+    auto command = device_->transfer_queue()->AllocateCommandBuffer();
+    auto cb = command->command_buffer();
+
+    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb, &begin_info);
+
+    // Acquire
+    VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    image_memory_barrier.srcQueueFamilyIndex = device_->graphics_queue()->family_index();
+    image_memory_barrier.dstQueueFamilyIndex = device_->transfer_queue()->family_index();
+    image_memory_barrier.image = *image;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     dependency_info.imageMemoryBarrierCount = 1;
     dependency_info.pImageMemoryBarriers = &image_memory_barrier;
     vkCmdPipelineBarrier2(cb, &dependency_info);
 
+    // Image to buffer
     VkBufferImageCopy region;
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
@@ -312,21 +450,31 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
 
     vkEndCommandBuffer(cb);
 
+    // Submit
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
     command_buffer_info.commandBuffer = cb;
 
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = sem->semaphore();
+    wait_semaphore_info.value = sem->value() + 1;
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+
     VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit_info.waitSemaphoreInfoCount = 1;
+    submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
     submit_info.commandBufferInfoCount = 1;
     submit_info.pCommandBufferInfos = &command_buffer_info;
 
-    vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, image, buffer});
+    vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit_info, fence->fence());
+    task_monitor_->Add(fence, {command, image, buffer, sem});
 
     fence->Wait();
 
     // TODO: wait for transfer
     std::memcpy(image_buffer.data(), buffer->data(), buffer->size());
   }
+
+  sem->Increment();
 
   return std::make_shared<RenderedImage>(width, height, std::move(image_buffer));
 }

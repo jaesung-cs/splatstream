@@ -168,8 +168,13 @@ Device::Device() {
 #endif
   };
 
+  VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+  dynamic_rendering_features.dynamicRendering = VK_TRUE;
+
   VkPhysicalDevice16BitStorageFeatures k16bit_storage_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES};
+  k16bit_storage_features.pNext = &dynamic_rendering_features;
   k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
 
   VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features = {

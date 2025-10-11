@@ -19,6 +19,7 @@ class Sorter;
 class GaussianSplats;
 class PipelineLayout;
 class ComputePipeline;
+class GraphicsPipeline;
 class RenderedImage;
 
 class VKGS_CORE_API Module {
@@ -41,6 +42,9 @@ class VKGS_CORE_API Module {
 
   std::shared_ptr<PipelineLayout> parse_ply_pipeline_layout_;
   std::shared_ptr<ComputePipeline> parse_ply_pipeline_;
+
+  std::shared_ptr<PipelineLayout> splat_pipeline_layout_;
+  std::shared_ptr<GraphicsPipeline> splat_pipeline_;
 };
 
 }  // namespace core

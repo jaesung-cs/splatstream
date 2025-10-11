@@ -13,7 +13,7 @@ class PipelineLayout {
  public:
   static std::shared_ptr<PipelineLayout> Create(VkDevice device,
                                                 const std::vector<VkDescriptorSetLayoutBinding>& bindings,
-                                                const std::vector<VkPushConstantRange>& push_constants);
+                                                const std::vector<VkPushConstantRange>& push_constants = {});
 
  public:
   PipelineLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding>& bindings,

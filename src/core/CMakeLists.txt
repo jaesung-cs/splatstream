@@ -24,6 +24,7 @@ add_library(vkgs_core SHARED
   src/fence_pool.cc
   src/fence.cc
   src/gaussian_splats.cc
+  src/graphics_pipeline.cc
   src/image.cc
   src/module.cc
   src/pipeline_layout.cc
@@ -63,6 +64,8 @@ target_link_libraries(vkgs_core
 target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
 
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)
+add_shader(vkgs_core shader/splat.frag splat_frag)
+add_shader(vkgs_core shader/splat.vert splat_vert)
 
 set_target_properties(vkgs_core PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
