@@ -19,6 +19,10 @@ class VKGS_CORE_API GaussianSplats {
   ~GaussianSplats();
 
   size_t size() const noexcept { return size_; }
+  auto position() const noexcept { return position_; }
+  auto cov3d() const noexcept { return cov3d_; }
+  auto sh() const noexcept { return sh_; }
+  auto opacity() const noexcept { return opacity_; }
 
  private:
   size_t size_;

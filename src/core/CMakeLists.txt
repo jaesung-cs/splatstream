@@ -7,7 +7,7 @@ include(FetchContent)
 FetchContent_Declare(
   vk_radix_sort
   GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        231e927f7f360c35c44933dae69c559e6126ccd3  # v0.1.1
+  GIT_TAG        c4ce1c3688bad92d23c15afd729842054af19ad0  # v0.1.2
 )
 
 FetchContent_MakeAvailable(vk_radix_sort)
@@ -63,7 +63,10 @@ target_link_libraries(vkgs_core
 
 target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
 
+add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)
+add_shader(vkgs_core shader/projection.comp projection)
+add_shader(vkgs_core shader/rank.comp rank)
 add_shader(vkgs_core shader/splat.frag splat_frag)
 add_shader(vkgs_core shader/splat.vert splat_vert)
 

@@ -2,7 +2,6 @@
 #define VKGS_CORE_SORTER_H
 
 #include "volk.h"
-#include "vk_mem_alloc.h"
 
 #include "vk_radix_sort.h"
 
@@ -11,21 +10,15 @@ namespace core {
 
 class Sorter {
  public:
-  explicit Sorter(VkDevice device, VkPhysicalDevice physical_device, VmaAllocator allocator);
+  explicit Sorter(VkDevice device, VkPhysicalDevice physical_device);
   ~Sorter();
 
-  void Sort(VkCommandBuffer cb, VkBuffer buffer, size_t size);
+  VrdxSorterStorageRequirements GetStorageRequirements(size_t max_size) const;
+  void SortKeyValueIndirect(VkCommandBuffer cb, size_t max_size, VkBuffer size, VkBuffer key, VkBuffer value,
+                            VkBuffer storage) const;
 
  private:
-  VkDevice device_;
-  VkPhysicalDevice physical_device_;
-  VmaAllocator allocator_;
-
   VrdxSorter sorter_ = VK_NULL_HANDLE;
-
-  VkBuffer storage_ = VK_NULL_HANDLE;
-  VmaAllocation allocation_ = VK_NULL_HANDLE;
-  VkDeviceSize storage_size_ = 0;
 };
 
 }  // namespace core

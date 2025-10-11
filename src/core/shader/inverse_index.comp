@@ -1,0 +1,18 @@
+#version 460 core
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) readonly buffer VisiblePointCount { uint visible_point_count; };
+
+layout(std430, binding = 1) readonly buffer InstanceIndex { uint index[]; };
+
+layout(std430, binding = 2) writeonly buffer InverseMap {
+  int inverse_index[];  // (N), inverse map from id to sorted index
+};
+
+void main() {
+  uint id = gl_GlobalInvocationID.x;
+  if (id >= visible_point_count) return;
+
+  inverse_index[index[id]] = int(id);
+}

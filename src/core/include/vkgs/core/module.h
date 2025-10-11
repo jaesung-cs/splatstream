@@ -43,6 +43,15 @@ class VKGS_CORE_API Module {
   std::shared_ptr<PipelineLayout> parse_ply_pipeline_layout_;
   std::shared_ptr<ComputePipeline> parse_ply_pipeline_;
 
+  std::shared_ptr<PipelineLayout> rank_pipeline_layout_;
+  std::shared_ptr<ComputePipeline> rank_pipeline_;
+
+  std::shared_ptr<PipelineLayout> inverse_index_pipeline_layout_;
+  std::shared_ptr<ComputePipeline> inverse_index_pipeline_;
+
+  std::shared_ptr<PipelineLayout> projection_pipeline_layout_;
+  std::shared_ptr<ComputePipeline> projection_pipeline_;
+
   std::shared_ptr<PipelineLayout> splat_pipeline_layout_;
   std::shared_ptr<GraphicsPipeline> splat_pipeline_;
 };
