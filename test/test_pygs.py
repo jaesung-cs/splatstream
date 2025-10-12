@@ -6,4 +6,4 @@ if __name__ == "__main__":
     image = pygs.draw(splats).numpy()
 
     print(image.shape, image.dtype)
-    Image.fromarray(image, "RGBA").save("test.png")
+    Image.fromarray(image[::-1], "RGBA").save("test.png")
