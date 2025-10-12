@@ -19,9 +19,21 @@ GaussianSplats Module::Impl::load_from_ply(const std::string& path) {
   return gaussian_splats;
 }
 
-RenderedImage Module::Impl::draw(GaussianSplats splats) {
+RenderedImage Module::Impl::draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
+                                 uint32_t height) {
+  glm::mat4 view_mat;
+  glm::mat4 projection_mat;
+
+  for (int c = 0; c < 4; ++c) {
+    for (int r = 0; r < 4; ++r) {
+      view_mat[c][r] = view[c * 4 + r];
+      projection_mat[c][r] = projection[c * 4 + r];
+    }
+  }
+
   RenderedImage rendered_image;
-  rendered_image.impl()->SetRenderedImage(module_->draw(splats.impl()->GetGaussianSplats()));
+  rendered_image.impl()->SetRenderedImage(
+      module_->draw(splats.impl()->GetGaussianSplats(), view_mat, projection_mat, width, height));
   return rendered_image;
 }
 

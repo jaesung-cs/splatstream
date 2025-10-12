@@ -18,6 +18,9 @@ uint32_t Module::transfer_queue_index() const noexcept { return impl_->transfer_
 
 GaussianSplats Module::load_from_ply(const std::string& path) { return impl_->load_from_ply(path); }
 
-RenderedImage Module::draw(GaussianSplats splats) { return impl_->draw(splats); }
+RenderedImage Module::draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
+                           uint32_t height) {
+  return impl_->draw(splats, view, projection, width, height);
+}
 
 }  // namespace vkgs

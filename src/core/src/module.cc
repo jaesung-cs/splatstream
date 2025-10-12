@@ -330,30 +330,18 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
   return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity);
 }
 
-std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> splats) {
-  constexpr uint32_t width = 1024;
-  constexpr uint32_t height = 768;
-
+std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
+                                            const glm::mat4& projection, uint32_t width, uint32_t height) {
   auto N = splats->size();
 
   PushConstants push_constants;
   push_constants.model = glm::mat4(1.f);
   push_constants.point_count = N;
 
-  float aspect = static_cast<float>(width) / height;
-  glm::mat4 projection = glm::perspective(glm::radians(60.f), aspect, 0.01f, 100.f);
-  // gl to vulkan projection matrix
-  glm::mat4 conversion = glm::mat4(1.f);
-  conversion[1][1] = -1.f;
-  conversion[2][2] = 0.5f;
-  conversion[3][2] = 0.5f;
-  projection = conversion * projection;
-
-  glm::vec3 eye = glm::vec3(0.f, 0.f, -5.f);
   Camera camera_data;
   camera_data.projection = projection;
-  camera_data.view = glm::lookAt(eye, eye + glm::vec3(0.f, 0.f, 1.f), glm::vec3(0.f, 1.f, 0.f));
-  camera_data.camera_position = glm::vec4(eye, 1.f);
+  camera_data.view = view;
+  camera_data.camera_position = glm::inverse(view)[3];
   camera_data.screen_size = glm::uvec2(width, height);
 
   std::vector<uint32_t> index_data;

@@ -17,9 +17,5 @@ int main() {
   std::cout << "loaded gaussian splats" << std::endl;
   std::cout << "size: " << gaussian_splats.size() << std::endl;
 
-  auto rendered_image = module.draw(gaussian_splats);
-  std::cout << "rendered image" << std::endl;
-  std::cout << "size: " << rendered_image.data().size() << std::endl;
-
   return 0;
 }

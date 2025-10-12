@@ -5,6 +5,8 @@
 #include <memory>
 #include <string>
 
+#include <glm/glm.hpp>
+
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
@@ -33,7 +35,9 @@ class VKGS_CORE_API Module {
   uint32_t transfer_queue_index() const noexcept;
 
   std::shared_ptr<GaussianSplats> load_from_ply(const std::string& path);
-  std::shared_ptr<RenderedImage> draw(std::shared_ptr<GaussianSplats> splats);
+
+  std::shared_ptr<RenderedImage> draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
+                                      const glm::mat4& projection, uint32_t width, uint32_t height);
 
  private:
   std::shared_ptr<Device> device_;

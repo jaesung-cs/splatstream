@@ -25,7 +25,8 @@ class Module::Impl {
 
   GaussianSplats load_from_ply(const std::string& path);
 
-  RenderedImage draw(GaussianSplats splats);
+  RenderedImage draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
+                     uint32_t height);
 
  private:
   std::shared_ptr<core::Module> module_;
