@@ -26,7 +26,7 @@ layout(std430, binding = 3) writeonly buffer GaussianOpacity {
 };
 
 layout(std430, binding = 4) writeonly buffer GaussianSh {
-  float16_t gaussian_sh[];  // (N, 3, 4, 4), 16 values packed with 4 vec4.
+  f16vec4 gaussian_sh[];  // (N, 3, 4, 4), 16 values packed with 4 vec4.
 };
 
 float sigmoid(float x) { return 1.f / (1.f + exp(-x)); }
@@ -91,8 +91,13 @@ void main() {
     gaussian_position[3 * id + 2] = ply[base * id + local_offsets[2]];
 
 #pragma unroll
-    for (int i = 0; i < 48; ++i) {
-      gaussian_sh[48 * id + i] = float16_t(ply[base * id + local_offsets[10 + i]]);
+    for (int i = 0; i < 12; ++i) {
+      gaussian_sh[12 * id + i] = f16vec4(vec4(
+        ply[base * id + local_offsets[10 + 4 * i + 0]],
+        ply[base * id + local_offsets[10 + 4 * i + 1]],
+        ply[base * id + local_offsets[10 + 4 * i + 2]],
+        ply[base * id + local_offsets[10 + 4 * i + 3]]
+      ));
     }
 
     gaussian_opacity[id] = sigmoid(ply[base * id + local_offsets[58]]);

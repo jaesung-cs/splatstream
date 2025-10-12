@@ -8,9 +8,9 @@ import pygs
 from scene.dataset_readers import readColmapSceneInfo
 
 if __name__ == "__main__":
-    splats = pygs.load_from_ply("models/train_30000.ply")
+    splats = pygs.load_from_ply("models/truck_30000.ply")
 
-    scene = readColmapSceneInfo("models/tandt_db/tandt/train")
+    scene = readColmapSceneInfo("models/tandt_db/tandt/truck")
 
     os.makedirs("result", exist_ok=True)
     for i, camera in enumerate(scene.cameras):
@@ -23,13 +23,15 @@ if __name__ == "__main__":
         R = camera.R
         T = camera.T
 
+        # Resize
+        width = width // 2
+        height = height // 2
+
         # view
-        C2W = np.zeros((4, 4))
-        C2W[:3, :3] = R.transpose()
-        C2W[:3, 3] = T
-        C2W[3, 3] = 1
-        # W2C = np.linalg.inv(C2W)
-        W2C = C2W
+        W2C = np.zeros((4, 4))
+        W2C[:3, :3] = R.transpose()
+        W2C[:3, 3] = T
+        W2C[3, 3] = 1
 
         # intrinsic
         K = np.zeros((3, 3))

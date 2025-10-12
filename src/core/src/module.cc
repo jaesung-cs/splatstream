@@ -366,7 +366,8 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
   auto key = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
   auto index = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
   auto sort_storage = Buffer::Create(device_, storage_requirements.usage, storage_requirements.size);
-  auto inverse_index = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
+  auto inverse_index = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                      N * sizeof(uint32_t));
   auto camera =
       Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Camera));
   auto draw_indirect = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
@@ -399,6 +400,7 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
     vkCmdCopyBuffer(cb, *index_stage, *index_buffer, 1, &region);
 
     vkCmdFillBuffer(cb, *visible_point_count, 0, sizeof(uint32_t), 0);
+    vkCmdFillBuffer(cb, *inverse_index, 0, N * sizeof(uint32_t), -1);
 
     VkMemoryBarrier2 memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
     memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
@@ -541,8 +543,8 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
     submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(
-        fence, {command, sem, camera, visible_point_count, key, index, sort_storage, inverse_index, index_buffer});
+    task_monitor_->Add(fence, {command, sem, camera_stage, index_stage, camera, visible_point_count, key, index,
+                               sort_storage, inverse_index, index_buffer, draw_indirect, instances});
   }
 
   auto image = Image::Create(device_, VK_FORMAT_R8G8B8A8_UNORM, width, height,
@@ -651,7 +653,8 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
     wait_semaphore_info.semaphore = sem->semaphore();
     wait_semaphore_info.value = timeline + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
 
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
     command_buffer_info.commandBuffer = cb;
@@ -670,7 +673,7 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
     submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(device_->graphics_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, image, instances, index_buffer, sem});
+    task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, sem});
   }
 
   auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
