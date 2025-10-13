@@ -5,6 +5,7 @@ function(add_shader)
 
   get_filename_component(SHADER ${SHADER} ABSOLUTE)
 
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/generated)
   set(COMMAND
     ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE}
     --target-env spirv1.5
