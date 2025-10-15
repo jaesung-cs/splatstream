@@ -113,10 +113,8 @@ void main() {
   float D = sqrt((a - b) * (a - b) + 4.f * c * c);
   float s0 = sqrt(0.5f * (a + b + D));
   float s1 = sqrt(0.5f * (a + b - D));
-  // decompose to R S^2 R^T
-  float sin2t = 2.f * c / D;
-  float cos2t = (a - b) / D;
-  float theta = atan(sin2t, cos2t) / 2.f;
+  // decompose to R S^2 R^T, D=0 for uniform scale S and indeterminate R.
+  float theta = D != 0.f ? atan(2. * c, a - b) / 2.f : 0.f;
   float cos_theta = cos(theta);
   float sin_theta = sin(theta);
   // R*S
