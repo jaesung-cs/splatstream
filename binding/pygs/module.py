@@ -21,12 +21,9 @@ def draw(
     assert view.shape == (4, 4)
     assert intrinsic.shape == (3, 3)
 
-    view = view.astype(np.float32)
-    intrinsic = intrinsic.astype(np.float32)
-
     view = (
         np.array(
-            [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]], dtype=np.float32
+            [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]], dtype=np.float64
         )
         @ view
     )
@@ -35,7 +32,7 @@ def draw(
     # (0, 0), (W, H) -> (-1, 1), (1, -1)
     intrinsic = (
         np.array(
-            [[2.0 / width, 0, -1], [0, -2.0 / height, 1], [0, 0, 1]], dtype=np.float32
+            [[2.0 / width, 0, -1], [0, -2.0 / height, 1], [0, 0, 1]], dtype=np.float64
         )
         @ intrinsic
     )
