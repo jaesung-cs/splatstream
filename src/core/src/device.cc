@@ -162,39 +162,42 @@ Device::Device() {
   queue_create_infos[2].pQueuePriorities = &queue_priority;
 
   std::vector<const char*> device_extensions = {
-      VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-      VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 #ifdef __APPLE__
       "VK_KHR_portability_subset",
 #endif
   };
 
+  // VkPhysicalDeviceVulkan13Features
   VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
   dynamic_rendering_features.dynamicRendering = VK_TRUE;
 
-  VkPhysicalDevice16BitStorageFeatures k16bit_storage_features = {
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES};
-  k16bit_storage_features.pNext = &dynamic_rendering_features;
-  k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
-
-  VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features = {
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES};
-  timeline_semaphore_features.pNext = &k16bit_storage_features;
-  timeline_semaphore_features.timelineSemaphore = VK_TRUE;
-
   VkPhysicalDeviceSynchronization2Features synchronization_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
-  synchronization_features.pNext = &timeline_semaphore_features;
+  synchronization_features.pNext = &dynamic_rendering_features;
   synchronization_features.synchronization2 = VK_TRUE;
 
+  // VkPhysicalDeviceVulkan12Features
+  VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES};
+  timeline_semaphore_features.pNext = &synchronization_features;
+  timeline_semaphore_features.timelineSemaphore = VK_TRUE;
+
+  // VkPhysicalDeviceVulkan11Features
+  VkPhysicalDevice16BitStorageFeatures k16bit_storage_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES};
+  k16bit_storage_features.pNext = &timeline_semaphore_features;
+  k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
+
   VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-  device_info.pNext = &synchronization_features;
+  device_info.pNext = &k16bit_storage_features;
   device_info.queueCreateInfoCount = queue_create_infos.size();
   device_info.pQueueCreateInfos = queue_create_infos.data();
   device_info.enabledExtensionCount = device_extensions.size();
   device_info.ppEnabledExtensionNames = device_extensions.data();
   vkCreateDevice(physical_device_, &device_info, NULL, &device_);
+
+  volkLoadDevice(device_);
 
   VkQueue graphics_queue;
   VkQueue compute_queue;
