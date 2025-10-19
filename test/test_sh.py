@@ -89,5 +89,5 @@ if __name__ == "__main__":
         image.save(f"test_sh/{i+1:05d}.png")
 
     gif_path = "test_sh/result.gif"
-    imgs[0].save(gif_path, append_images=imgs[1:], duration=20, loop=0)
+    imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], duration=20, loop=0)
     print(f"saved animation to {gif_path}")
