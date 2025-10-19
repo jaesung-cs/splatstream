@@ -95,7 +95,7 @@ void main() {
   cov2d[0][0] += 1.2f / screen_size.x / screen_size.x;
   cov2d[1][1] += 1.2f / screen_size.y / screen_size.y;
   float det_blur = cov2d[0][0] * cov2d[1][1] - cov2d[1][0] * cov2d[0][1];
-  float compensation = sqrt(det_orig / det_blur);
+  float compensation = sqrt(max(det_orig / det_blur, 0.f));
 
   // eigendecomposition
   // [a c] = [x y]
