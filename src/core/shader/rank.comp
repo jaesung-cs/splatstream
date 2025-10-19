@@ -32,12 +32,13 @@ void main() {
   vec4 pos = vec4(gaussian_position[id * 3 + 0], gaussian_position[id * 3 + 1], gaussian_position[id * 3 + 2], 1.f);
   pos = projection * view * model * pos;
   pos = pos / pos.w;
-  float depth = pos.z;
 
   // valid only when center is inside NDC clip space.
-  if (abs(pos.x) <= 1.f && abs(pos.y) <= 1.f && pos.z >= 0.f && pos.z <= 1.f) {
+  // UnscentedTransformParameters.in_image_margin_factor = 0.1, i.e. -0.1 <= x <= 1.1
+  // In Vulkan NDC [-1, 1], -1.2 <= x <= 1.2
+  if (abs(pos.x) <= 1.2f && abs(pos.y) <= 1.2f && pos.z >= 0.f && pos.z <= 1.f) {
     uint instance_index = atomicAdd(visible_point_count, 1);
-    key[instance_index] = floatBitsToUint(1.f - depth);
+    key[instance_index] = floatBitsToUint(pos.z);
     index[instance_index] = id;
   }
 }

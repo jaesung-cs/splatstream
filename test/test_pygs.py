@@ -8,9 +8,9 @@ import pygs
 from scene.dataset_readers import readColmapSceneInfo
 
 if __name__ == "__main__":
-    splats = pygs.load_from_ply("models/truck_30000.ply")
+    splats = pygs.load_from_ply("models/train_30000.ply")
 
-    scene = readColmapSceneInfo("models/tandt_db/tandt/truck")
+    scene = readColmapSceneInfo("models/tandt_db/tandt/train")
 
     os.makedirs("result", exist_ok=True)
     for i, camera in enumerate(scene.cameras):
@@ -41,8 +41,10 @@ if __name__ == "__main__":
         K[1, 2] = height / 2
         K[2, 2] = 1
 
-        image = pygs.draw(splats, W2C, K, width, height, far=1e6).numpy()
+        image = pygs.draw(splats, W2C, K, width, height, near=1.0, far=1e3).numpy()
 
         print(camera.image_path)
-        image = Image.fromarray(image, "RGBA")
-        image.save(f"result/{i+1:05d}.png")
+        color = Image.fromarray(image[..., :3])
+        alpha = Image.fromarray(image[..., 3])
+        color.save(f"result/{i+1:05d}.png")
+        alpha.save(f"result/{i+1:05d}_alpha.png")

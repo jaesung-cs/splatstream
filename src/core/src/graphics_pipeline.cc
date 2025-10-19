@@ -60,10 +60,10 @@ GraphicsPipeline::GraphicsPipeline(VkDevice device, VkPipelineLayout pipeline_la
 
   VkPipelineColorBlendAttachmentState color_attachment = {};
   color_attachment.blendEnable = VK_TRUE;
-  color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-  color_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+  color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+  color_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
   color_attachment.colorBlendOp = VK_BLEND_OP_ADD;
-  color_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+  color_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
   color_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   color_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
   color_attachment.colorWriteMask =

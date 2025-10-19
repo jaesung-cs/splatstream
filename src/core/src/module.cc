@@ -3,6 +3,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <sstream>
+#include <algorithm>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -127,8 +128,8 @@ Module::Module() {
   splat_pipeline_layout_ =
       PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
 
-  splat_pipeline_ =
-      GraphicsPipeline::Create(*device_, *splat_pipeline_layout_, splat_vert, splat_frag, VK_FORMAT_R8G8B8A8_UNORM);
+  splat_pipeline_ = GraphicsPipeline::Create(*device_, *splat_pipeline_layout_, splat_vert, splat_frag,
+                                             VK_FORMAT_R32G32B32A32_SFLOAT);
 }
 
 Module::~Module() = default;
@@ -547,7 +548,7 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
                                sort_storage, inverse_index, index_buffer, draw_indirect, instances});
   }
 
-  auto image = Image::Create(device_, VK_FORMAT_R8G8B8A8_UNORM, width, height,
+  auto image = Image::Create(device_, VK_FORMAT_R32G32B32A32_SFLOAT, width, height,
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
   // Graphics queue
@@ -676,8 +677,9 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
     task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, sem});
   }
 
-  auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
-  std::vector<uint8_t> image_buffer(width * height * 4);
+  auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4 * sizeof(float), true);
+  std::vector<float> image_buffer(width * height * 4);
+  std::vector<uint8_t> image_buffer_u8;
   {
     auto fence = device_->AllocateFence();
     auto command = device_->transfer_queue()->AllocateCommandBuffer();
@@ -736,12 +738,16 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
 
     // TODO: wait for transfer
     std::memcpy(image_buffer.data(), buffer->data(), buffer->size());
+
+    for (int i = 0; i < width * height * 4; ++i) {
+      image_buffer_u8.push_back(static_cast<uint8_t>(std::clamp(image_buffer[i], 0.f, 1.f) * 255.f));
+    }
   }
 
   sem->Increment();
   sem->Increment();
 
-  return std::make_shared<RenderedImage>(width, height, std::move(image_buffer));
+  return std::make_shared<RenderedImage>(width, height, std::move(image_buffer_u8));
 }
 
 }  // namespace core

@@ -18,7 +18,7 @@ void main() {
   int vert_index = gl_VertexIndex % 4;
   vec2 position = vec2(vert_index / 2, vert_index % 2) * 2.f - 1.f;
 
-  float confidence_radius = 3.f;
+  float confidence_radius = 3.33f;
 
   gl_Position = vec4(ndc_position + vec3(rot_scale * position * confidence_radius, 0.f), 1.f);
   out_color = color;
