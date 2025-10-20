@@ -30,20 +30,12 @@
 #include "generated/splat_vert.h"
 #include "generated/splat_frag.h"
 #include "sorter.h"
+#include "compute_storage.h"
+#include "graphics_storage.h"
+#include "transfer_storage.h"
+#include "struct.h"
 
 namespace {
-
-struct PushConstants {
-  alignas(16) glm::mat4 model;
-  alignas(16) uint32_t point_count;
-};
-
-struct Camera {
-  alignas(16) glm::mat4 projection;
-  alignas(16) glm::mat4 view;
-  alignas(16) glm::vec4 camera_position;
-  alignas(16) glm::uvec2 screen_size;
-};
 
 auto WorkgroupSize(size_t count, uint32_t local_size) { return (count + local_size - 1) / local_size; }
 
@@ -71,6 +63,12 @@ Renderer::Renderer() {
   device_ = std::make_shared<gpu::Device>();
   task_monitor_ = std::make_shared<gpu::TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());
+
+  for (int i = 0; i < 2; ++i) {
+    compute_storages_[i] = std::make_shared<ComputeStorage>(device_);
+    graphics_storages_[i] = std::make_shared<GraphicsStorage>(device_);
+    transfer_storages_[i] = std::make_shared<TransferStorage>(device_);
+  }
 
   parse_ply_pipeline_layout_ =
       gpu::PipelineLayout::Create(*device_,
@@ -358,28 +356,27 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
   auto sem = device_->AllocateSemaphore();
   auto timeline = sem->value();
 
-  auto storage_requirements = sorter_->GetStorageRequirements(N);
+  // Update storages
+  auto compute_storage = compute_storages_[frame_index_ % 2];
+  compute_storage->Update(N, sorter_->GetStorageRequirements(N));
 
-  auto visible_point_count = gpu::Buffer::Create(
-      device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-      sizeof(uint32_t));
-  auto key = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
-  auto index = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
-  auto sort_storage = gpu::Buffer::Create(device_, storage_requirements.usage, storage_requirements.size);
-  auto inverse_index = gpu::Buffer::Create(
-      device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
-  auto camera = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                    sizeof(Camera));
-  auto draw_indirect =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-                          sizeof(VkDrawIndexedIndirectCommand));
-  auto instances = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * 12 * sizeof(float));
-  auto index_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                          index_data.size() * sizeof(uint32_t));
+  auto graphics_storage = graphics_storages_[frame_index_ % 2];
+  graphics_storage->Update(width, height);
 
-  auto camera_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera), true);
-  auto index_stage =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+  auto transfer_storage = transfer_storages_[frame_index_ % 2];
+  transfer_storage->Update(width, height);
+
+  auto visible_point_count = compute_storage->visible_point_count();
+  auto key = compute_storage->key();
+  auto index = compute_storage->index();
+  auto sort_storage = compute_storage->sort_storage();
+  auto inverse_index = compute_storage->inverse_index();
+  auto camera = compute_storage->camera();
+  auto draw_indirect = compute_storage->draw_indirect();
+  auto instances = compute_storage->instances();
+  auto index_buffer = compute_storage->index_buffer();
+  auto camera_stage = compute_storage->camera_stage();
+  auto index_stage = compute_storage->index_stage();
 
   std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
   std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
@@ -548,8 +545,7 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
                                sort_storage, inverse_index, index_buffer, draw_indirect, instances});
   }
 
-  auto image = gpu::Image::Create(device_, VK_FORMAT_R32G32B32A32_SFLOAT, width, height,
-                                  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+  auto image = graphics_storage->image();
 
   // Graphics queue
   {
@@ -677,8 +673,7 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, sem});
   }
 
-  auto buffer =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4 * sizeof(float), true);
+  auto buffer = transfer_storage->buffer();
   std::vector<float> image_buffer(width * height * 4);
   std::vector<uint8_t> image_buffer_u8;
   {
@@ -747,6 +742,7 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
 
   sem->Increment();
   sem->Increment();
+  frame_index_++;
 
   return std::make_shared<RenderedImage>(width, height, std::move(image_buffer_u8));
 }

@@ -1,6 +1,7 @@
 #ifndef VKGS_CORE_MODULE_H
 #define VKGS_CORE_MODULE_H
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -30,6 +31,9 @@ namespace core {
 class GaussianSplats;
 class RenderedImage;
 class Sorter;
+class ComputeStorage;
+class GraphicsStorage;
+class TransferStorage;
 
 class VKGS_CORE_API Renderer {
  public:
@@ -65,6 +69,11 @@ class VKGS_CORE_API Renderer {
 
   std::shared_ptr<gpu::PipelineLayout> splat_pipeline_layout_;
   std::shared_ptr<gpu::GraphicsPipeline> splat_pipeline_;
+
+  std::array<std::shared_ptr<ComputeStorage>, 2> compute_storages_;
+  std::array<std::shared_ptr<GraphicsStorage>, 2> graphics_storages_;
+  std::array<std::shared_ptr<TransferStorage>, 2> transfer_storages_;
+  uint64_t frame_index_ = 0;
 };
 
 }  // namespace core
