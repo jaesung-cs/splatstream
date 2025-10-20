@@ -44,7 +44,7 @@ target_link_libraries(vkgs_gpu
     Vulkan::Vulkan
 )
 
-target_compile_definitions(vkgs_gpu PRIVATE VKGS_GPU_EXPORTS)
+target_compile_definitions(vkgs_gpu PUBLIC VKGS_GPU_STATIC)
 
 set_target_properties(vkgs_gpu PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
