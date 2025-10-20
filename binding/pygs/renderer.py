@@ -2,11 +2,11 @@ import numpy as np
 
 from . import _core
 
-singleton_module = _core.Module()
+singleton_renderer = _core.Renderer()
 
 
 def load_from_ply(path: str) -> _core.GaussianSplats:
-    return singleton_module.load_from_ply(path)
+    return singleton_renderer.load_from_ply(path)
 
 
 def draw(
@@ -47,4 +47,4 @@ def draw(
     projection[2, 3] = near * far / (near - far)
     projection[3, 2] = -1
 
-    return singleton_module.draw(splats, view, projection, width, height)
+    return singleton_renderer.draw(splats, view, projection, width, height)

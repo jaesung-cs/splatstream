@@ -229,7 +229,7 @@ Device::Device() {
 }
 
 Device::~Device() {
-  std::cout << "Module successfully destroyed!" << std::endl;
+  std::cout << "Device successfully destroyed!" << std::endl;
 
   WaitIdle();
 

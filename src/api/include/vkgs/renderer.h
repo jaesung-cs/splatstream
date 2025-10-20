@@ -1,5 +1,5 @@
-#ifndef VKGS_MODULE_H
-#define VKGS_MODULE_H
+#ifndef VKGS_RENDERER_H
+#define VKGS_RENDERER_H
 
 #include <memory>
 #include <string>
@@ -11,10 +11,10 @@ namespace vkgs {
 class GaussianSplats;
 class RenderedImage;
 
-class VKGS_API Module {
+class VKGS_API Renderer {
  public:
-  Module();
-  ~Module();
+  Renderer();
+  ~Renderer();
 
   const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;
@@ -39,4 +39,4 @@ class VKGS_API Module {
 
 }  // namespace vkgs
 
-#endif  // VKGS_MODULE_H
+#endif  // VKGS_RENDERER_H

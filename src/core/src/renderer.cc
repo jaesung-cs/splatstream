@@ -1,4 +1,4 @@
-#include "vkgs/core/module.h"
+#include "vkgs/core/renderer.h"
 
 #include <fstream>
 #include <unordered_map>
@@ -67,7 +67,7 @@ void cmdPushDescriptorSet(VkCommandBuffer cb, VkPipelineBindPoint bind_point, Vk
 namespace vkgs {
 namespace core {
 
-Module::Module() {
+Renderer::Renderer() {
   device_ = std::make_shared<gpu::Device>();
   task_monitor_ = std::make_shared<gpu::TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());
@@ -131,14 +131,14 @@ Module::Module() {
                                                   VK_FORMAT_R32G32B32A32_SFLOAT);
 }
 
-Module::~Module() = default;
+Renderer::~Renderer() = default;
 
-const std::string& Module::device_name() const noexcept { return device_->device_name(); }
-uint32_t Module::graphics_queue_index() const noexcept { return device_->graphics_queue_index(); }
-uint32_t Module::compute_queue_index() const noexcept { return device_->compute_queue_index(); }
-uint32_t Module::transfer_queue_index() const noexcept { return device_->transfer_queue_index(); }
+const std::string& Renderer::device_name() const noexcept { return device_->device_name(); }
+uint32_t Renderer::graphics_queue_index() const noexcept { return device_->graphics_queue_index(); }
+uint32_t Renderer::compute_queue_index() const noexcept { return device_->compute_queue_index(); }
+uint32_t Renderer::transfer_queue_index() const noexcept { return device_->transfer_queue_index(); }
 
-std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
+std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path) {
   std::ifstream in(path, std::ios::binary);
 
   // parse header
@@ -330,8 +330,8 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
   return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity);
 }
 
-std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
-                                            const glm::mat4& projection, uint32_t width, uint32_t height) {
+std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
+                                              const glm::mat4& projection, uint32_t width, uint32_t height) {
   auto N = splats->size();
 
   PushConstants push_constants;

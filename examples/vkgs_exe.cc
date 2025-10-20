@@ -1,15 +1,15 @@
 #include <iostream>
 
-#include "vkgs/module.h"
+#include "vkgs/renderer.h"
 
 int main() {
   std::cout << "Hello vkgs" << std::endl;
 
-  vkgs::Module module;
-  std::cout << "device name: " << module.device_name() << std::endl;
-  std::cout << "graphics queue index: " << module.graphics_queue_index() << std::endl;
-  std::cout << "compute  queue index: " << module.compute_queue_index() << std::endl;
-  std::cout << "transfer queue index: " << module.transfer_queue_index() << std::endl;
+  vkgs::Renderer renderer;
+  std::cout << "device name: " << renderer.device_name() << std::endl;
+  std::cout << "graphics queue index: " << renderer.graphics_queue_index() << std::endl;
+  std::cout << "compute  queue index: " << renderer.compute_queue_index() << std::endl;
+  std::cout << "transfer queue index: " << renderer.transfer_queue_index() << std::endl;
 
   return 0;
 }

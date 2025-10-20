@@ -31,10 +31,10 @@ class GaussianSplats;
 class RenderedImage;
 class Sorter;
 
-class VKGS_CORE_API Module {
+class VKGS_CORE_API Renderer {
  public:
-  Module();
-  ~Module();
+  Renderer();
+  ~Renderer();
 
   const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;

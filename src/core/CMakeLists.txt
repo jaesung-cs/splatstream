@@ -12,8 +12,8 @@ FetchContent_MakeAvailable(vk_radix_sort)
 
 add_library(vkgs_core SHARED
   src/gaussian_splats.cc
-  src/module.cc
   src/rendered_image.cc
+  src/renderer.cc
   src/sorter.cc
 )
 add_library(vkgs::core ALIAS vkgs_core)
