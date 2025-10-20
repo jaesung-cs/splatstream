@@ -9,28 +9,27 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/image.h"
+#include "vkgs/gpu/device.h"
+#include "vkgs/gpu/semaphore.h"
+#include "vkgs/gpu/fence.h"
+#include "vkgs/gpu/queue.h"
+#include "vkgs/gpu/command.h"
+#include "vkgs/gpu/task_monitor.h"
+#include "vkgs/gpu/pipeline_layout.h"
+#include "vkgs/gpu/compute_pipeline.h"
+#include "vkgs/gpu/graphics_pipeline.h"
+
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendered_image.h"
-
 #include "generated/parse_ply.h"
 #include "generated/rank.h"
 #include "generated/inverse_index.h"
 #include "generated/projection.h"
 #include "generated/splat_vert.h"
 #include "generated/splat_frag.h"
-#include "buffer.h"
-#include "image.h"
-#include "device.h"
 #include "sorter.h"
-#include "buffer.h"
-#include "semaphore.h"
-#include "fence.h"
-#include "queue.h"
-#include "command.h"
-#include "task_monitor.h"
-#include "pipeline_layout.h"
-#include "compute_pipeline.h"
-#include "graphics_pipeline.h"
 
 namespace {
 
@@ -69,67 +68,67 @@ namespace vkgs {
 namespace core {
 
 Module::Module() {
-  device_ = std::make_shared<Device>();
-  task_monitor_ = std::make_shared<TaskMonitor>();
+  device_ = std::make_shared<gpu::Device>();
+  task_monitor_ = std::make_shared<gpu::TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());
 
   parse_ply_pipeline_layout_ =
-      PipelineLayout::Create(*device_,
-                             {
-                                 {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                             },
-                             {{VK_SHADER_STAGE_COMPUTE_BIT, 0, 4}});
+      gpu::PipelineLayout::Create(*device_,
+                                  {
+                                      {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                  },
+                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, 4}});
 
-  parse_ply_pipeline_ = ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
+  parse_ply_pipeline_ = gpu::ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
 
   rank_pipeline_layout_ =
-      PipelineLayout::Create(*device_,
-                             {
-                                 {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                             },
-                             {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)}});
+      gpu::PipelineLayout::Create(*device_,
+                                  {
+                                      {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                  },
+                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)}});
 
-  rank_pipeline_ = ComputePipeline::Create(*device_, *rank_pipeline_layout_, rank);
+  rank_pipeline_ = gpu::ComputePipeline::Create(*device_, *rank_pipeline_layout_, rank);
 
   inverse_index_pipeline_layout_ =
-      PipelineLayout::Create(*device_, {
-                                           {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                           {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                           {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                       });
+      gpu::PipelineLayout::Create(*device_, {
+                                                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                                {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                                {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                            });
 
-  inverse_index_pipeline_ = ComputePipeline::Create(*device_, *inverse_index_pipeline_layout_, inverse_index);
+  inverse_index_pipeline_ = gpu::ComputePipeline::Create(*device_, *inverse_index_pipeline_layout_, inverse_index);
 
   projection_pipeline_layout_ =
-      PipelineLayout::Create(*device_,
-                             {
-                                 {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                 {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                             },
-                             {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)}});
+      gpu::PipelineLayout::Create(*device_,
+                                  {
+                                      {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                      {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+                                  },
+                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)}});
 
-  projection_pipeline_ = ComputePipeline::Create(*device_, *projection_pipeline_layout_, projection);
+  projection_pipeline_ = gpu::ComputePipeline::Create(*device_, *projection_pipeline_layout_, projection);
 
   splat_pipeline_layout_ =
-      PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
+      gpu::PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
 
-  splat_pipeline_ = GraphicsPipeline::Create(*device_, *splat_pipeline_layout_, splat_vert, splat_frag,
-                                             VK_FORMAT_R32G32B32A32_SFLOAT);
+  splat_pipeline_ = gpu::GraphicsPipeline::Create(*device_, *splat_pipeline_layout_, splat_vert, splat_frag,
+                                                  VK_FORMAT_R32G32B32A32_SFLOAT);
 }
 
 Module::~Module() = default;
@@ -199,15 +198,15 @@ std::shared_ptr<GaussianSplats> Module::load_from_ply(const std::string& path) {
 
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
-  auto ply_stage =
-      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size, true);
+  auto ply_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                       buffer_size, true);
   auto ply_buffer =
-      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
 
-  auto position = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
-  auto cov3d = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
-  auto sh = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
-  auto opacity = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
+  auto position = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
+  auto cov3d = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
+  auto sh = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
+  auto opacity = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
   std::memcpy(ply_stage->data(), ply_offsets.data(), ply_offsets.size() * sizeof(uint32_t));
   std::memcpy(ply_stage->data<char>() + ply_offsets.size() * sizeof(uint32_t), buffer.data(), buffer.size());
@@ -361,25 +360,26 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
 
   auto storage_requirements = sorter_->GetStorageRequirements(N);
 
-  auto visible_point_count = Buffer::Create(
+  auto visible_point_count = gpu::Buffer::Create(
       device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
       sizeof(uint32_t));
-  auto key = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
-  auto index = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
-  auto sort_storage = Buffer::Create(device_, storage_requirements.usage, storage_requirements.size);
-  auto inverse_index = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                      N * sizeof(uint32_t));
-  auto camera =
-      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Camera));
-  auto draw_indirect = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-                                      sizeof(VkDrawIndexedIndirectCommand));
-  auto instances = Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * 12 * sizeof(float));
-  auto index_buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                     index_data.size() * sizeof(uint32_t));
+  auto key = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
+  auto index = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
+  auto sort_storage = gpu::Buffer::Create(device_, storage_requirements.usage, storage_requirements.size);
+  auto inverse_index = gpu::Buffer::Create(
+      device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sizeof(uint32_t));
+  auto camera = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                    sizeof(Camera));
+  auto draw_indirect =
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+                          sizeof(VkDrawIndexedIndirectCommand));
+  auto instances = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * 12 * sizeof(float));
+  auto index_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                          index_data.size() * sizeof(uint32_t));
 
-  auto camera_stage = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera), true);
+  auto camera_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera), true);
   auto index_stage =
-      Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
 
   std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
   std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
@@ -548,8 +548,8 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
                                sort_storage, inverse_index, index_buffer, draw_indirect, instances});
   }
 
-  auto image = Image::Create(device_, VK_FORMAT_R32G32B32A32_SFLOAT, width, height,
-                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+  auto image = gpu::Image::Create(device_, VK_FORMAT_R32G32B32A32_SFLOAT, width, height,
+                                  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
   // Graphics queue
   {
@@ -677,7 +677,8 @@ std::shared_ptr<RenderedImage> Module::draw(std::shared_ptr<GaussianSplats> spla
     task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, sem});
   }
 
-  auto buffer = Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4 * sizeof(float), true);
+  auto buffer =
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4 * sizeof(float), true);
   std::vector<float> image_buffer(width * height * 4);
   std::vector<uint8_t> image_buffer_u8;
   {

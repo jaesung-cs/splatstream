@@ -3,19 +3,21 @@
 
 #include <memory>
 
-#include "volk.h"
-
-#include "vkgs/core/export_api.h"
+#include "export_api.h"
 
 namespace vkgs {
-namespace core {
+namespace gpu {
 
 class Buffer;
 
+}
+
+namespace core {
+
 class VKGS_CORE_API GaussianSplats {
  public:
-  GaussianSplats(size_t size, std::shared_ptr<Buffer> position, std::shared_ptr<Buffer> cov3d,
-                 std::shared_ptr<Buffer> sh, std::shared_ptr<Buffer> opacity);
+  GaussianSplats(size_t size, std::shared_ptr<gpu::Buffer> position, std::shared_ptr<gpu::Buffer> cov3d,
+                 std::shared_ptr<gpu::Buffer> sh, std::shared_ptr<gpu::Buffer> opacity);
   ~GaussianSplats();
 
   size_t size() const noexcept { return size_; }
@@ -26,10 +28,10 @@ class VKGS_CORE_API GaussianSplats {
 
  private:
   size_t size_;
-  std::shared_ptr<Buffer> position_;
-  std::shared_ptr<Buffer> cov3d_;
-  std::shared_ptr<Buffer> sh_;
-  std::shared_ptr<Buffer> opacity_;
+  std::shared_ptr<gpu::Buffer> position_;
+  std::shared_ptr<gpu::Buffer> cov3d_;
+  std::shared_ptr<gpu::Buffer> sh_;
+  std::shared_ptr<gpu::Buffer> opacity_;
 };
 
 }  // namespace core

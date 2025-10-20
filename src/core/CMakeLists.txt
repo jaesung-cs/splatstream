@@ -16,27 +16,10 @@ target_compile_definitions(vk_radix_sort PUBLIC VRDX_USE_VOLK)
 target_include_directories(vk_radix_sort PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
 
 add_library(vkgs_core SHARED
-  src/buffer.cc
-  src/command_pool.cc
-  src/command.cc
-  src/compute_pipeline.cc
-  src/device.cc
-  src/fence_pool.cc
-  src/fence.cc
   src/gaussian_splats.cc
-  src/graphics_pipeline.cc
-  src/image.cc
   src/module.cc
-  src/pipeline_layout.cc
-  src/queue.cc
   src/rendered_image.cc
-  src/semaphore_pool.cc
-  src/semaphore.cc
   src/sorter.cc
-  src/task_monitor.cc
-  src/task.cc
-  src/volk_impl.cc
-  src/vma_impl.cc
 )
 add_library(vkgs::core ALIAS vkgs_core)
 
@@ -48,15 +31,13 @@ target_compile_definitions(vkgs_core
 target_include_directories(vkgs_core
   PUBLIC
     include/
-    ${Vulkan_INCLUDE_DIRS}/Volk
-    ${Vulkan_INCLUDE_DIRS}/vma
   PRIVATE
     src/
 )
 
 target_link_libraries(vkgs_core
   PUBLIC
-    Vulkan::Vulkan
+    vkgs::gpu
   PRIVATE
     vk_radix_sort
 )

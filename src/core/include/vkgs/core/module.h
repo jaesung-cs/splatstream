@@ -10,19 +10,26 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
-#include "vkgs/core/export_api.h"
+#include "export_api.h"
 
 namespace vkgs {
-namespace core {
+namespace gpu {
 
 class Device;
 class TaskMonitor;
-class Sorter;
 class GaussianSplats;
 class PipelineLayout;
 class ComputePipeline;
 class GraphicsPipeline;
 class RenderedImage;
+
+}  // namespace gpu
+
+namespace core {
+
+class GaussianSplats;
+class RenderedImage;
+class Sorter;
 
 class VKGS_CORE_API Module {
  public:
@@ -40,24 +47,24 @@ class VKGS_CORE_API Module {
                                       const glm::mat4& projection, uint32_t width, uint32_t height);
 
  private:
-  std::shared_ptr<Device> device_;
-  std::shared_ptr<TaskMonitor> task_monitor_;
+  std::shared_ptr<gpu::Device> device_;
+  std::shared_ptr<gpu::TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
 
-  std::shared_ptr<PipelineLayout> parse_ply_pipeline_layout_;
-  std::shared_ptr<ComputePipeline> parse_ply_pipeline_;
+  std::shared_ptr<gpu::PipelineLayout> parse_ply_pipeline_layout_;
+  std::shared_ptr<gpu::ComputePipeline> parse_ply_pipeline_;
 
-  std::shared_ptr<PipelineLayout> rank_pipeline_layout_;
-  std::shared_ptr<ComputePipeline> rank_pipeline_;
+  std::shared_ptr<gpu::PipelineLayout> rank_pipeline_layout_;
+  std::shared_ptr<gpu::ComputePipeline> rank_pipeline_;
 
-  std::shared_ptr<PipelineLayout> inverse_index_pipeline_layout_;
-  std::shared_ptr<ComputePipeline> inverse_index_pipeline_;
+  std::shared_ptr<gpu::PipelineLayout> inverse_index_pipeline_layout_;
+  std::shared_ptr<gpu::ComputePipeline> inverse_index_pipeline_;
 
-  std::shared_ptr<PipelineLayout> projection_pipeline_layout_;
-  std::shared_ptr<ComputePipeline> projection_pipeline_;
+  std::shared_ptr<gpu::PipelineLayout> projection_pipeline_layout_;
+  std::shared_ptr<gpu::ComputePipeline> projection_pipeline_;
 
-  std::shared_ptr<PipelineLayout> splat_pipeline_layout_;
-  std::shared_ptr<GraphicsPipeline> splat_pipeline_;
+  std::shared_ptr<gpu::PipelineLayout> splat_pipeline_layout_;
+  std::shared_ptr<gpu::GraphicsPipeline> splat_pipeline_;
 };
 
 }  // namespace core
