@@ -3,7 +3,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Vulkan REQUIRED COMPONENTS volk)
 
-add_library(vkgs_gpu SHARED
+# Static library only to load Vulkan functions statically properly.
+add_library(vkgs_gpu STATIC
   src/buffer.cc
   src/command_pool.cc
   src/command.cc
