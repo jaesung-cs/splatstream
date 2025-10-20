@@ -1,3 +1,9 @@
+cmake_minimum_required(VERSION 3.15)
+
+project(pygs LANGUAGES CXX)
+
+add_subdirectory(.. ./vkgs)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 

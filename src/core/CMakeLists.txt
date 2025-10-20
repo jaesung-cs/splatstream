@@ -1,42 +1,20 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-find_package(Vulkan REQUIRED COMPONENTS volk)
-
 include(FetchContent)
 FetchContent_Declare(
   vk_radix_sort
   GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        c4ce1c3688bad92d23c15afd729842054af19ad0  # v0.1.2
+  GIT_TAG        8ebe9c0b22dc3af35b57cee418971cecf574acfc  # v0.2.0-rc1
 )
 
 FetchContent_MakeAvailable(vk_radix_sort)
 
-target_compile_definitions(vk_radix_sort PUBLIC VRDX_USE_VOLK)
-target_include_directories(vk_radix_sort PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
-
 add_library(vkgs_core SHARED
-  src/buffer.cc
-  src/command_pool.cc
-  src/command.cc
-  src/compute_pipeline.cc
-  src/device.cc
-  src/fence_pool.cc
-  src/fence.cc
   src/gaussian_splats.cc
-  src/graphics_pipeline.cc
-  src/image.cc
-  src/module.cc
-  src/pipeline_layout.cc
-  src/queue.cc
   src/rendered_image.cc
-  src/semaphore_pool.cc
-  src/semaphore.cc
+  src/renderer.cc
   src/sorter.cc
-  src/task_monitor.cc
-  src/task.cc
-  src/volk_impl.cc
-  src/vma_impl.cc
 )
 add_library(vkgs::core ALIAS vkgs_core)
 
@@ -48,15 +26,13 @@ target_compile_definitions(vkgs_core
 target_include_directories(vkgs_core
   PUBLIC
     include/
-    ${Vulkan_INCLUDE_DIRS}/Volk
-    ${Vulkan_INCLUDE_DIRS}/vma
   PRIVATE
     src/
 )
 
 target_link_libraries(vkgs_core
   PUBLIC
-    Vulkan::Vulkan
+    vkgs::gpu
   PRIVATE
     vk_radix_sort
 )
