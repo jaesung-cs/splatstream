@@ -2,7 +2,7 @@
 .clang-tidy
 .clangd
 
-build
+build*
 _skbuild
 *.egg-info
 __pycache__
