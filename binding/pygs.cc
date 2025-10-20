@@ -20,20 +20,18 @@ PYBIND11_MODULE(_core, m) {
         const auto* view_ptr = static_cast<const float*>(py_view.request().ptr);
         const auto* projection_ptr = static_cast<const float*>(py_projection.request().ptr);
 
-        // row-major data to mat
-        std::vector<float> view;
-        view.reserve(16);
-        for (int c = 0; c < 4; ++c) {
-          for (int r = 0; r < 4; ++r) {
-            view.push_back(view_ptr[r * 4 + c]);
+        // row-major data to column-major
+        std::vector<float> view(16);
+        for (int r = 0; r < 4; ++r) {
+          for (int c = 0; c < 4; ++c) {
+            view[c * 4 + r] = view_ptr[r * 4 + c];
           }
         }
 
-        std::vector<float> projection;
-        projection.reserve(16);
-        for (int c = 0; c < 4; ++c) {
-          for (int r = 0; r < 4; ++r) {
-            projection.push_back(projection_ptr[r * 4 + c]);
+        std::vector<float> projection(16);
+        for (int r = 0; r < 4; ++r) {
+          for (int c = 0; c < 4; ++c) {
+            projection[c * 4 + r] = projection_ptr[r * 4 + c];
           }
         }
 
