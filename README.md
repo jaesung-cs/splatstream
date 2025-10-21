@@ -65,19 +65,23 @@ $ cmake --build build --config Release -j
 ### Front-to-Back Rendering
 The splats are sorted front-to-back, unlike how general renderers draw transparent objects back-to-front.
 This is intended in order to calculate the accumulated alpha.
+
 $$
 \begin{align*}
-C_i &= C_{i-1} + \alpha_i c_i \prod_{j<i} (1 - \alpha_j) = C_{i-1} + (\alpha_i c_i) T_{i-1} \\
+C_i &= C_{i-1} + \alpha_i c_i \prod_{j \lt i} (1 - \alpha_j) = C_{i-1} + (\alpha_i c_i) T_{i-1} \\
 T_i &= \prod_{j \le i} (1 - \alpha_j) = (1 - \alpha_i) T_{i-1}
 \end{align*}
 $$
+
 The equation turns into fragment
+
 $$
 \begin{align*}
 C &:= \alpha_{dst} C_{src} + 1 \cdot C_{dst}, \quad \quad \quad C_{src} = \alpha_{src} c_{src} \\
 \alpha &:= 0 \cdot \alpha_{src} + (1 - \alpha_{src}) \cdot \alpha_{dst}
 \end{align*}
 $$
+
 This leads to the fragment shader pre-multiplied alpha, and Vulkan blend operation as following:
 ```c++
 color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
