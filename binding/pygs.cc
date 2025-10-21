@@ -14,7 +14,7 @@ PYBIND11_MODULE(_core, m) {
       .def_property_readonly("graphics_queue_index", &vkgs::Renderer::graphics_queue_index)
       .def_property_readonly("compute_queue_index", &vkgs::Renderer::compute_queue_index)
       .def_property_readonly("transfer_queue_index", &vkgs::Renderer::transfer_queue_index)
-      .def("load_from_ply", &vkgs::Renderer::load_from_ply)
+      .def("load_from_ply", &vkgs::Renderer::LoadFromPly)
       .def("draw", [](vkgs::Renderer& renderer, vkgs::GaussianSplats splats, py::array_t<float> py_view,
                       py::array_t<float> py_projection, uint32_t width, uint32_t height, py::array_t<uint8_t> dst) {
         const auto* view_ptr = static_cast<const float*>(py_view.request().ptr);
@@ -36,7 +36,7 @@ PYBIND11_MODULE(_core, m) {
           }
         }
 
-        return renderer.draw(splats, view.data(), projection.data(), width, height, dst_ptr);
+        return renderer.Draw(splats, view.data(), projection.data(), width, height, dst_ptr);
       });
 
   py::class_<vkgs::GaussianSplats>(m, "GaussianSplats")

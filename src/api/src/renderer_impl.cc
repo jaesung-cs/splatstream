@@ -13,13 +13,13 @@ Renderer::Impl::Impl() { renderer_ = std::make_shared<core::Renderer>(); }
 
 Renderer::Impl::~Impl() = default;
 
-GaussianSplats Renderer::Impl::load_from_ply(const std::string& path) {
+GaussianSplats Renderer::Impl::LoadFromPly(const std::string& path) {
   GaussianSplats gaussian_splats;
-  gaussian_splats.impl()->SetGaussianSplats(renderer_->load_from_ply(path));
+  gaussian_splats.impl()->SetGaussianSplats(renderer_->LoadFromPly(path));
   return gaussian_splats;
 }
 
-RenderedImage Renderer::Impl::draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
+RenderedImage Renderer::Impl::Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
                                    uint32_t height, uint8_t* dst) {
   glm::mat4 view_mat;
   glm::mat4 projection_mat;
@@ -33,7 +33,7 @@ RenderedImage Renderer::Impl::draw(GaussianSplats splats, const float* view, con
 
   RenderedImage rendered_image;
   rendered_image.impl()->SetRenderedImage(
-      renderer_->draw(splats.impl()->GetGaussianSplats(), view_mat, projection_mat, width, height, dst));
+      renderer_->Draw(splats.impl()->GetGaussianSplats(), view_mat, projection_mat, width, height, dst));
   return rendered_image;
 }
 

@@ -140,7 +140,7 @@ uint32_t Renderer::graphics_queue_index() const noexcept { return device_->graph
 uint32_t Renderer::compute_queue_index() const noexcept { return device_->compute_queue_index(); }
 uint32_t Renderer::transfer_queue_index() const noexcept { return device_->transfer_queue_index(); }
 
-std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path) {
+std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
   std::ifstream in(path, std::ios::binary);
 
   // parse header
@@ -332,7 +332,7 @@ std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path)
   return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity);
 }
 
-std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
+std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
                                               const glm::mat4& projection, uint32_t width, uint32_t height,
                                               uint8_t* dst) {
   std::shared_ptr<RenderedImage> rendered_image;

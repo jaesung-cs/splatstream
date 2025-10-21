@@ -16,11 +16,11 @@ uint32_t Renderer::graphics_queue_index() const noexcept { return impl_->graphic
 uint32_t Renderer::compute_queue_index() const noexcept { return impl_->compute_queue_index(); }
 uint32_t Renderer::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
 
-GaussianSplats Renderer::load_from_ply(const std::string& path) { return impl_->load_from_ply(path); }
+GaussianSplats Renderer::LoadFromPly(const std::string& path) { return impl_->LoadFromPly(path); }
 
-RenderedImage Renderer::draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
+RenderedImage Renderer::Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
                              uint32_t height, uint8_t* dst) {
-  return impl_->draw(splats, view, projection, width, height, dst);
+  return impl_->Draw(splats, view, projection, width, height, dst);
 }
 
 }  // namespace vkgs

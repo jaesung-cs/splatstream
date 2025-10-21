@@ -21,14 +21,14 @@ class VKGS_API Renderer {
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
-  GaussianSplats load_from_ply(const std::string& path);
+  GaussianSplats LoadFromPly(const std::string& path);
 
   /**
    * view: 4x4 column-major matrix.
    * projection: 4x4 column-major matrix.
    * dst: (height, width, 4) uint8 image, row-major.
    */
-  RenderedImage draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width, uint32_t height,
+  RenderedImage Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width, uint32_t height,
                      uint8_t* dst);
 
   const auto* impl() const noexcept { return impl_.get(); }
