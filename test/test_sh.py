@@ -88,9 +88,12 @@ if __name__ == "__main__":
     viewmats = np.stack(viewmats)
     Ks = np.stack(Ks)
 
+    print("draw start")
     image = pygs.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
+    print("draw end")
     image = image[..., :3]
 
+    print("save start")
     imgs = []
     for i in range(len(image)):
         img = Image.fromarray(image[i])

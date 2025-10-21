@@ -19,7 +19,7 @@ class Semaphore : public Object {
   Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
   ~Semaphore() override;
 
-  VkSemaphore semaphore() const noexcept { return semaphore_; }
+  operator VkSemaphore() const noexcept { return semaphore_; }
   auto value() const noexcept { return value_; }
 
   void Wait();
