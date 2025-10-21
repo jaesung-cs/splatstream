@@ -20,6 +20,7 @@ class GraphicsStorage {
   ~GraphicsStorage();
 
   auto image() const noexcept { return image_; }
+  auto image_u8() const noexcept { return image_u8_; }
 
   void Update(uint32_t width, uint32_t height);
 
@@ -29,7 +30,8 @@ class GraphicsStorage {
   uint32_t height_ = 0;
 
   // Variable
-  std::shared_ptr<gpu::Image> image_;  // (H, W, 4) float32
+  std::shared_ptr<gpu::Image> image_;     // (H, W, 4) float32
+  std::shared_ptr<gpu::Image> image_u8_;  // (H, W, 4), UNORM
 };
 
 }  // namespace core

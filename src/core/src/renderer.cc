@@ -1,6 +1,5 @@
 #include "vkgs/core/renderer.h"
 
-#include <algorithm>
 #include <fstream>
 #include <unordered_map>
 #include <sstream>
@@ -617,6 +616,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   }
 
   auto image = graphics_storage->image();
+  auto image_u8 = graphics_storage->image_u8();
 
   // Graphics queue
   {
@@ -691,15 +691,54 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
     vkCmdEndRendering(*cb);
 
-    // Layout transition to transfer src, and release
+    // float -> uint8
     image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     image_memory_barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
     image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    image_memory_barrier.image = *image;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(*cb, &dependency_info);
+
+    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+    image_memory_barrier.srcAccessMask = 0;
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    image_memory_barrier.image = *image_u8;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(*cb, &dependency_info);
+
+    VkImageBlit image_region = {};
+    image_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    image_region.srcOffsets[0] = {0, 0, 0};
+    image_region.srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+    image_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    image_region.dstOffsets[0] = {0, 0, 0};
+    image_region.dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+    vkCmdBlitImage(*cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                   1, &image_region, VK_FILTER_NEAREST);
+
+    // Layout transition to transfer src, and release
+    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
+    image_memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     image_memory_barrier.srcQueueFamilyIndex = gq->family_index();
     image_memory_barrier.dstQueueFamilyIndex = tq->family_index();
-    image_memory_barrier.image = *image;
+    image_memory_barrier.image = *image_u8;
     image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     dependency_info.imageMemoryBarrierCount = 1;
@@ -737,11 +776,11 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     signal_semaphore_infos[0].stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
                                           VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
 
-    // G[i].output
+    // G[i].blit
     signal_semaphore_infos[1] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
     signal_semaphore_infos[1].semaphore = *gsem;
     signal_semaphore_infos[1].value = gval + 2;
-    signal_semaphore_infos[1].stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    signal_semaphore_infos[1].stageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
 
     VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
     submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
@@ -755,7 +794,6 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     task_monitor_->Add(fence, {cb, image, instances, index_buffer, draw_indirect, gsem});
   }
 
-  auto image_u8 = transfer_storage->image_u8();
   auto image_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
   {
     auto fence = device_->AllocateFence();
@@ -769,52 +807,13 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     image_memory_barrier.srcQueueFamilyIndex = gq->family_index();
     image_memory_barrier.dstQueueFamilyIndex = tq->family_index();
-    image_memory_barrier.image = *image;
+    image_memory_barrier.image = *image_u8;
     image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.imageMemoryBarrierCount = 1;
-    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
-
-    // float -> uint8
-    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    image_memory_barrier.srcAccessMask = 0;
-    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    image_memory_barrier.dstStageMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    image_memory_barrier.image = *image_u8;
-    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.imageMemoryBarrierCount = 1;
-    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
-
-    VkImageBlit image_region = {};
-    image_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    image_region.srcOffsets[0] = {0, 0, 0};
-    image_region.srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
-    image_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    image_region.dstOffsets[0] = {0, 0, 0};
-    image_region.dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
-    vkCmdBlitImage(*cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                   1, &image_region, VK_FILTER_NEAREST);
-
-    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    image_memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    image_memory_barrier.image = *image_u8;
-    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     dependency_info.imageMemoryBarrierCount = 1;
     dependency_info.pImageMemoryBarriers = &image_memory_barrier;
     vkCmdPipelineBarrier2(*cb, &dependency_info);
@@ -832,7 +831,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(*cb);
 
     // Submit
-    // G[i].output before T[i].xfer
+    // G[i].blit before T[i].xfer
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
     wait_semaphore_info.semaphore = *gsem;
     wait_semaphore_info.value = gval + 2;

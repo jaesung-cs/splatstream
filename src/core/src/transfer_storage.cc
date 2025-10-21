@@ -1,9 +1,5 @@
 #include "transfer_storage.h"
 
-#include "volk.h"
-
-#include "vkgs/gpu/image.h"
-
 namespace vkgs {
 namespace core {
 
@@ -13,10 +9,6 @@ TransferStorage::~TransferStorage() {}
 
 void TransferStorage::Update(uint32_t width, uint32_t height) {
   if (width_ != width || height_ != height) {
-    image_u8_ = gpu::Image::Create(
-        device_, VK_FORMAT_R8G8B8A8_UNORM, width, height,
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-
     width_ = width;
     height_ = height;
   }

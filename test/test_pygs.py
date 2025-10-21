@@ -1,7 +1,7 @@
-from PIL import Image
 import math
 import os
 
+from PIL import Image
 import numpy as np
 import pygs
 
@@ -13,9 +13,9 @@ if __name__ == "__main__":
     scene = readColmapSceneInfo("models/tandt_db/tandt/train")
 
     os.makedirs("result", exist_ok=True)
+    viewmats = []
+    Ks = []
     for i, camera in enumerate(scene.cameras):
-        print(i)
-
         width = camera.width
         height = camera.height
         fov_y = camera.FovY
@@ -41,10 +41,34 @@ if __name__ == "__main__":
         K[1, 2] = height / 2
         K[2, 2] = 1
 
-        image = pygs.draw(splats, W2C, K, width, height, near=1.0, far=1e3).numpy()
+        viewmats.append(W2C)
+        Ks.append(K)
 
-        print(camera.image_path)
-        color = Image.fromarray(image[..., :3])
-        alpha = Image.fromarray(image[..., 3])
-        color.save(f"result/{i+1:05d}.png")
-        alpha.save(f"result/{i+1:05d}_alpha.png")
+    viewmats = np.stack(viewmats)
+    Ks = np.stack(Ks)
+
+    # 100 images in a batch
+    N = 100
+    viewmats = viewmats[:N]
+    Ks = Ks[:N]
+
+    print("draw start")
+    image = pygs.draw(splats, viewmats, Ks, width, height, near=0.1, far=1e3).numpy()
+    print("draw end")
+
+    colors = []
+    for i in range(N):
+        color = Image.fromarray(image[i, ..., :3])
+        alpha = Image.fromarray(image[i, ..., 3])
+        # color.save(f"result/{i+1:05d}.png")
+        # alpha.save(f"result/{i+1:05d}_alpha.png")
+
+        colors.append(color)
+
+    colors[0].save(
+        "result/color.gif",
+        save_all=True,
+        append_images=colors[1:],
+        duration=100,
+        loop=0,
+    )

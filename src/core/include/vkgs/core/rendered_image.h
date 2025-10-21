@@ -2,6 +2,7 @@
 #define VKGS_CORE_RENDERED_IMAGE_H
 
 #include <vector>
+#include <memory>
 
 #include "export_api.h"
 
