@@ -748,8 +748,8 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, gsem});
   }
 
-  auto image_buffer =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4 * sizeof(float), true);
+  auto image_u8 = transfer_storage->image_u8();
+  auto image_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
   {
     auto fence = device_->AllocateFence();
     auto command = device_->transfer_queue()->AllocateCommandBuffer();
@@ -774,6 +774,45 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     dependency_info.pImageMemoryBarriers = &image_memory_barrier;
     vkCmdPipelineBarrier2(cb, &dependency_info);
 
+    // float -> uint8
+    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    image_memory_barrier.srcAccessMask = 0;
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    image_memory_barrier.dstStageMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    image_memory_barrier.image = *image_u8;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
+
+    VkImageBlit image_region = {};
+    image_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    image_region.srcOffsets[0] = {0, 0, 0};
+    image_region.srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+    image_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    image_region.dstOffsets[0] = {0, 0, 0};
+    image_region.dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+    vkCmdBlitImage(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                   &image_region, VK_FILTER_NEAREST);
+
+    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    image_memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    image_memory_barrier.image = *image_u8;
+    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
+    vkCmdPipelineBarrier2(cb, &dependency_info);
+
     // Image to buffer
     VkBufferImageCopy region;
     region.bufferOffset = 0;
@@ -782,7 +821,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {width, height, 1};
-    vkCmdCopyImageToBuffer(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_buffer, 1, &region);
+    vkCmdCopyImageToBuffer(cb, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_buffer, 1, &region);
 
     vkEndCommandBuffer(cb);
 
@@ -812,10 +851,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
     vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit_info, fence->fence());
     auto task = task_monitor_->Add(fence, {command, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
-      for (int i = 0; i < width * height * 4; ++i) {
-        const auto* image_buffer_ptr = image_buffer->data<float>();
-        dst[i] = static_cast<uint8_t>(std::clamp(image_buffer_ptr[i], 0.f, 1.f) * 255.f);
-      }
+      std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
     });
 
     rendered_image = std::make_shared<RenderedImage>(width, height, task);
