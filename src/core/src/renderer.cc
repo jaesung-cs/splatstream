@@ -1,5 +1,6 @@
 #include "vkgs/core/renderer.h"
 
+#include <algorithm>
 #include <fstream>
 #include <unordered_map>
 #include <sstream>
@@ -770,9 +771,14 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, image, image_buffer, tsem});
+    auto task = task_monitor_->Add(fence, {command, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
+      for (int i = 0; i < width * height * 4; ++i) {
+        const auto* image_buffer_ptr = image_buffer->data<float>();
+        dst[i] = static_cast<uint8_t>(std::clamp(image_buffer_ptr[i], 0.f, 1.f) * 255.f);
+      }
+    });
 
-    rendered_image = std::make_shared<RenderedImage>(width, height, fence, image_buffer, dst);
+    rendered_image = std::make_shared<RenderedImage>(width, height, task);
   }
 
   csem->Increment();

@@ -14,7 +14,7 @@ namespace gpu {
 
 class SemaphorePool;
 
-class Semaphore : public Object {
+class VKGS_GPU_API Semaphore : public Object {
  public:
   Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
   ~Semaphore() override;
