@@ -707,7 +707,8 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, gsem});
   }
 
-  auto image_buffer = transfer_storage->image_buffer();
+  auto image_buffer =
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4 * sizeof(float), true);
   {
     auto fence = device_->AllocateFence();
     auto command = device_->transfer_queue()->AllocateCommandBuffer();

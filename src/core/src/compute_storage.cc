@@ -13,7 +13,6 @@ ComputeStorage::ComputeStorage(std::shared_ptr<gpu::Device> device) : device_(de
       sizeof(uint32_t));
   camera_ = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                 sizeof(Camera));
-  camera_stage_ = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera), true);
   draw_indirect_ =
       gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
                           sizeof(VkDrawIndexedIndirectCommand));
@@ -22,6 +21,12 @@ ComputeStorage::ComputeStorage(std::shared_ptr<gpu::Device> device) : device_(de
 ComputeStorage::~ComputeStorage() {}
 
 void ComputeStorage::Update(uint32_t point_count, const VrdxSorterStorageRequirements& storage_requirements) {
+  // Get new stage buffers
+  camera_stage_ = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera), true);
+  // TODO: fill the index buffer in projection pipeline.
+  index_stage_ =
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 6 * point_count * sizeof(uint32_t), true);
+
   if (point_count_ < point_count) {
     key_ = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(uint32_t));
     index_ = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(uint32_t));
@@ -31,8 +36,6 @@ void ComputeStorage::Update(uint32_t point_count, const VrdxSorterStorageRequire
     instances_ = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 12 * sizeof(float));
     index_buffer_ = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                         6 * point_count * sizeof(uint32_t));
-    index_stage_ =
-        gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 6 * point_count * sizeof(uint32_t), true);
 
     point_count_ = point_count;
   }

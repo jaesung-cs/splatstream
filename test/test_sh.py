@@ -35,6 +35,7 @@ if __name__ == "__main__":
 
         for d in range(16):
             pos = np.array([0, d * 2 - 15, 0], dtype=np.float32)
+            # pos = np.array([d * 2 - 15, 0, 0], dtype=np.float32)
             scale = np.log(np.array([1, 1, 1], dtype=np.float32) * 0.5)  # exp
             rot = np.array([1, 0, 0, 0], dtype=np.float32)
             dc = np.array([0, 0, 0], dtype=np.float32)
@@ -91,7 +92,12 @@ if __name__ == "__main__":
     print("draw start")
     image = pygs.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
     print("draw end")
+
     image = image[..., :3]
+    for i in range(len(image)):
+        s = (i * height) // N
+        e = ((i + 1) * height) // N
+        image[i, (width - width // N) :, s:e, :] = 255
 
     print("save start")
     imgs = []

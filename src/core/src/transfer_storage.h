@@ -19,7 +19,7 @@ class TransferStorage {
   TransferStorage(std::shared_ptr<gpu::Device> device);
   ~TransferStorage();
 
-  auto image_buffer() const noexcept { return image_buffer_; }
+  // TODO: add a UNORM image for 32_SFLOAT -> 8_UNORM
 
   void Update(uint32_t width, uint32_t height);
 
@@ -29,7 +29,6 @@ class TransferStorage {
   uint32_t height_ = 0;
 
   // Variable
-  std::shared_ptr<gpu::Buffer> image_buffer_;  // (H, W, 4) float32
 };
 
 }  // namespace core
