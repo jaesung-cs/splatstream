@@ -18,7 +18,7 @@ class VKGS_GPU_API Queue {
   Queue(VkDevice device, VkQueue queue, uint32_t family_index);
   ~Queue() = default;
 
-  auto queue() const noexcept { return queue_; }
+  operator VkQueue() const noexcept { return queue_; }
   auto family_index() const noexcept { return family_index_; }
 
   std::shared_ptr<Command> AllocateCommandBuffer();

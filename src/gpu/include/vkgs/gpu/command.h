@@ -19,7 +19,7 @@ class VKGS_GPU_API Command : public Object {
   Command(std::shared_ptr<CommandPool> command_pool, VkCommandBuffer cb);
   ~Command() override;
 
-  VkCommandBuffer command_buffer() const noexcept { return cb_; }
+  operator VkCommandBuffer() const noexcept { return cb_; }
 
  private:
   std::shared_ptr<CommandPool> command_pool_;

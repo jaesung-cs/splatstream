@@ -17,7 +17,7 @@ class VKGS_GPU_API Fence {
   Fence(VkDevice device, std::shared_ptr<FencePool> fence_pool, VkFence fence);
   ~Fence();
 
-  VkFence fence() const noexcept { return fence_; }
+  operator VkFence() const noexcept { return fence_; }
 
   bool IsSignaled();
   void Wait();
