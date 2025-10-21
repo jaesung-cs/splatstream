@@ -15,7 +15,8 @@ class VKGS_API RenderedImage {
 
   uint32_t width() const;
   uint32_t height() const;
-  const std::vector<uint8_t>& data() const;
+
+  void Wait() const;
 
   auto* impl() noexcept { return impl_.get(); }
 

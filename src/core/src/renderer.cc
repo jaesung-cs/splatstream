@@ -1,9 +1,9 @@
 #include "vkgs/core/renderer.h"
 
+#include <algorithm>
 #include <fstream>
 #include <unordered_map>
 #include <sstream>
-#include <algorithm>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -65,9 +65,13 @@ Renderer::Renderer() {
   sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());
 
   for (int i = 0; i < 2; ++i) {
-    compute_storages_[i] = std::make_shared<ComputeStorage>(device_);
-    graphics_storages_[i] = std::make_shared<GraphicsStorage>(device_);
-    transfer_storages_[i] = std::make_shared<TransferStorage>(device_);
+    auto& double_buffer = double_buffer_[i];
+    double_buffer.compute_storage = std::make_shared<ComputeStorage>(device_);
+    double_buffer.graphics_storage = std::make_shared<GraphicsStorage>(device_);
+    double_buffer.transfer_storage = std::make_shared<TransferStorage>(device_);
+    double_buffer.compute_semaphore = device_->AllocateSemaphore();
+    double_buffer.graphics_semaphore = device_->AllocateSemaphore();
+    double_buffer.transfer_semaphore = device_->AllocateSemaphore();
   }
 
   parse_ply_pipeline_layout_ =
@@ -245,7 +249,7 @@ std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path)
     command_buffer_info.commandBuffer = cb0;
 
     VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = sem->semaphore();
+    signal_semaphore_info.semaphore = *sem;
     signal_semaphore_info.value = sem->value() + 1;
     signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 
@@ -306,7 +310,7 @@ std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path)
 
     // Acquire
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = sem->semaphore();
+    wait_semaphore_info.semaphore = *sem;
     wait_semaphore_info.value = sem->value() + 1;
     wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 
@@ -329,7 +333,10 @@ std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path)
 }
 
 std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
-                                              const glm::mat4& projection, uint32_t width, uint32_t height) {
+                                              const glm::mat4& projection, uint32_t width, uint32_t height,
+                                              uint8_t* dst) {
+  std::shared_ptr<RenderedImage> rendered_image;
+
   auto N = splats->size();
 
   PushConstants push_constants;
@@ -353,17 +360,20 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     index_data.push_back(4 * i + 3);
   }
 
-  auto sem = device_->AllocateSemaphore();
-  auto timeline = sem->value();
-
   // Update storages
-  auto compute_storage = compute_storages_[frame_index_ % 2];
+  const auto& double_buffer = double_buffer_[frame_index_ % 2];
+  auto compute_storage = double_buffer.compute_storage;
+  auto graphics_storage = double_buffer.graphics_storage;
+  auto transfer_storage = double_buffer.transfer_storage;
+  auto csem = double_buffer.compute_semaphore;
+  auto cval = csem->value();
+  auto gsem = double_buffer.graphics_semaphore;
+  auto gval = gsem->value();
+  auto tsem = double_buffer.transfer_semaphore;
+  auto tval = tsem->value();
+
   compute_storage->Update(N, sorter_->GetStorageRequirements(N));
-
-  auto graphics_storage = graphics_storages_[frame_index_ % 2];
   graphics_storage->Update(width, height);
-
-  auto transfer_storage = transfer_storages_[frame_index_ % 2];
   transfer_storage->Update(width, height);
 
   auto visible_point_count = compute_storage->visible_point_count();
@@ -488,7 +498,7 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     // Release
     std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers(3);
     buffer_memory_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    buffer_memory_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     buffer_memory_barriers[0].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
     buffer_memory_barriers[0].srcQueueFamilyIndex = device_->compute_queue()->family_index();
     buffer_memory_barriers[0].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
@@ -519,29 +529,34 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(cb);
 
     // Submit
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = sem->semaphore();
-    wait_semaphore_info.value = timeline;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+    if (frame_index_ >= 2) {
+      // G[i-2].read before C[i].comp
+      auto& wait_semaphore_info = wait_semaphore_infos.emplace_back();
+      wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+      wait_semaphore_info.semaphore = *gsem;
+      wait_semaphore_info.value = gval - 2 + 1;
+      wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    }
 
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
     command_buffer_info.commandBuffer = cb;
 
     VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = sem->semaphore();
-    signal_semaphore_info.value = timeline + 1;
+    signal_semaphore_info.semaphore = *csem;
+    signal_semaphore_info.value = cval + 1;
     signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 
     VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = 1;
-    submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
+    submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
+    submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
     submit_info.commandBufferInfoCount = 1;
     submit_info.pCommandBufferInfos = &command_buffer_info;
     submit_info.signalSemaphoreInfoCount = 1;
     submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, sem, camera_stage, index_stage, camera, visible_point_count, key, index,
+    task_monitor_->Add(fence, {command, csem, camera_stage, index_stage, camera, visible_point_count, key, index,
                                sort_storage, inverse_index, index_buffer, draw_indirect, instances});
   }
 
@@ -647,35 +662,54 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(cb);
 
     // Submit
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = sem->semaphore();
-    wait_semaphore_info.value = timeline + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos(1);
+    // C[i].comp before G[i].read
+    wait_semaphore_infos[0] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_infos[0].semaphore = *csem;
+    wait_semaphore_infos[0].value = cval + 1;
+    wait_semaphore_infos[0].stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                                        VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+
+    if (frame_index_ >= 2) {
+      // T[i-2].xfer before G[i].output
+      auto& wait_semaphore_info = wait_semaphore_infos.emplace_back();
+      wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+      wait_semaphore_info.semaphore = *tsem;
+      wait_semaphore_info.value = tval - 1 + 1;
+      wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
 
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
     command_buffer_info.commandBuffer = cb;
 
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = sem->semaphore();
-    signal_semaphore_info.value = timeline + 2;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    std::vector<VkSemaphoreSubmitInfo> signal_semaphore_infos(2);
+    // G[i].read
+    signal_semaphore_infos[0] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signal_semaphore_infos[0].semaphore = *gsem;
+    signal_semaphore_infos[0].value = gval + 1;
+    signal_semaphore_infos[0].stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                                          VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+
+    // G[i].output
+    signal_semaphore_infos[1] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signal_semaphore_infos[1].semaphore = *gsem;
+    signal_semaphore_infos[1].value = gval + 2;
+    signal_semaphore_infos[1].stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = 1;
-    submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
+    submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
+    submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
     submit_info.commandBufferInfoCount = 1;
     submit_info.pCommandBufferInfos = &command_buffer_info;
-    submit_info.signalSemaphoreInfoCount = 1;
-    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
+    submit_info.signalSemaphoreInfoCount = signal_semaphore_infos.size();
+    submit_info.pSignalSemaphoreInfos = signal_semaphore_infos.data();
 
     vkQueueSubmit2(device_->graphics_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, sem});
+    task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, gsem});
   }
 
-  auto buffer = transfer_storage->buffer();
-  std::vector<float> image_buffer(width * height * 4);
-  std::vector<uint8_t> image_buffer_u8;
+  auto image_buffer =
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4 * sizeof(float), true);
   {
     auto fence = device_->AllocateFence();
     auto command = device_->transfer_queue()->AllocateCommandBuffer();
@@ -708,43 +742,52 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {width, height, 1};
-    vkCmdCopyImageToBuffer(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *buffer, 1, &region);
+    vkCmdCopyImageToBuffer(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_buffer, 1, &region);
 
     vkEndCommandBuffer(cb);
 
     // Submit
+    // G[i].output before T[i].xfer
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = *gsem;
+    wait_semaphore_info.value = gval + 2;
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
     command_buffer_info.commandBuffer = cb;
 
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = sem->semaphore();
-    wait_semaphore_info.value = timeline + 2;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    // T[i].xfer
+    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signal_semaphore_info.semaphore = *tsem;
+    signal_semaphore_info.value = tval + 1;
+    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 
     VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
     submit_info.waitSemaphoreInfoCount = 1;
     submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
     submit_info.commandBufferInfoCount = 1;
     submit_info.pCommandBufferInfos = &command_buffer_info;
+    submit_info.signalSemaphoreInfoCount = 1;
+    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, image, buffer, sem});
+    auto task = task_monitor_->Add(fence, {command, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
+      for (int i = 0; i < width * height * 4; ++i) {
+        const auto* image_buffer_ptr = image_buffer->data<float>();
+        dst[i] = static_cast<uint8_t>(std::clamp(image_buffer_ptr[i], 0.f, 1.f) * 255.f);
+      }
+    });
 
-    fence->Wait();
-
-    // TODO: wait for transfer
-    std::memcpy(image_buffer.data(), buffer->data(), buffer->size());
-
-    for (int i = 0; i < width * height * 4; ++i) {
-      image_buffer_u8.push_back(static_cast<uint8_t>(std::clamp(image_buffer[i], 0.f, 1.f) * 255.f));
-    }
+    rendered_image = std::make_shared<RenderedImage>(width, height, task);
   }
 
-  sem->Increment();
-  sem->Increment();
+  csem->Increment();
+  gsem->Increment();
+  gsem->Increment();
+  tsem->Increment();
   frame_index_++;
 
-  return std::make_shared<RenderedImage>(width, height, std::move(image_buffer_u8));
+  return rendered_image;
 }
 
 }  // namespace core

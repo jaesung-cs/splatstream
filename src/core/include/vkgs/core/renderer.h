@@ -18,11 +18,10 @@ namespace gpu {
 
 class Device;
 class TaskMonitor;
-class GaussianSplats;
 class PipelineLayout;
 class ComputePipeline;
 class GraphicsPipeline;
-class RenderedImage;
+class Semaphore;
 
 }  // namespace gpu
 
@@ -48,7 +47,7 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<GaussianSplats> load_from_ply(const std::string& path);
 
   std::shared_ptr<RenderedImage> draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
-                                      const glm::mat4& projection, uint32_t width, uint32_t height);
+                                      const glm::mat4& projection, uint32_t width, uint32_t height, uint8_t* dst);
 
  private:
   std::shared_ptr<gpu::Device> device_;
@@ -70,9 +69,16 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<gpu::PipelineLayout> splat_pipeline_layout_;
   std::shared_ptr<gpu::GraphicsPipeline> splat_pipeline_;
 
-  std::array<std::shared_ptr<ComputeStorage>, 2> compute_storages_;
-  std::array<std::shared_ptr<GraphicsStorage>, 2> graphics_storages_;
-  std::array<std::shared_ptr<TransferStorage>, 2> transfer_storages_;
+  struct DoubleBuffer {
+    std::shared_ptr<ComputeStorage> compute_storage;
+    std::shared_ptr<GraphicsStorage> graphics_storage;
+    std::shared_ptr<TransferStorage> transfer_storage;
+    std::shared_ptr<gpu::Semaphore> compute_semaphore;
+    std::shared_ptr<gpu::Semaphore> graphics_semaphore;
+    std::shared_ptr<gpu::Semaphore> transfer_semaphore;
+  };
+  std::array<DoubleBuffer, 2> double_buffer_;
+
   uint64_t frame_index_ = 0;
 };
 

@@ -20,7 +20,7 @@ GaussianSplats Renderer::Impl::load_from_ply(const std::string& path) {
 }
 
 RenderedImage Renderer::Impl::draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
-                                   uint32_t height) {
+                                   uint32_t height, uint8_t* dst) {
   glm::mat4 view_mat;
   glm::mat4 projection_mat;
 
@@ -33,7 +33,7 @@ RenderedImage Renderer::Impl::draw(GaussianSplats splats, const float* view, con
 
   RenderedImage rendered_image;
   rendered_image.impl()->SetRenderedImage(
-      renderer_->draw(splats.impl()->GetGaussianSplats(), view_mat, projection_mat, width, height));
+      renderer_->draw(splats.impl()->GetGaussianSplats(), view_mat, projection_mat, width, height, dst));
   return rendered_image;
 }
 

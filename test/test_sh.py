@@ -35,6 +35,7 @@ if __name__ == "__main__":
 
         for d in range(16):
             pos = np.array([0, d * 2 - 15, 0], dtype=np.float32)
+            # pos = np.array([d * 2 - 15, 0, 0], dtype=np.float32)
             scale = np.log(np.array([1, 1, 1], dtype=np.float32) * 0.5)  # exp
             rot = np.array([1, 0, 0, 0], dtype=np.float32)
             dc = np.array([0, 0, 0], dtype=np.float32)
@@ -56,7 +57,8 @@ if __name__ == "__main__":
     splats = pygs.load_from_ply(splat_path)
 
     N = 64
-    imgs = []
+    viewmats = []
+    Ks = []
     for i in range(N):
         width = 256
         height = 256
@@ -81,12 +83,28 @@ if __name__ == "__main__":
         K[1, 2] = height / 2
         K[2, 2] = 1
 
-        image = pygs.draw(splats, W2C, K, width, height, far=1e5).numpy()
-        image = image[..., :3]
-        image = Image.fromarray(image)
-        imgs.append(image)
+        viewmats.append(W2C)
+        Ks.append(K)
 
-        image.save(f"test_sh/{i+1:05d}.png")
+    viewmats = np.stack(viewmats)
+    Ks = np.stack(Ks)
+
+    print("draw start")
+    image = pygs.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
+    print("draw end")
+
+    image = image[..., :3]
+    for i in range(len(image)):
+        s = (i * height) // N
+        e = ((i + 1) * height) // N
+        image[i, (width - width // N) :, s:e, :] = 255
+
+    print("save start")
+    imgs = []
+    for i in range(len(image)):
+        img = Image.fromarray(image[i])
+        img.save(f"test_sh/{i+1:05d}.png")
+        imgs.append(img)
 
     gif_path = "test_sh/result.gif"
     imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], duration=20, loop=0)

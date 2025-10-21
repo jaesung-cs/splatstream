@@ -16,7 +16,8 @@ class RenderedImage::Impl {
 
   uint32_t width() const;
   uint32_t height() const;
-  const std::vector<uint8_t>& data() const;
+
+  void Wait() const;
 
  private:
   std::shared_ptr<core::RenderedImage> rendered_image_;

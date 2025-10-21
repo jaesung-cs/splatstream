@@ -6,21 +6,28 @@
 #include "export_api.h"
 
 namespace vkgs {
+namespace gpu {
+
+class Task;
+
+}  // namespace gpu
+
 namespace core {
 
 class VKGS_CORE_API RenderedImage {
  public:
-  RenderedImage(uint32_t width, uint32_t height, std::vector<uint8_t> data);
+  RenderedImage(uint32_t width, uint32_t height, std::shared_ptr<gpu::Task> task);
   ~RenderedImage();
 
   uint32_t width() const noexcept { return width_; }
   uint32_t height() const noexcept { return height_; }
-  const auto& data() const noexcept { return data_; }
+
+  void Wait();
 
  private:
   uint32_t width_;
   uint32_t height_;
-  std::vector<uint8_t> data_;
+  std::shared_ptr<gpu::Task> task_;
 };
 
 }  // namespace core

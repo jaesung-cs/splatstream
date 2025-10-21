@@ -26,9 +26,10 @@ class VKGS_API Renderer {
   /**
    * view: 4x4 column-major matrix.
    * projection: 4x4 column-major matrix.
+   * dst: (height, width, 4) uint8 image, row-major.
    */
-  RenderedImage draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
-                     uint32_t height);
+  RenderedImage draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width, uint32_t height,
+                     uint8_t* dst);
 
   const auto* impl() const noexcept { return impl_.get(); }
 

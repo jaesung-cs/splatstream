@@ -3,6 +3,9 @@
 
 #include <memory>
 #include <vector>
+#include <functional>
+
+#include "export_api.h"
 
 namespace vkgs {
 namespace gpu {
@@ -11,12 +14,13 @@ class Task;
 class Fence;
 class Object;
 
-class TaskMonitor {
+class VKGS_GPU_API TaskMonitor {
  public:
   TaskMonitor();
   ~TaskMonitor();
 
-  void Add(std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Object>> objects);
+  std::shared_ptr<Task> Add(std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Object>> objects,
+                            std::function<void()> callback = {});
 
  private:
   void gc();
