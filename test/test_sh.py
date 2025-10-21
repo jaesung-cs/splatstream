@@ -56,7 +56,8 @@ if __name__ == "__main__":
     splats = pygs.load_from_ply(splat_path)
 
     N = 64
-    imgs = []
+    viewmats = []
+    Ks = []
     for i in range(N):
         width = 256
         height = 256
@@ -81,12 +82,20 @@ if __name__ == "__main__":
         K[1, 2] = height / 2
         K[2, 2] = 1
 
-        image = pygs.draw(splats, W2C, K, width, height, far=1e5).numpy()
-        image = image[..., :3]
-        image = Image.fromarray(image)
-        imgs.append(image)
+        viewmats.append(W2C)
+        Ks.append(K)
 
-        image.save(f"test_sh/{i+1:05d}.png")
+    viewmats = np.stack(viewmats)
+    Ks = np.stack(Ks)
+
+    image = pygs.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
+    image = image[..., :3]
+
+    imgs = []
+    for i in range(len(image)):
+        img = Image.fromarray(image[i])
+        img.save(f"test_sh/{i+1:05d}.png")
+        imgs.append(img)
 
     gif_path = "test_sh/result.gif"
     imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], duration=20, loop=0)

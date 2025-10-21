@@ -3,7 +3,6 @@
 #include <fstream>
 #include <unordered_map>
 #include <sstream>
-#include <algorithm>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -329,7 +328,10 @@ std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path)
 }
 
 std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
-                                              const glm::mat4& projection, uint32_t width, uint32_t height) {
+                                              const glm::mat4& projection, uint32_t width, uint32_t height,
+                                              uint8_t* dst) {
+  std::shared_ptr<RenderedImage> rendered_image;
+
   auto N = splats->size();
 
   PushConstants push_constants;
@@ -673,9 +675,7 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     task_monitor_->Add(fence, {command, image, instances, index_buffer, draw_indirect, sem});
   }
 
-  auto buffer = transfer_storage->buffer();
-  std::vector<float> image_buffer(width * height * 4);
-  std::vector<uint8_t> image_buffer_u8;
+  auto image_buffer = transfer_storage->image_buffer();
   {
     auto fence = device_->AllocateFence();
     auto command = device_->transfer_queue()->AllocateCommandBuffer();
@@ -708,7 +708,7 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {width, height, 1};
-    vkCmdCopyImageToBuffer(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *buffer, 1, &region);
+    vkCmdCopyImageToBuffer(cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_buffer, 1, &region);
 
     vkEndCommandBuffer(cb);
 
@@ -728,23 +728,19 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
     submit_info.pCommandBufferInfos = &command_buffer_info;
 
     vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, image, buffer, sem});
+    task_monitor_->Add(fence, {command, image, image_buffer, sem});
 
-    fence->Wait();
+    rendered_image = std::make_shared<RenderedImage>(width, height, fence, image_buffer, dst);
 
-    // TODO: wait for transfer
-    std::memcpy(image_buffer.data(), buffer->data(), buffer->size());
-
-    for (int i = 0; i < width * height * 4; ++i) {
-      image_buffer_u8.push_back(static_cast<uint8_t>(std::clamp(image_buffer[i], 0.f, 1.f) * 255.f));
-    }
+    // TODO: synchronize with previous commands
+    rendered_image->Wait();
   }
 
   sem->Increment();
   sem->Increment();
   frame_index_++;
 
-  return std::make_shared<RenderedImage>(width, height, std::move(image_buffer_u8));
+  return rendered_image;
 }
 
 }  // namespace core
