@@ -21,7 +21,6 @@ class GraphicsStorage {
 
   auto image() const noexcept { return image_; }
 
-  // TODO: enlarge when needed.
   void Update(uint32_t width, uint32_t height);
 
  private:
