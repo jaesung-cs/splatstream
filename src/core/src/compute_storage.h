@@ -30,8 +30,6 @@ class ComputeStorage {
   auto sort_storage() const noexcept { return sort_storage_; }
   auto inverse_index() const noexcept { return inverse_index_; }
   auto instances() const noexcept { return instances_; }
-  auto index_buffer() const noexcept { return index_buffer_; }
-  auto index_stage() const noexcept { return index_stage_; }
 
   void Update(uint32_t point_count, const VrdxSorterStorageRequirements& storage_requirements);
 
@@ -51,8 +49,6 @@ class ComputeStorage {
   std::shared_ptr<gpu::Buffer> sort_storage_;   // (M)
   std::shared_ptr<gpu::Buffer> inverse_index_;  // (N)
   std::shared_ptr<gpu::Buffer> instances_;      // (N, 12)
-  std::shared_ptr<gpu::Buffer> index_buffer_;   // (6N)
-  std::shared_ptr<gpu::Buffer> index_stage_;    // (6N)
 };
 
 }  // namespace core

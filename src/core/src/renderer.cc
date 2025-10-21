@@ -198,6 +198,17 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
   std::vector<char> buffer(offset * point_count);
   in.read(buffer.data(), buffer.size());
 
+  std::vector<uint32_t> index_data;
+  index_data.reserve(6 * point_count);
+  for (int i = 0; i < point_count; ++i) {
+    index_data.push_back(4 * i + 0);
+    index_data.push_back(4 * i + 1);
+    index_data.push_back(4 * i + 2);
+    index_data.push_back(4 * i + 2);
+    index_data.push_back(4 * i + 1);
+    index_data.push_back(4 * i + 3);
+  }
+
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
   auto ply_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -210,43 +221,60 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
   auto sh = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
   auto opacity = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
+  auto index_stage =
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, point_count * 6 * sizeof(uint32_t), true);
+  auto index_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                          point_count * 6 * sizeof(uint32_t));
+
   std::memcpy(ply_stage->data(), ply_offsets.data(), ply_offsets.size() * sizeof(uint32_t));
   std::memcpy(ply_stage->data<char>() + ply_offsets.size() * sizeof(uint32_t), buffer.data(), buffer.size());
+  std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
 
   auto sem = device_->AllocateSemaphore();
+
+  // Transfer queue: stage to buffers
   {
-    auto command0 = device_->transfer_queue()->AllocateCommandBuffer();
-    auto cb0 = command0->command_buffer();
-    auto fence0 = device_->AllocateFence();
+    auto command = device_->transfer_queue()->AllocateCommandBuffer();
+    auto cb = command->command_buffer();
+    auto fence = device_->AllocateFence();
 
     VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(cb0, &begin_info);
+    vkBeginCommandBuffer(cb, &begin_info);
 
-    VkBufferCopy region;
-    region.srcOffset = 0;
-    region.dstOffset = 0;
-    region.size = buffer_size;
-    vkCmdCopyBuffer(cb0, *ply_stage, *ply_buffer, 1, &region);
+    VkBufferCopy region = {0, 0, buffer_size};
+    vkCmdCopyBuffer(cb, *ply_stage, *ply_buffer, 1, &region);
+
+    region = {0, 0, index_stage->size()};
+    vkCmdCopyBuffer(cb, *index_stage, *index_buffer, 1, &region);
 
     // Release barrier
-    VkBufferMemoryBarrier2 release_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barrier.srcQueueFamilyIndex = device_->transfer_queue()->family_index();
-    release_barrier.dstQueueFamilyIndex = device_->compute_queue()->family_index();
-    release_barrier.buffer = *ply_buffer;
-    release_barrier.offset = 0;
-    release_barrier.size = VK_WHOLE_SIZE;
+    std::vector<VkBufferMemoryBarrier2> release_barriers(2);
+    release_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+    release_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    release_barriers[0].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    release_barriers[0].srcQueueFamilyIndex = device_->transfer_queue()->family_index();
+    release_barriers[0].dstQueueFamilyIndex = device_->compute_queue()->family_index();
+    release_barriers[0].buffer = *ply_buffer;
+    release_barriers[0].offset = 0;
+    release_barriers[0].size = VK_WHOLE_SIZE;
+    release_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+    release_barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    release_barriers[1].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    release_barriers[1].srcQueueFamilyIndex = device_->transfer_queue()->family_index();
+    release_barriers[1].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
+    release_barriers[1].buffer = *index_buffer;
+    release_barriers[1].offset = 0;
+    release_barriers[1].size = VK_WHOLE_SIZE;
     VkDependencyInfo release_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    release_dependency_info.bufferMemoryBarrierCount = 1;
-    release_dependency_info.pBufferMemoryBarriers = &release_barrier;
-    vkCmdPipelineBarrier2(cb0, &release_dependency_info);
+    release_dependency_info.bufferMemoryBarrierCount = release_barriers.size();
+    release_dependency_info.pBufferMemoryBarriers = release_barriers.data();
+    vkCmdPipelineBarrier2(cb, &release_dependency_info);
 
-    vkEndCommandBuffer(cb0);
+    vkEndCommandBuffer(cb);
 
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = cb0;
+    command_buffer_info.commandBuffer = cb;
 
     VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
     signal_semaphore_info.semaphore = *sem;
@@ -259,18 +287,19 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     submit.signalSemaphoreInfoCount = 1;
     submit.pSignalSemaphoreInfos = &signal_semaphore_info;
 
-    vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit, fence0->fence());
-    task_monitor_->Add(fence0, {command0, sem, ply_stage, ply_buffer});
+    vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit, fence->fence());
+    task_monitor_->Add(fence, {command, sem, ply_stage, ply_buffer, index_stage, index_buffer});
   }
 
+  // Compute queue: parse ply
   {
-    auto command1 = device_->compute_queue()->AllocateCommandBuffer();
-    auto cb1 = command1->command_buffer();
-    auto fence1 = device_->AllocateFence();
+    auto command = device_->compute_queue()->AllocateCommandBuffer();
+    auto cb = command->command_buffer();
+    auto fence = device_->AllocateFence();
 
     VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(cb1, &begin_info);
+    vkBeginCommandBuffer(cb, &begin_info);
 
     // Acquire barrier
     VkBufferMemoryBarrier2 acquire_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
@@ -284,16 +313,16 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     VkDependencyInfo acquire_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     acquire_dependency_info.bufferMemoryBarrierCount = 1;
     acquire_dependency_info.pBufferMemoryBarriers = &acquire_barrier;
-    vkCmdPipelineBarrier2(cb1, &acquire_dependency_info);
+    vkCmdPipelineBarrier2(cb, &acquire_dependency_info);
 
     // ply_buffer -> gaussian_splats
-    vkCmdPushConstants(cb1, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(point_count),
+    vkCmdPushConstants(cb, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(point_count),
                        &point_count);
-    cmdPushDescriptorSet(cb1, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_layout_,
+    cmdPushDescriptorSet(cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_layout_,
                          {*ply_buffer, *position, *cov3d, *opacity, *sh});
 
-    vkCmdBindPipeline(cb1, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
-    vkCmdDispatch(cb1, WorkgroupSize(point_count, 256), 1, 1);
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
+    vkCmdDispatch(cb, WorkgroupSize(point_count, 256), 1, 1);
 
     // Visibility barrier
     VkMemoryBarrier2 visibility_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
@@ -304,18 +333,18 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     VkDependencyInfo visibility_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     visibility_dependency_info.memoryBarrierCount = 1;
     visibility_dependency_info.pMemoryBarriers = &visibility_barrier;
-    vkCmdPipelineBarrier2(cb1, &visibility_dependency_info);
+    vkCmdPipelineBarrier2(cb, &visibility_dependency_info);
 
-    vkEndCommandBuffer(cb1);
+    vkEndCommandBuffer(cb);
 
-    // Acquire
+    // Submit
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
     wait_semaphore_info.semaphore = *sem;
     wait_semaphore_info.value = sem->value() + 1;
     wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = cb1;
+    command_buffer_info.commandBuffer = cb;
 
     VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
     submit.waitSemaphoreInfoCount = 1;
@@ -323,13 +352,57 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     submit.commandBufferInfoCount = 1;
     submit.pCommandBufferInfos = &command_buffer_info;
 
-    vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit, fence1->fence());
-    task_monitor_->Add(fence1, {command1, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
+    vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit, fence->fence());
+    task_monitor_->Add(fence, {command, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
   }
 
+  // Graphics queue: acquire index buffer
+  {
+    auto command = device_->graphics_queue()->AllocateCommandBuffer();
+    auto cb = command->command_buffer();
+    auto fence = device_->AllocateFence();
+
+    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cb, &begin_info);
+
+    // Acquire barrier
+    VkBufferMemoryBarrier2 acquire_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+    acquire_barrier.dstStageMask = VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
+    acquire_barrier.dstAccessMask = VK_ACCESS_2_INDEX_READ_BIT;
+    acquire_barrier.srcQueueFamilyIndex = device_->transfer_queue()->family_index();
+    acquire_barrier.dstQueueFamilyIndex = device_->graphics_queue()->family_index();
+    acquire_barrier.buffer = *index_buffer;
+    acquire_barrier.offset = 0;
+    acquire_barrier.size = VK_WHOLE_SIZE;
+    VkDependencyInfo acquire_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    acquire_dependency_info.bufferMemoryBarrierCount = 1;
+    acquire_dependency_info.pBufferMemoryBarriers = &acquire_barrier;
+    vkCmdPipelineBarrier2(cb, &acquire_dependency_info);
+
+    vkEndCommandBuffer(cb);
+
+    // Submit
+    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    wait_semaphore_info.semaphore = *sem;
+    wait_semaphore_info.value = sem->value() + 1;
+    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+
+    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    command_buffer_info.commandBuffer = cb;
+
+    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submit.waitSemaphoreInfoCount = 1;
+    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
+    submit.commandBufferInfoCount = 1;
+    submit.pCommandBufferInfos = &command_buffer_info;
+
+    vkQueueSubmit2(device_->graphics_queue()->queue(), 1, &submit, fence->fence());
+    task_monitor_->Add(fence, {command, sem, index_buffer});
+  }
   sem->Increment();
 
-  return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity);
+  return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity, index_buffer);
 }
 
 std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
@@ -338,6 +411,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   std::shared_ptr<RenderedImage> rendered_image;
 
   auto N = splats->size();
+  auto index_buffer = splats->index_buffer();
 
   PushConstants push_constants;
   push_constants.model = glm::mat4(1.f);
@@ -348,17 +422,6 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   camera_data.view = view;
   camera_data.camera_position = glm::inverse(view)[3];
   camera_data.screen_size = glm::uvec2(width, height);
-
-  std::vector<uint32_t> index_data;
-  index_data.reserve(6 * N);
-  for (int i = 0; i < N; ++i) {
-    index_data.push_back(4 * i + 0);
-    index_data.push_back(4 * i + 1);
-    index_data.push_back(4 * i + 2);
-    index_data.push_back(4 * i + 2);
-    index_data.push_back(4 * i + 1);
-    index_data.push_back(4 * i + 3);
-  }
 
   // Update storages
   const auto& double_buffer = double_buffer_[frame_index_ % 2];
@@ -384,11 +447,8 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto camera = compute_storage->camera();
   auto draw_indirect = compute_storage->draw_indirect();
   auto instances = compute_storage->instances();
-  auto index_buffer = compute_storage->index_buffer();
   auto camera_stage = compute_storage->camera_stage();
-  auto index_stage = compute_storage->index_stage();
 
-  std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
   std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
 
   // Compute queue
@@ -403,10 +463,6 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
     VkBufferCopy region = {0, 0, sizeof(Camera)};
     vkCmdCopyBuffer(cb, *camera_stage, *camera, 1, &region);
-
-    region = {0, 0, index_data.size() * sizeof(uint32_t)};
-    vkCmdCopyBuffer(cb, *index_stage, *index_buffer, 1, &region);
-
     vkCmdFillBuffer(cb, *visible_point_count, 0, sizeof(uint32_t), 0);
     vkCmdFillBuffer(cb, *inverse_index, 0, N * sizeof(uint32_t), -1);
 
@@ -496,13 +552,13 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
     // Release
-    std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers(3);
+    std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers(2);
     buffer_memory_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    buffer_memory_barriers[0].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    buffer_memory_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    buffer_memory_barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
     buffer_memory_barriers[0].srcQueueFamilyIndex = device_->compute_queue()->family_index();
     buffer_memory_barriers[0].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
-    buffer_memory_barriers[0].buffer = *index_buffer;
+    buffer_memory_barriers[0].buffer = *instances;
     buffer_memory_barriers[0].offset = 0;
     buffer_memory_barriers[0].size = VK_WHOLE_SIZE;
     buffer_memory_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
@@ -510,17 +566,9 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     buffer_memory_barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
     buffer_memory_barriers[1].srcQueueFamilyIndex = device_->compute_queue()->family_index();
     buffer_memory_barriers[1].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
-    buffer_memory_barriers[1].buffer = *instances;
+    buffer_memory_barriers[1].buffer = *draw_indirect;
     buffer_memory_barriers[1].offset = 0;
     buffer_memory_barriers[1].size = VK_WHOLE_SIZE;
-    buffer_memory_barriers[2] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[2].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    buffer_memory_barriers[2].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    buffer_memory_barriers[2].srcQueueFamilyIndex = device_->compute_queue()->family_index();
-    buffer_memory_barriers[2].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
-    buffer_memory_barriers[2].buffer = *draw_indirect;
-    buffer_memory_barriers[2].offset = 0;
-    buffer_memory_barriers[2].size = VK_WHOLE_SIZE;
     dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     dependency_info.bufferMemoryBarrierCount = buffer_memory_barriers.size();
     dependency_info.pBufferMemoryBarriers = buffer_memory_barriers.data();
@@ -556,8 +604,8 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(device_->compute_queue()->queue(), 1, &submit_info, fence->fence());
-    task_monitor_->Add(fence, {command, csem, camera_stage, index_stage, camera, visible_point_count, key, index,
-                               sort_storage, inverse_index, index_buffer, draw_indirect, instances});
+    task_monitor_->Add(fence, {command, csem, camera_stage, camera, visible_point_count, key, index, sort_storage,
+                               inverse_index, draw_indirect, instances});
   }
 
   auto image = graphics_storage->image();
@@ -573,31 +621,23 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkBeginCommandBuffer(cb, &begin_info);
 
     // Acquire
-    std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers(3);
+    std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers(2);
     buffer_memory_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
-    buffer_memory_barriers[0].dstAccessMask = VK_ACCESS_2_INDEX_READ_BIT;
+    buffer_memory_barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    buffer_memory_barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     buffer_memory_barriers[0].srcQueueFamilyIndex = device_->compute_queue()->family_index();
     buffer_memory_barriers[0].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
-    buffer_memory_barriers[0].buffer = *index_buffer;
+    buffer_memory_barriers[0].buffer = *instances;
     buffer_memory_barriers[0].offset = 0;
     buffer_memory_barriers[0].size = VK_WHOLE_SIZE;
     buffer_memory_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-    buffer_memory_barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    buffer_memory_barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    buffer_memory_barriers[1].dstAccessMask = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
     buffer_memory_barriers[1].srcQueueFamilyIndex = device_->compute_queue()->family_index();
     buffer_memory_barriers[1].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
-    buffer_memory_barriers[1].buffer = *instances;
+    buffer_memory_barriers[1].buffer = *draw_indirect;
     buffer_memory_barriers[1].offset = 0;
     buffer_memory_barriers[1].size = VK_WHOLE_SIZE;
-    buffer_memory_barriers[2] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[2].dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
-    buffer_memory_barriers[2].dstAccessMask = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
-    buffer_memory_barriers[2].srcQueueFamilyIndex = device_->compute_queue()->family_index();
-    buffer_memory_barriers[2].dstQueueFamilyIndex = device_->graphics_queue()->family_index();
-    buffer_memory_barriers[2].buffer = *draw_indirect;
-    buffer_memory_barriers[2].offset = 0;
-    buffer_memory_barriers[2].size = VK_WHOLE_SIZE;
     VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     dependency_info.bufferMemoryBarrierCount = buffer_memory_barriers.size();
     dependency_info.pBufferMemoryBarriers = buffer_memory_barriers.data();

@@ -17,7 +17,8 @@ namespace core {
 class VKGS_CORE_API GaussianSplats {
  public:
   GaussianSplats(size_t size, std::shared_ptr<gpu::Buffer> position, std::shared_ptr<gpu::Buffer> cov3d,
-                 std::shared_ptr<gpu::Buffer> sh, std::shared_ptr<gpu::Buffer> opacity);
+                 std::shared_ptr<gpu::Buffer> sh, std::shared_ptr<gpu::Buffer> opacity,
+                 std::shared_ptr<gpu::Buffer> index);
   ~GaussianSplats();
 
   size_t size() const noexcept { return size_; }
@@ -25,13 +26,15 @@ class VKGS_CORE_API GaussianSplats {
   auto cov3d() const noexcept { return cov3d_; }
   auto sh() const noexcept { return sh_; }
   auto opacity() const noexcept { return opacity_; }
+  auto index_buffer() const noexcept { return index_buffer_; }
 
  private:
   size_t size_;
-  std::shared_ptr<gpu::Buffer> position_;
-  std::shared_ptr<gpu::Buffer> cov3d_;
-  std::shared_ptr<gpu::Buffer> sh_;
-  std::shared_ptr<gpu::Buffer> opacity_;
+  std::shared_ptr<gpu::Buffer> position_;      // (N, 3)
+  std::shared_ptr<gpu::Buffer> cov3d_;         // (N, 6)
+  std::shared_ptr<gpu::Buffer> sh_;            // (N, 48) float16
+  std::shared_ptr<gpu::Buffer> opacity_;       // (N)
+  std::shared_ptr<gpu::Buffer> index_buffer_;  // (N, 6)
 };
 
 }  // namespace core
