@@ -43,6 +43,8 @@ if __name__ == "__main__":
 
         image = pygs.draw(splats, W2C, K, width, height, near=1.0, far=1e3).numpy()
 
+        image = (image.clip(0.0, 1.0) * 255.0).astype(np.uint8)
+
         print(camera.image_path)
         color = Image.fromarray(image[..., :3])
         alpha = Image.fromarray(image[..., 3])

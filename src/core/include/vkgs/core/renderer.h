@@ -47,7 +47,7 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<GaussianSplats> load_from_ply(const std::string& path);
 
   std::shared_ptr<RenderedImage> draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
-                                      const glm::mat4& projection, uint32_t width, uint32_t height, uint8_t* dst);
+                                      const glm::mat4& projection, uint32_t width, uint32_t height, float* dst);
 
  private:
   std::shared_ptr<gpu::Device> device_;

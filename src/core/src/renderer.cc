@@ -334,7 +334,7 @@ std::shared_ptr<GaussianSplats> Renderer::load_from_ply(const std::string& path)
 
 std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
                                               const glm::mat4& projection, uint32_t width, uint32_t height,
-                                              uint8_t* dst) {
+                                              float* dst) {
   std::shared_ptr<RenderedImage> rendered_image;
 
   auto N = splats->size();
@@ -772,10 +772,7 @@ std::shared_ptr<RenderedImage> Renderer::draw(std::shared_ptr<GaussianSplats> sp
 
     vkQueueSubmit2(device_->transfer_queue()->queue(), 1, &submit_info, fence->fence());
     auto task = task_monitor_->Add(fence, {command, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
-      for (int i = 0; i < width * height * 4; ++i) {
-        const auto* image_buffer_ptr = image_buffer->data<float>();
-        dst[i] = static_cast<uint8_t>(std::clamp(image_buffer_ptr[i], 0.f, 1.f) * 255.f);
-      }
+      std::memcpy(dst, image_buffer->data<float>(), width * height * 4 * sizeof(float));
     });
 
     rendered_image = std::make_shared<RenderedImage>(width, height, task);

@@ -93,6 +93,10 @@ if __name__ == "__main__":
     image = pygs.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
     print("draw end")
 
+    print("float -> uint8 start")
+    image = (image.clip(0.0, 1.0) * 255.0).astype(np.uint8)
+    print("float -> uint8 end")
+
     image = image[..., :3]
     for i in range(len(image)):
         s = (i * height) // N

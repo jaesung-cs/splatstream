@@ -55,7 +55,7 @@ def draw(
     projections[..., 2, 3] = near * far / (near - far)
     projections[..., 3, 2] = -1
 
-    images = np.zeros((*batch_dims, height, width, 4), dtype=np.uint8)
+    images = np.zeros((*batch_dims, height, width, 4), dtype=np.float32)
 
     # flatten
     viewmats = viewmats.reshape(-1, 4, 4)

@@ -19,7 +19,7 @@ uint32_t Renderer::transfer_queue_index() const noexcept { return impl_->transfe
 GaussianSplats Renderer::load_from_ply(const std::string& path) { return impl_->load_from_ply(path); }
 
 RenderedImage Renderer::draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
-                             uint32_t height, uint8_t* dst) {
+                             uint32_t height, float* dst) {
   return impl_->draw(splats, view, projection, width, height, dst);
 }
 
