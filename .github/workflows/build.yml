@@ -41,15 +41,11 @@ jobs:
       run: |
         cd binding
         python -m build --wheel --verbose
-    - name: Build wheels
-      uses: pypa/cibuildwheel@v3.2.1
-      with:
-        package-dir: binding
-        output-dir: wheelhouse
 
     - name: Test package installation
-      run:
-        pip install $(ls wheelhouse/*.whl)
+      run: |
+        cd binding
+        pip install $(ls dist/*.whl)
 
     - name: Run basic tests
       run: |
