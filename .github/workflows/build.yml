@@ -31,6 +31,7 @@ jobs:
     - name: Download Slang Compiler ${{ matrix.os }}
       if: ${{ matrix.os == 'macos-latest' }}
       run: |
+        ls -al /usr/local/lib
         curl -L -o slang-macos.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-2025.19.1-macos-aarch64.tar.gz
         mkdir slang-macos
         tar -xzvf slang-macos.tar.gz -C slang-macos
