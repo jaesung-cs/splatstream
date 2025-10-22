@@ -21,7 +21,7 @@ jobs:
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         curl -L -o slang-linux.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-2025.19.1-linux-x86_64.tar.gz
-        tar -xzf slang-linux.tar.gz
+        tar -xzf slang-linux.tar.gz -C slang-linux
         sudo cp slang-linux/bin/slangc /usr/local/bin/
         sudo cp slang-linux/lib/*.so* /usr/local/lib/
         sudo chmod +x /usr/local/bin/slangc
@@ -31,7 +31,7 @@ jobs:
       if: ${{ matrix.os == 'macos-latest' }}
       run: |
         curl -L -o slang-macos.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-2025.19.1-macos-aarch64.tar.gz
-        tar -xzf slang-macos.tar.gz
+        tar -xzf slang-macos.tar.gz -C slang-macos
         sudo cp slang-macos/bin/slangc /usr/local/bin/
         sudo cp slang-macos/lib/*.dylib /usr/local/lib/
         sudo chmod +x /usr/local/bin/slangc
@@ -41,8 +41,8 @@ jobs:
       run: |
         curl -L -o slang-windows.zip https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-2025.19.1-windows-x86_64.zip
         Expand-Archive slang-windows.zip -DestinationPath C:\slang
-        echo "C:\slang\slang-windows\bin" >> $env:GITHUB_PATH
-        echo "C:\slang\slang-windows\lib" >> $env:GITHUB_PATH
+        echo "C:\slang\bin" >> $env:GITHUB_PATH
+        echo "C:\slang\lib" >> $env:GITHUB_PATH
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
