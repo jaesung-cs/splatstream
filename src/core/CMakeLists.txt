@@ -21,11 +21,6 @@ add_library(vkgs_core SHARED
 )
 add_library(vkgs::core ALIAS vkgs_core)
 
-target_compile_definitions(vkgs_core
-  PRIVATE
-    VK_NO_PROTOTYPES
-)
-
 target_include_directories(vkgs_core
   PUBLIC
     include/

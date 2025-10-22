@@ -13,11 +13,12 @@ import pygs
 splats = pygs.load_from_ply("my_splats.ply")
 images = pygs.draw(
   splats,
-  viewmats,          # np.ndarray, (C, 4, 4)
-  Ks,                # np.ndarray, (C, 3, 3)
-  width, height,     # int
+  viewmats,          # np.ndarray, (..., 4, 4)
+  Ks,                # np.ndarray, (..., 3, 3)
+  width,             # int
+  height,            # int
   near=0.1, far=1e3  # Do not use too low near nor too high far, otherwise z-fighting
-).numpy()            # np.ndarray, (C, H, W, 3), np.uint8
+).numpy()            # np.ndarray, (..., H, W, 3), np.uint8
 
 from PIL import Image
 for i in range(len(images)):
@@ -28,23 +29,29 @@ for i in range(len(images)):
 ## Feature Highlights
 - Fast speed: rasterization using Graphics capability.
 - Memory-efficiency: reuse resources by double buffering.
-- Pure Vulkan with very few dependencies. No CUDA required.
+- Pure Vulkan with a minimal set of dependencies. No CUDA required.
 
 ## Limitations
-- Only importable `.ply` format files, SH degree 3, from the original Gaussian Splatting.
-- No gradient computation.
-- Rendering image slightly differs from `gsplat` (suspectedly due to splat culling logic, i.e. frustum test, near the camera)
-- No package, no distribution yet, need to build from source and install by yourself.
+- Only `.ply` format files with SH degree 3 are importable; pretrained from the [original Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting) codes.
+- No gradient computation; this code is for rendering, not training.
+- Rendering image slightly differs from `gsplat` (suspectedly due to splat culling logic, i.e. frustum test, near plane of the camera)
+- No package, no distribution yet, need to install VulkanSDK, build from source and install this package by yourself.
 
 ## Requirements
-- `VulkanSDK`, with optional components `Volk`, `vma` installed.
-  - `MacOS`: `>=1.4.328.1`, becuase `VK_KHR_push_descriptor` is supported by `MoltenVK` since then.
-  - others: `>=1.4`
-- `cmake`
+- `VulkanSDK>=1.4.328.1`
+  - `VK_KHR_push_descriptor` has been promoted to 1.4 and is supported by `MoltenVK` in `MacOS` since the bug was fixed in `1.4.328.1`.
+- `cmake>=3.15`
+  - Either system-installed or via pip or conda.
+    ```bash
+    $ pip install cmake
+    or
+    $ conda install conda-forge::cmake
+    ```
 - Python dependencies
-  ```bash
-  $ pip install -r requirements.txt
-  ```
+  - Includes build tools.
+    ```bash
+    $ pip install -r requirements.txt
+    ```
 
 ## Build Python Module
 ```bash
@@ -64,6 +71,12 @@ $ cmake --build build --config Release -j
 - [ ] c++ viewer
 - [ ] Build wheels and publish
 - [ ] Find reasons for pixel value difference with `gsplat`
+
+## Contribution
+
+- Feedback, feature request, issue report, or PRs are welcome!
+- c++ must be formatted with `clang-format` with rules defined in `.clang-format`.
+- python shall be formatted, but no specific formatter yet.
 
 ## Technical Details
 
