@@ -17,37 +17,40 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Download Slang Compiler ${{ matrix.os }}
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      run: |
+        curl -L -o slang-linux.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-v2025.19.1-linux-x64.tar.gz
+        tar -xzf slang-linux.tar.gz
+        sudo cp slang-v2025.19.1-linux-x64/bin/slangc /usr/local/bin/
+        sudo chmod +x /usr/local/bin/slangc
+
+    - name: Download Slang Compiler ${{ matrix.os }}
+      if: ${{ matrix.os == 'macos-latest' }}
+      run: |
+        curl -L -o slang-macos.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-v2025.19.1-macos-universal.tar.gz
+        tar -xzf slang-macos.tar.gz
+        sudo cp slang-v2025.19.1-macos-universal/bin/slangc /usr/local/bin/
+        sudo chmod +x /usr/local/bin/slangc
+    
+    - name: Download Slang Compiler ${{ matrix.os }}
+      if: ${{ matrix.os == 'windows-latest' }}
+      run: |
+        curl -L -o slang-windows.zip https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-v2025.19.1-windows-x64.zip
+        Expand-Archive slang-windows.zip -DestinationPath C:\slang
+        echo "C:\slang\slang-v2025.19.1-windows-x64\bin" >> $env:GITHUB_PATH
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Setup Vulkan SDK
-      uses: humbletim/setup-vulkan-sdk@v1.2.1
+    - name: Install Vulkan SDK
+      uses: humbletim/install-vulkan-sdk@v1.2
       with:
-        vulkan-query-version: 1.4.328.1
-        vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang, SPIRV-Tools
-        vulkan-use-cache: true
+        version: 1.4.328.1
+        cache: true
 
-    - name: Download Slang Compiler
-      run: |
-        # Download slangc binary based on platform
-        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-          curl -L -o slang-linux.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-v2025.19.1-linux-x64.tar.gz
-          tar -xzf slang-linux.tar.gz
-          sudo cp slang-v2025.19.1-linux-x64/bin/slangc /usr/local/bin/
-          sudo chmod +x /usr/local/bin/slangc
-        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-          curl -L -o slang-macos.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-v2025.19.1-macos-universal.tar.gz
-          tar -xzf slang-macos.tar.gz
-          sudo cp slang-v2025.19.1-macos-universal/bin/slangc /usr/local/bin/
-          sudo chmod +x /usr/local/bin/slangc
-        elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-          curl -L -o slang-windows.zip https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-v2025.19.1-windows-x64.zip
-          Expand-Archive slang-windows.zip -DestinationPath C:\slang
-          echo "C:\slang\slang-v2025.19.1-windows-x64\bin" >> $env:GITHUB_PATH
-        fi
-  
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
