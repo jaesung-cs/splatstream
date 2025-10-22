@@ -70,8 +70,8 @@ target_link_libraries(vkgs_gpu
 
 target_compile_definitions(vkgs_gpu PUBLIC VKGS_GPU_STATIC)
 
-# Disables too many warnings from vma
-target_compile_options(vkgs_gpu PRIVATE -Wno-nullability-completeness)
+# TODO: Disables too many warnings from vma (MacOS only)
+#target_compile_options(vkgs_gpu PRIVATE -Wno-nullability-completeness)
 
 set_target_properties(vkgs_gpu PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
