@@ -23,12 +23,14 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install Vulkan SDK
-      uses: humbletim/install-vulkan-sdk@033219e2d69dd4d3e873e217eb385fdd4b4438f4  # windows fix
+    - name: Install Vulkan SDK and Runtime
+      uses: jakoch/install-vulkan-sdk-action@v1.2.7
       with:
-        version: 1.4.328.1
+        vulkan_version: 1.4.328.1
+        install_runtime: true
         cache: true
-
+        stripdown: true
+  
     # This helps find slangc libraries from Vulkan SDK.
     - name: Set LD_LIBRARY_PATH (ubuntu)
       if: ${{ matrix.os == 'ubuntu-latest' }}
@@ -44,7 +46,7 @@ jobs:
     - name: Build package
       run: |
         cd binding
-        python -m build --wheel
+        python -m build --wheel --verbose
 
     - name: Test package installation
       run: |
