@@ -1,3 +1,4 @@
+from . import _core
 from .renderer import load_from_ply, draw
 
 __all__ = [
