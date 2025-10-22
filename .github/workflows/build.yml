@@ -47,13 +47,17 @@ jobs:
         echo "C:\slang\bin" >> $env:GITHUB_PATH
         echo "C:\slang\lib" >> $env:GITHUB_PATH
 
+    - name: Check Slang Compiler
+      run: |
+        slangc --version
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Install Vulkan SDK
-      uses: humbletim/install-vulkan-sdk@v1.2
+      uses: humbletim/install-vulkan-sdk@0ef43dbc8af56d77bcb1e8b1ebbbaa8718ead524
       with:
         version: 1.4.328.1
         cache: true
