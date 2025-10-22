@@ -9,47 +9,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [ubuntu-latest]
         python-version: ['3.10']
 
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-
-    - name: Download Slang Compiler (ubuntu)
-      if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: |
-        curl -L -o slang-linux.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-2025.19.1-linux-x86_64.tar.gz
-        mkdir slang-linux
-        tar -xzvf slang-linux.tar.gz -C slang-linux
-        sudo cp slang-linux/bin/slangc /usr/local/bin/
-        sudo cp slang-linux/lib/*.so* /usr/local/lib/
-        sudo chmod +x /usr/local/bin/slangc
-        sudo ldconfig
-
-    - name: Download Slang Compiler (macos)
-      if: ${{ matrix.os == 'macos-latest' }}
-      run: |
-        sudo mkdir /usr/local/lib
-        curl -L -o slang-macos.tar.gz https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-2025.19.1-macos-aarch64.tar.gz
-        mkdir slang-macos
-        tar -xzvf slang-macos.tar.gz -C slang-macos
-        sudo cp slang-macos/bin/slangc /usr/local/bin/
-        sudo cp slang-macos/lib/*.dylib /usr/local/lib/
-        sudo chmod +x /usr/local/bin/slangc
-    
-    - name: Download Slang Compiler (windows)
-      if: ${{ matrix.os == 'windows-latest' }}
-      run: |
-        curl -L -o slang-windows.zip https://github.com/shader-slang/slang/releases/download/v2025.19.1/slang-2025.19.1-windows-x86_64.zip
-        Expand-Archive slang-windows.zip -DestinationPath C:\slang
-        echo "C:\slang\bin" >> $env:GITHUB_PATH
-        echo "C:\slang\lib" >> $env:GITHUB_PATH
-
-    - name: Check Slang Compiler
-      run: |
-        slangc -version
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
