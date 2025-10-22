@@ -31,12 +31,6 @@ jobs:
         cache: true
         stripdown: true
   
-    # This helps find slangc libraries from Vulkan SDK.
-    - name: Set LD_LIBRARY_PATH (ubuntu)
-      if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: |
-        echo "LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-  
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
@@ -47,11 +41,15 @@ jobs:
       run: |
         cd binding
         python -m build --wheel --verbose
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v3.2.1
+      with:
+        package-dir: binding
+        output-dir: wheelhouse
 
     - name: Test package installation
-      run: |
-        cd binding
-        pip install $(ls dist/*.whl)
+      run:
+        pip install $(ls wheelhouse/*.whl)
 
     - name: Run basic tests
       run: |
