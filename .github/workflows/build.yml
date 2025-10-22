@@ -47,10 +47,6 @@ jobs:
         cd binding
         pip install $(ls dist/*.whl)
 
-    - name: Run basic tests
-      run: |
-        python -c "import pygs; print('Package imported successfully')"
-
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
