@@ -49,7 +49,7 @@ jobs:
 
     - name: Check Slang Compiler
       run: |
-        slangc --version
+        slangc -version
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
