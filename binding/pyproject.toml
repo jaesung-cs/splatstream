@@ -10,7 +10,7 @@ authors = [
     {name = "Jaesung Park", email = "jaesung.cs@gmail.com"}
 ]
 urls = {Homepage = "https://github.com/jaesung-cs/pygs"}
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 
 [tool.scikit-build]

@@ -1,6 +1,11 @@
 # pygs
 Python bindings for 3dgs rendering.
 
+[![Build Status](https://github.com/jaesung-cs/pygs/workflows/Build%20Python%20Package/badge.svg)](https://github.com/jaesung-cs/pygs/actions/workflows/build.yml)
+[![Release Status](https://github.com/jaesung-cs/pygs/workflows/Release%20Python%20Package/badge.svg)](https://github.com/jaesung-cs/pygs/actions/workflows/release.yml)
+[![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos-lightgrey.svg)](https://github.com/jaesung-cs/pygs/actions)
+
 This is a more modularized and organized code of my previous c++ project [vkgs](https://github.com/jaesung-cs/vkgs).
 
 This code is being actively developed, so expect some bugs until the codes are stabilized.

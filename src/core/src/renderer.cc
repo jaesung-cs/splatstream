@@ -1,5 +1,6 @@
 #include "vkgs/core/renderer.h"
 
+#include <cstring>
 #include <fstream>
 #include <unordered_map>
 #include <sstream>

@@ -17,7 +17,7 @@ target_link_libraries(pygs
     vkgs::api
 )
 
-# Fix rpath
+# Fix rpath for shared libraries
 # See https://scikit-build-core.readthedocs.io/en/latest/guide/dynamic_link.html.
 if(APPLE)
   set(origin_token "@loader_path")
@@ -25,6 +25,9 @@ else()
   set(origin_token "$ORIGIN")
 endif()
 set_property(TARGET pygs PROPERTY INSTALL_RPATH
+  "${origin_token}/"
+)
+set_property(TARGET vkgs_api PROPERTY INSTALL_RPATH
   "${origin_token}/"
 )
 
