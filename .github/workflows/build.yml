@@ -49,11 +49,10 @@ jobs:
     - name: Test package installation
       run: |
         cd binding
-        pip install dist/*.whl
+        pip install $(ls dist/*.whl)
 
     - name: Run basic tests
       run: |
-        cd binding
         python -c "import pygs; print('Package imported successfully')"
 
     - name: Upload build artifacts
