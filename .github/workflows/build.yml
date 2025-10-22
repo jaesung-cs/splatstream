@@ -9,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.10']
 
     steps:
@@ -28,13 +28,8 @@ jobs:
         version: 1.4.328.1
         cache: true
 
-    - name: Test Vulkan SDK
-      if: ${{ matrix.os == 'windows-latest' }}
-      run: |
-        echo "$env:VULKAN_SDK"
-        dir "$env:VULKAN_SDK"
-
-    - name: Set LD_LIBRARY_PATH
+    # This helps find slangc libraries from Vulkan SDK.
+    - name: Set LD_LIBRARY_PATH (ubuntu)
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         echo "LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
