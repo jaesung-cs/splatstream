@@ -89,7 +89,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         attestations: false
-        path: wheelhouse/
+        path: dist/
         merge-multiple: true
 
     - name: Upload to PyPI
@@ -101,5 +101,5 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: wheelhouse/**/*
+        files: dist/**/*
         generate_release_notes: true
