@@ -3,12 +3,12 @@ import os
 
 from PIL import Image
 import numpy as np
-import pygs
+import splatstream as ss
 
 from scene.dataset_readers import readColmapSceneInfo
 
 if __name__ == "__main__":
-    splats = pygs.load_from_ply("models/train_30000.ply")
+    splats = ss.load_from_ply("models/train_30000.ply")
 
     scene = readColmapSceneInfo("models/tandt_db/tandt/train")
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     Ks = Ks[:N]
 
     print("draw start")
-    image = pygs.draw(splats, viewmats, Ks, width, height, near=0.1, far=1e3).numpy()
+    image = ss.draw(splats, viewmats, Ks, width, height, near=0.1, far=1e3).numpy()
     print("draw end")
 
     colors = []

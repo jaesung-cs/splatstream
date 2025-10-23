@@ -3,7 +3,7 @@ import os
 
 from PIL import Image
 import numpy as np
-import pygs
+import splatstream as ss
 
 if __name__ == "__main__":
     os.makedirs("test_sh", exist_ok=True)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
             )
             f.write(data.tobytes())
 
-    splats = pygs.load_from_ply(splat_path)
+    splats = ss.load_from_ply(splat_path)
 
     N = 64
     viewmats = []
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     Ks = np.stack(Ks)
 
     print("draw start")
-    image = pygs.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
+    image = ss.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
     print("draw end")
 
     image = image[..., :3]

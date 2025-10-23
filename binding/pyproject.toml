@@ -3,17 +3,17 @@ requires = ["scikit-build-core"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "pygs"
+name = "splatstream"
 version = "0.0.0"
-description = "Python bindings for vkgs"
+description = "Streamlined 3dgs rendering"
 authors = [
     {name = "Jaesung Park", email = "jaesung.cs@gmail.com"}
 ]
-urls = {Homepage = "https://github.com/jaesung-cs/pygs"}
+urls = {Homepage = "https://github.com/jaesung-cs/splatstream"}
 requires-python = ">=3.10"
 license = {text = "MIT"}
 
 [tool.scikit-build]
 cmake.source-dir = "."
 cmake.build-type = "Release"
-wheel.packages = ["pygs"]
+wheel.packages = ["splatstream"]
