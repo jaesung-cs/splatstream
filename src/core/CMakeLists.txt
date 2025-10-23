@@ -13,7 +13,7 @@ FetchContent_MakeAvailable(glm)
 FetchContent_Declare(
   vk_radix_sort
   GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        fe75b8eb33514a3e8b00d3418a80728db6d28ac0  # feature/compile_slangc
+  GIT_TAG        8b2ce9ccf873857cc90ba67de5981ad6c36cfce9  # v0.1.3
 )
 FetchContent_MakeAvailable(vk_radix_sort)
 
