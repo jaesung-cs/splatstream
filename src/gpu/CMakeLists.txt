@@ -19,13 +19,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(vma)
 
-FetchContent_Declare(
-  glm
-  GIT_REPOSITORY https://github.com/g-truc/glm.git
-  GIT_TAG        a532f5b1cf27d6a3c099437e6959cf7e398a0a67  # 1.0.2
-)
-FetchContent_MakeAvailable(glm)
-
 # Static library only to load Vulkan functions statically properly.
 add_library(vkgs_gpu STATIC
   src/buffer.cc
@@ -62,10 +55,8 @@ target_include_directories(vkgs_gpu
 
 target_link_libraries(vkgs_gpu
   PUBLIC
-    Vulkan::Vulkan
     volk::volk_headers
     GPUOpen::VulkanMemoryAllocator
-    glm::glm
 )
 
 target_compile_definitions(vkgs_gpu PUBLIC VKGS_GPU_STATIC)

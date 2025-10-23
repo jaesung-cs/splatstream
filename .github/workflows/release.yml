@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.10', '3.11', '3.12']
+        python-version: ['3.10']
 
     steps:
     - uses: actions/checkout@v4
@@ -24,47 +24,72 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install Vulkan SDK and Runtime
+    - name: Install Vulkan SDK and Runtime (ubuntu, macos)
       uses: jakoch/install-vulkan-sdk-action@v1.2.7
+      if: ${{ matrix.os != 'windows-latest' }}
       with:
         vulkan_version: 1.4.328.1
         install_runtime: true
         cache: true
         stripdown: true
-  
+        destination: ${{ github.workspace }}/VulkanSDK
+
+    - name: Install Vulkan SDK and Runtime (windows)
+      uses: jakoch/install-vulkan-sdk-action@v1.2.7
+      if: ${{ matrix.os == 'windows-latest' }}
+      with:
+        vulkan_version: 1.4.328.1
+        install_runtime: true
+        cache: true
+        stripdown: true
+        destination: C:\VulkanSDK
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install build wheel
+        pip install cibuildwheel
 
     - name: Build package
       run: |
-        cd binding
-        python -m build --wheel --verbose
+        cibuildwheel ./binding --output-dir wheelhouse
+        ls ./wheelhouse
+      env:
+        CIBW_BUILD: "cp310-* cp311-* cp312-*"
+        CIBW_ARCHS_WINDOWS: "AMD64"
+        CIBW_ARCHS_LINUX: "x86_64"
+        CIBW_ARCHS_MACOS: "arm64"
+        CIBW_SKIP: "pp* *-musllinux_*"
+        # Linux
+        CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64:2025.04.19-1"  # slangc requirements
+        CIBW_ENVIRONMENT_LINUX: >
+          VULKAN_SDK=/project/VulkanSDK/1.4.328.1/x86_64
+          PATH=$VULKAN_SDK/bin:$PATH
+          LD_LIBRARY_PATH=$VULKAN_SDK/lib:$LD_LIBRARY_PATH
+          PKG_CONFIG_PATH=$VULKAN_SDK/lib/pkgconfig:$PKG_CONFIG_PATH
+          CMAKE_PREFIX_PATH=$VULKAN_SDK:$CMAKE_PREFIX_PATH
 
     - name: Test package installation
       run: |
-        cd binding
-        pip install $(ls dist/*.whl)
+        pip install $(ls wheelhouse/*cp310*.whl)
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: splatstream-${{ matrix.os }}-py${{ matrix.python-version }}
-        path: binding/dist/
+        name: splatstream-${{ matrix.os }}
+        path: wheelhouse/
 
   release:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    
+
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
         attestations: false
-        path: dist/
+        path: wheelhouse/
         merge-multiple: true
 
     - name: Upload to PyPI
@@ -76,5 +101,5 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: dist/**/*
+        files: wheelhouse/**/*
         generate_release_notes: true
