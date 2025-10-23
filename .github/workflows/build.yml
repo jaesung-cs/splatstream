@@ -72,4 +72,4 @@ jobs:
 
     - name: Test package installation
       run: |
-        pip install $(ls wheelhouse/*.whl)
+        pip install $(ls wheelhouse/*cp310*.whl)
