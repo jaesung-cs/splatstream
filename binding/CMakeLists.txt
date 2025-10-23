@@ -1,18 +1,18 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(pygs_binding LANGUAGES C CXX)
+project(splatstream_binding LANGUAGES C CXX)
 
 find_package(pybind11 REQUIRED)
 
 add_subdirectory(.. ./build/vkgs)
 
-# pygs
-pybind11_add_module(pygs
-  pygs.cc
+# splatstream
+pybind11_add_module(splatstream
+  binding.cc
 )
-set_target_properties(pygs PROPERTIES OUTPUT_NAME _core)
+set_target_properties(splatstream PROPERTIES OUTPUT_NAME _core)
 
-target_link_libraries(pygs
+target_link_libraries(splatstream
   PRIVATE
     vkgs::api
 )
@@ -24,11 +24,11 @@ if(APPLE)
 else()
   set(origin_token "$ORIGIN")
 endif()
-set_property(TARGET pygs PROPERTY INSTALL_RPATH
+set_property(TARGET splatstream PROPERTY INSTALL_RPATH
   "${origin_token}/"
 )
 set_property(TARGET vkgs_api PROPERTY INSTALL_RPATH
   "${origin_token}/"
 )
 
-install(TARGETS vkgs_api vkgs_core vkgs_gpu pygs DESTINATION pygs)
+install(TARGETS vkgs_api vkgs_core vkgs_gpu splatstream DESTINATION splatstream)
