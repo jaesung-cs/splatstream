@@ -1,5 +1,5 @@
-#ifndef VKGS_CORE_MODULE_H
-#define VKGS_CORE_MODULE_H
+#ifndef VKGS_CORE_RENDERER_H
+#define VKGS_CORE_RENDERER_H
 
 #include <array>
 #include <cstdint>
@@ -82,4 +82,4 @@ class VKGS_CORE_API Renderer {
 }  // namespace core
 }  // namespace vkgs
 
-#endif  // VKGS_CORE_MODULE_H
+#endif  // VKGS_CORE_RENDERER_H
