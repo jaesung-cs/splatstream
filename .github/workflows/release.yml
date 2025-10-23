@@ -51,7 +51,7 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: pygs-${{ matrix.os }}-py${{ matrix.python-version }}
+        name: splatstream-${{ matrix.os }}-py${{ matrix.python-version }}
         path: binding/dist/
 
   release:
@@ -63,13 +63,15 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
+        attestations: false
         path: dist/
+        merge-multiple: true
 
     - name: Upload to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
-        skip_existing: true
+        skip-existing: true
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
