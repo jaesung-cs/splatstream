@@ -9,6 +9,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "volk.h"
+
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/device.h"

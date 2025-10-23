@@ -8,9 +8,6 @@
 
 #include <glm/glm.hpp>
 
-#include "volk.h"
-#include "vk_mem_alloc.h"
-
 #include "export_api.h"
 
 namespace vkgs {
