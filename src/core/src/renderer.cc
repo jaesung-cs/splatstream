@@ -31,6 +31,8 @@
 #include "generated/projection.h"
 #include "generated/splat_vert.h"
 #include "generated/splat_frag.h"
+#include "generated/splat_background_vert.h"
+#include "generated/splat_background_frag.h"
 #include "sorter.h"
 #include "compute_storage.h"
 #include "graphics_storage.h"
@@ -85,33 +87,10 @@ Renderer::Renderer() {
                                       {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
                                       {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
                                   },
-                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, 4}});
-
+                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePlyPushConstants)}});
   parse_ply_pipeline_ = gpu::ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
 
-  rank_pipeline_layout_ =
-      gpu::PipelineLayout::Create(*device_,
-                                  {
-                                      {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                  },
-                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)}});
-
-  rank_pipeline_ = gpu::ComputePipeline::Create(*device_, *rank_pipeline_layout_, rank);
-
-  inverse_index_pipeline_layout_ =
-      gpu::PipelineLayout::Create(*device_, {
-                                                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                                {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                                {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                            });
-
-  inverse_index_pipeline_ = gpu::ComputePipeline::Create(*device_, *inverse_index_pipeline_layout_, inverse_index);
-
-  projection_pipeline_layout_ =
+  compute_pipeline_layout_ =
       gpu::PipelineLayout::Create(*device_,
                                   {
                                       {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
@@ -124,15 +103,19 @@ Renderer::Renderer() {
                                       {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
                                       {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
                                   },
-                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)}});
+                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants)}});
+  rank_pipeline_ = gpu::ComputePipeline::Create(*device_, *compute_pipeline_layout_, rank);
+  inverse_index_pipeline_ = gpu::ComputePipeline::Create(*device_, *compute_pipeline_layout_, inverse_index);
+  projection_pipeline_ = gpu::ComputePipeline::Create(*device_, *compute_pipeline_layout_, projection);
 
-  projection_pipeline_ = gpu::ComputePipeline::Create(*device_, *projection_pipeline_layout_, projection);
-
-  splat_pipeline_layout_ =
-      gpu::PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
-
-  splat_pipeline_ = gpu::GraphicsPipeline::Create(*device_, *splat_pipeline_layout_, splat_vert, splat_frag,
+  graphics_pipeline_layout_ =
+      gpu::PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
+                                  {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(GraphicsPushConstants)}});
+  splat_pipeline_ = gpu::GraphicsPipeline::Create(*device_, *graphics_pipeline_layout_, splat_vert, splat_frag,
                                                   VK_FORMAT_R32G32B32A32_SFLOAT);
+  splat_background_pipeline_ =
+      gpu::GraphicsPipeline::Create(*device_, *graphics_pipeline_layout_, splat_background_vert, splat_background_frag,
+                                    VK_FORMAT_R32G32B32A32_SFLOAT);
 }
 
 Renderer::~Renderer() = default;
@@ -142,7 +125,7 @@ uint32_t Renderer::graphics_queue_index() const noexcept { return device_->graph
 uint32_t Renderer::compute_queue_index() const noexcept { return device_->compute_queue_index(); }
 uint32_t Renderer::transfer_queue_index() const noexcept { return device_->transfer_queue_index(); }
 
-std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
+std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, int sh_degree) {
   std::ifstream in(path, std::ios::binary);
 
   // parse header
@@ -175,6 +158,38 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     }
   }
 
+  int K = 0;
+  for (const auto& [key, _] : offsets) {
+    if (key.find("f_rest_") != std::string::npos) {
+      K = std::max(K, std::stoi(key.substr(7)));
+    }
+  }
+  K = K + 1;
+
+  int sh_degree_data = 0;
+  switch (K) {
+    case 0:  // no f_rest
+      sh_degree_data = 0;
+      break;
+    case 9:  // f_rest_[0..9)
+      sh_degree_data = 1;
+      break;
+    case 24:  // f_rest_[0..24)
+      sh_degree_data = 2;
+      break;
+    case 45:  // f_rest_[0..45)
+      sh_degree_data = 3;
+      break;
+    default:
+      throw std::runtime_error("Unsupported SH degree for having f_rest_[0.." + std::to_string(K - 1) + "]");
+  }
+  K /= 3;
+
+  if (sh_degree == -1) sh_degree = sh_degree_data;
+  if (sh_degree > sh_degree_data) {
+    throw std::runtime_error("SH degree for drawing is greater than the maximum degree of the data");
+  }
+
   std::vector<uint32_t> ply_offsets(60);
   ply_offsets[0] = offsets["x"] / 4;
   ply_offsets[1] = offsets["y"] / 4;
@@ -189,10 +204,10 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
   ply_offsets[10 + 0] = offsets["f_dc_0"] / 4;
   ply_offsets[10 + 16] = offsets["f_dc_1"] / 4;
   ply_offsets[10 + 32] = offsets["f_dc_2"] / 4;
-  for (int i = 0; i < 15; ++i) {
-    ply_offsets[10 + 1 + i] = offsets["f_rest_" + std::to_string(i)] / 4;
-    ply_offsets[10 + 17 + i] = offsets["f_rest_" + std::to_string(15 + i)] / 4;
-    ply_offsets[10 + 33 + i] = offsets["f_rest_" + std::to_string(30 + i)] / 4;
+  for (int i = 0; i < K; ++i) {
+    ply_offsets[10 + 1 + i] = offsets["f_rest_" + std::to_string(K * 0 + i)] / 4;
+    ply_offsets[10 + 17 + i] = offsets["f_rest_" + std::to_string(K * 1 + i)] / 4;
+    ply_offsets[10 + 33 + i] = offsets["f_rest_" + std::to_string(K * 2 + i)] / 4;
   }
   ply_offsets[58] = offsets["opacity"] / 4;
   ply_offsets[59] = offset / 4;
@@ -210,6 +225,10 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     index_data.push_back(4 * i + 1);
     index_data.push_back(4 * i + 3);
   }
+
+  ParsePlyPushConstants parse_ply_push_constants;
+  parse_ply_push_constants.point_count = point_count;
+  parse_ply_push_constants.sh_degree = sh_degree;
 
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
@@ -320,10 +339,10 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     vkCmdPipelineBarrier2(*cb, &acquire_dependency_info);
 
     // ply_buffer -> gaussian_splats
-    vkCmdPushConstants(*cb, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(point_count),
-                       &point_count);
     cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_layout_,
                          {*ply_buffer, *position, *cov3d, *opacity, *sh});
+    vkCmdPushConstants(*cb, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                       sizeof(parse_ply_push_constants), &parse_ply_push_constants);
 
     vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
     vkCmdDispatch(*cb, WorkgroupSize(point_count, 256), 1, 1);
@@ -405,12 +424,12 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
   }
   sem->Increment();
 
-  return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity, index_buffer);
+  return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer);
 }
 
 std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
                                               const glm::mat4& projection, uint32_t width, uint32_t height,
-                                              uint8_t* dst) {
+                                              const glm::vec3& background, float eps2d, int sh_degree, uint8_t* dst) {
   std::shared_ptr<RenderedImage> rendered_image;
 
   auto cq = device_->compute_queue();
@@ -424,9 +443,15 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto opacity = splats->opacity();
   auto index_buffer = splats->index_buffer();
 
-  PushConstants push_constants;
-  push_constants.model = glm::mat4(1.f);
-  push_constants.point_count = N;
+  ComputePushConstants compute_push_constants;
+  compute_push_constants.model = glm::mat4(1.f);
+  compute_push_constants.point_count = N;
+  compute_push_constants.eps2d = eps2d;
+  compute_push_constants.sh_degree_data = splats->sh_degree();
+  compute_push_constants.sh_degree_draw = sh_degree == -1 ? splats->sh_degree() : sh_degree;
+
+  GraphicsPushConstants graphics_push_constants;
+  graphics_push_constants.background = glm::vec4(background, 1.f);
 
   Camera camera_data;
   camera_data.projection = projection;
@@ -487,10 +512,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkCmdPipelineBarrier2(*cb, &dependency_info);
 
     // Rank
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *rank_pipeline_);
-    vkCmdPushConstants(*cb, *rank_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants),
-                       &push_constants);
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *rank_pipeline_layout_,
+    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
                          {
                              *camera,
                              *position,
@@ -498,6 +520,9 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
                              *key,
                              *index,
                          });
+    vkCmdPushConstants(*cb, *compute_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants),
+                       &compute_push_constants);
+    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *rank_pipeline_);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Sort
@@ -524,13 +549,15 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     dependency_info.pMemoryBarriers = &memory_barrier;
     vkCmdPipelineBarrier2(*cb, &dependency_info);
 
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *inverse_index_pipeline_);
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *inverse_index_pipeline_layout_,
+    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
                          {
                              *visible_point_count,
                              *index,
                              *inverse_index,
                          });
+    vkCmdPushConstants(*cb, *compute_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants),
+                       &compute_push_constants);
+    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *inverse_index_pipeline_);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Projection
@@ -544,10 +571,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     dependency_info.pMemoryBarriers = &memory_barrier;
     vkCmdPipelineBarrier2(*cb, &dependency_info);
 
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *projection_pipeline_);
-    vkCmdPushConstants(*cb, *rank_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants),
-                       &push_constants);
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *projection_pipeline_layout_,
+    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
                          {
                              *camera,
                              *position,
@@ -559,6 +583,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
                              *draw_indirect,
                              *instances,
                          });
+    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *projection_pipeline_);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Release
@@ -672,7 +697,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.clearValue.color = {0.f, 0.f, 0.f, 1.f};
+    color_attachment.clearValue.color = {0.f, 0.f, 0.f, 0.f};
     VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
     rendering_info.renderArea.offset = {0, 0};
     rendering_info.renderArea.extent = {width, height};
@@ -681,8 +706,11 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     rendering_info.pColorAttachments = &color_attachment;
     vkCmdBeginRendering(*cb, &rendering_info);
 
+    vkCmdPushConstants(*cb, *graphics_pipeline_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(graphics_push_constants), &graphics_push_constants);
+
     vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_);
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_layout_, {*instances});
+    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_, {*instances});
 
     VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
     vkCmdSetViewport(*cb, 0, 1, &viewport);
@@ -691,6 +719,9 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
     vkCmdBindIndexBuffer(*cb, *index_buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(*cb, *draw_indirect, 0, 1, 0);
+
+    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_background_pipeline_);
+    vkCmdDraw(*cb, 3, 1, 0, 0);
 
     vkCmdEndRendering(*cb);
 

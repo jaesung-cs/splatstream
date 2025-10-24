@@ -16,12 +16,13 @@ namespace core {
 
 class VKGS_CORE_API GaussianSplats {
  public:
-  GaussianSplats(size_t size, std::shared_ptr<gpu::Buffer> position, std::shared_ptr<gpu::Buffer> cov3d,
-                 std::shared_ptr<gpu::Buffer> sh, std::shared_ptr<gpu::Buffer> opacity,
-                 std::shared_ptr<gpu::Buffer> index);
+  GaussianSplats(size_t size, uint32_t sh_degree, std::shared_ptr<gpu::Buffer> position,
+                 std::shared_ptr<gpu::Buffer> cov3d, std::shared_ptr<gpu::Buffer> sh,
+                 std::shared_ptr<gpu::Buffer> opacity, std::shared_ptr<gpu::Buffer> index);
   ~GaussianSplats();
 
   size_t size() const noexcept { return size_; }
+  uint32_t sh_degree() const noexcept { return sh_degree_; }
   auto position() const noexcept { return position_; }
   auto cov3d() const noexcept { return cov3d_; }
   auto sh() const noexcept { return sh_; }
@@ -30,6 +31,7 @@ class VKGS_CORE_API GaussianSplats {
 
  private:
   size_t size_;
+  uint32_t sh_degree_;
   std::shared_ptr<gpu::Buffer> position_;      // (N, 3)
   std::shared_ptr<gpu::Buffer> cov3d_;         // (N, 6)
   std::shared_ptr<gpu::Buffer> sh_;            // (N, 48) float16

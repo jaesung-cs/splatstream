@@ -6,8 +6,8 @@ from .rendered_image import RenderedImage
 singleton_renderer = _core.Renderer()
 
 
-def load_from_ply(path: str) -> _core.GaussianSplats:
-    return singleton_renderer.load_from_ply(path)
+def load_from_ply(path: str, sh_degree: int = -1) -> _core.GaussianSplats:
+    return singleton_renderer.load_from_ply(path, sh_degree)
 
 
 def draw(
@@ -16,57 +16,96 @@ def draw(
     Ks: np.ndarray,
     width: int,
     height: int,
-    near: float = 0.01,
-    far: float = 100.0,
+    near: float | np.ndarray = 0.01,
+    far: float | np.ndarray = 100.0,
+    backgrounds: np.ndarray | None = None,
+    eps2d: float | np.ndarray = 0.3,
+    sh_degree: int | np.ndarray = -1,
 ) -> RenderedImage:
     """
     viewmats: (..., 4, 4)
     Ks: (..., 3, 3)
+    near: (...) or scalar
+    far: (...) or scalar
+    backgrounds: (..., 3)
+    eps2d: (...) or scalar
+    sh_degree: (...) or scalar. -1 for max degree.
     """
+    if isinstance(near, (int, float)):
+        near = np.array(near)
+
+    if isinstance(far, (int, float)):
+        far = np.array(far)
+
+    if isinstance(eps2d, (int, float)):
+        eps2d = np.array(eps2d)
+
+    if isinstance(sh_degree, int):
+        sh_degree = np.array(sh_degree)
+
+    if backgrounds is None:
+        backgrounds = np.array([0, 0, 0])
+
     assert viewmats.shape[-2:] == (4, 4)
     assert Ks.shape[-2:] == (3, 3)
-    assert viewmats.shape[:-2] == Ks.shape[:-2]
+    assert backgrounds.shape[-1:] == (3,)
 
-    batch_dims = viewmats.shape[:-2]
-
+    # np-style view matrix (Y-down) to vulkan-style (Y-up)
     viewmats = (
-        np.array(
-            [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]], dtype=np.float64
-        )
-        @ viewmats
+        np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]) @ viewmats
     )
 
     # transform image space
     # (0, 0), (W, H) -> (-1, 1), (1, -1)
-    Ks = (
-        np.array(
-            [[2.0 / width, 0, -1], [0, -2.0 / height, 1], [0, 0, 1]], dtype=np.float64
-        )
-        @ Ks
+    Ks = np.array([[2.0 / width, 0, -1], [0, -2.0 / height, 1], [0, 0, 1]]) @ Ks
+
+    # broadcast to batch dims
+    batch_dims = np.broadcast_shapes(
+        viewmats.shape[:-2],
+        Ks.shape[:-2],
+        near.shape,
+        far.shape,
+        backgrounds.shape[:-1],
+        eps2d.shape,
+        sh_degree.shape,
     )
+    viewmats = np.broadcast_to(viewmats, (*batch_dims, 4, 4))
+    Ks = np.broadcast_to(Ks, (*batch_dims, 3, 3))
+    backgrounds = np.broadcast_to(backgrounds, (*batch_dims, 3))
+    eps2d = np.broadcast_to(eps2d, batch_dims)
+    sh_degree = np.broadcast_to(sh_degree, batch_dims)
+
+    # allocate image
+    images = np.zeros((*batch_dims, height, width, 4), dtype=np.uint8)
 
     # np-style intrinsic to vulkan-style projection
-    projections = np.zeros_like(viewmats)
-    projections[..., 0, 0] = Ks[..., 0, 0]
-    projections[..., 1, 1] = Ks[..., 1, 1]
-    projections[..., 0, 3] = Ks[..., 0, 2]
-    projections[..., 1, 3] = Ks[..., 1, 2]
+    projections = np.insert(Ks, 2, 0, axis=-1)
+    projections = np.insert(projections, 2, 0, axis=-2)
     projections[..., 2, 2] = far / (near - far)
     projections[..., 2, 3] = near * far / (near - far)
     projections[..., 3, 2] = -1
 
-    images = np.zeros((*batch_dims, height, width, 4), dtype=np.uint8)
-
     # flatten
-    viewmats = viewmats.reshape(-1, 4, 4)
-    projections = projections.reshape(-1, 4, 4)
-    images = images.reshape(-1, height, width, 4)
+    viewmats = np.ascontiguousarray(viewmats.reshape(-1, 4, 4))
+    projections = np.ascontiguousarray(projections.reshape(-1, 4, 4))
+    backgrounds = np.ascontiguousarray(backgrounds.reshape(-1, 3))
+    eps2d = np.ascontiguousarray(eps2d.reshape(-1))
+    sh_degree = np.ascontiguousarray(sh_degree.reshape(-1))
+    images = np.ascontiguousarray(images.reshape(-1, height, width, 4))
 
     rendered_images = []
     for i in range(len(images)):
         rendered_images.append(
             singleton_renderer.draw(
-                splats, viewmats[i], projections[i], width, height, images[i]
+                splats,
+                viewmats[i],
+                projections[i],
+                width,
+                height,
+                backgrounds[i],
+                eps2d[i],
+                sh_degree[i],
+                images[i],
             )
         )
 

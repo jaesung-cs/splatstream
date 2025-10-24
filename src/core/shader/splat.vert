@@ -1,4 +1,4 @@
-#version 460
+#version 460 core
 
 layout(std430, binding = 0) readonly buffer Instances {
   vec4 instances[];  // (N, 12). 3 for ndc position, 1 padding, 4 for rot scale, 4 for color.

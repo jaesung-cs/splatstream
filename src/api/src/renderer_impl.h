@@ -23,10 +23,10 @@ class Renderer::Impl {
   uint32_t compute_queue_index() const noexcept { return renderer_->compute_queue_index(); }
   uint32_t transfer_queue_index() const noexcept { return renderer_->transfer_queue_index(); }
 
-  GaussianSplats LoadFromPly(const std::string& path);
+  GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
 
   RenderedImage Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width, uint32_t height,
-                     uint8_t* dst);
+                     const float* background, float eps2d, int sh_degree, uint8_t* dst);
 
  private:
   std::shared_ptr<core::Renderer> renderer_;
