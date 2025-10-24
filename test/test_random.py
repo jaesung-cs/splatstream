@@ -65,8 +65,8 @@ if __name__ == "__main__":
 
     splats = ss.load_from_ply(splat_path)
 
-    width = 256
-    height = 256
+    width = 128
+    height = 128
     fov_x = math.radians(120.0)
     fov_y = math.radians(120.0)
 
@@ -114,6 +114,8 @@ if __name__ == "__main__":
     for i in range(len(image)):
         s = (i * 2 * width) // N
         e = ((i + 1) * 2 * width) // N
+        w = 2
+        image[i, (height - height // N) - w :, s - w : e + w, :] = 0
         image[i, (height - height // N) :, s:e, :] = 255
 
     print("save start")
