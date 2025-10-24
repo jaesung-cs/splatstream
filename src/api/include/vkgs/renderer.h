@@ -9,6 +9,9 @@
 #include "vkgs/draw_options.h"
 
 namespace vkgs {
+namespace core {
+class Renderer;
+}
 
 class GaussianSplats;
 class RenderedImage;
@@ -26,11 +29,8 @@ class VKGS_API Renderer {
   GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
   RenderedImage Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
-  const auto* impl() const noexcept { return impl_.get(); }
-
  private:
-  class Impl;
-  std::shared_ptr<Impl> impl_;
+  std::shared_ptr<core::Renderer> renderer_;
 };
 
 }  // namespace vkgs

@@ -7,10 +7,13 @@
 #include "vkgs/export_api.h"
 
 namespace vkgs {
+namespace core {
+class RenderedImage;
+}
 
 class VKGS_API RenderedImage {
  public:
-  RenderedImage();
+  explicit RenderedImage(std::shared_ptr<core::RenderedImage> rendered_image);
   ~RenderedImage();
 
   uint32_t width() const;
@@ -18,11 +21,8 @@ class VKGS_API RenderedImage {
 
   void Wait() const;
 
-  auto* impl() noexcept { return impl_.get(); }
-
  private:
-  class Impl;
-  std::shared_ptr<Impl> impl_;
+  std::shared_ptr<core::RenderedImage> rendered_image_;
 };
 
 }  // namespace vkgs
