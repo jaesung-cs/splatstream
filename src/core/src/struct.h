@@ -2,15 +2,24 @@
 #ifndef VKGS_CORE_STRUCT_H
 #define VKGS_CORE_STRUCT_H
 
+#include <cstdint>
+
 #include <glm/glm.hpp>
 
 namespace vkgs {
 namespace core {
 
+struct ParsePlyPushConstants {
+  alignas(16) uint32_t point_count;
+  uint32_t sh_degree;
+};
+
 struct ComputePushConstants {
   alignas(16) glm::mat4 model;
   alignas(16) uint32_t point_count;
   float eps2d;
+  uint32_t sh_degree_data;
+  uint32_t sh_degree_draw;
 };
 
 struct GraphicsPushConstants {

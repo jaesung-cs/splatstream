@@ -6,6 +6,7 @@ layout(local_size_x = 256) in;
 
 layout(push_constant) uniform PushConstant {
   uint point_count;
+  uint sh_degree;
 };
 
 layout(std430, binding = 0) readonly buffer GaussianPly {
@@ -26,7 +27,7 @@ layout(std430, binding = 3) writeonly buffer GaussianOpacity {
 };
 
 layout(std430, binding = 4) writeonly buffer GaussianSh {
-  f16vec4 gaussian_sh[];  // (N, 3, 4, 4), 16 values packed with 4 vec4.
+  f16vec4 gaussian_sh[];  // (N, K), packed.
 };
 
 float sigmoid(float x) { return 1.f / (1.f + exp(-x)); }
@@ -90,14 +91,30 @@ void main() {
     gaussian_position[3 * id + 1] = ply[base * id + local_offsets[1]];
     gaussian_position[3 * id + 2] = ply[base * id + local_offsets[2]];
 
+    if (sh_degree == 0) {
+      gaussian_sh[id] = f16vec4(vec4(ply[base * id + local_offsets[10 +  0]], ply[base * id + local_offsets[10 + 16]], ply[base * id + local_offsets[10 + 32]], 0.f));
+    } else if (sh_degree == 1) {
+      gaussian_sh[3 * id + 0] = f16vec4(vec4(ply[base * id + local_offsets[10 +  0]], ply[base * id + local_offsets[10 +  1]], ply[base * id + local_offsets[10 +  2]], ply[base * id + local_offsets[10 +  3]]));
+      gaussian_sh[3 * id + 1] = f16vec4(vec4(ply[base * id + local_offsets[10 + 16]], ply[base * id + local_offsets[10 + 17]], ply[base * id + local_offsets[10 + 18]], ply[base * id + local_offsets[10 + 19]]));
+      gaussian_sh[3 * id + 2] = f16vec4(vec4(ply[base * id + local_offsets[10 + 32]], ply[base * id + local_offsets[10 + 33]], ply[base * id + local_offsets[10 + 34]], ply[base * id + local_offsets[10 + 35]]));
+    } else if (sh_degree == 3) {
+      gaussian_sh[7 * id + 0] = f16vec4(vec4(ply[base * id + local_offsets[10 +  0]], ply[base * id + local_offsets[10 +  1]], ply[base * id + local_offsets[10 +  2]], ply[base * id + local_offsets[10 +  3]]));
+      gaussian_sh[7 * id + 1] = f16vec4(vec4(ply[base * id + local_offsets[10 +  4]], ply[base * id + local_offsets[10 +  5]], ply[base * id + local_offsets[10 +  6]], ply[base * id + local_offsets[10 +  7]]));
+      gaussian_sh[7 * id + 2] = f16vec4(vec4(ply[base * id + local_offsets[10 + 16]], ply[base * id + local_offsets[10 + 17]], ply[base * id + local_offsets[10 + 18]], ply[base * id + local_offsets[10 + 19]]));
+      gaussian_sh[7 * id + 3] = f16vec4(vec4(ply[base * id + local_offsets[10 + 20]], ply[base * id + local_offsets[10 + 21]], ply[base * id + local_offsets[10 + 22]], ply[base * id + local_offsets[10 + 23]]));
+      gaussian_sh[7 * id + 4] = f16vec4(vec4(ply[base * id + local_offsets[10 + 32]], ply[base * id + local_offsets[10 + 33]], ply[base * id + local_offsets[10 + 34]], ply[base * id + local_offsets[10 + 35]]));
+      gaussian_sh[7 * id + 5] = f16vec4(vec4(ply[base * id + local_offsets[10 + 36]], ply[base * id + local_offsets[10 + 37]], ply[base * id + local_offsets[10 + 38]], ply[base * id + local_offsets[10 + 39]]));
+      gaussian_sh[7 * id + 6] = f16vec4(vec4(ply[base * id + local_offsets[10 +  8]], ply[base * id + local_offsets[10 + 24]], ply[base * id + local_offsets[10 + 40]], 0.f));
+    } else if (sh_degree == 3) {
 #pragma unroll
-    for (int i = 0; i < 12; ++i) {
-      gaussian_sh[12 * id + i] = f16vec4(vec4(
-        ply[base * id + local_offsets[10 + 4 * i + 0]],
-        ply[base * id + local_offsets[10 + 4 * i + 1]],
-        ply[base * id + local_offsets[10 + 4 * i + 2]],
-        ply[base * id + local_offsets[10 + 4 * i + 3]]
-      ));
+      for (int i = 0; i < 12; ++i) {
+        gaussian_sh[12 * id + i] = f16vec4(vec4(
+          ply[base * id + local_offsets[10 + 4 * i + 0]],
+          ply[base * id + local_offsets[10 + 4 * i + 1]],
+          ply[base * id + local_offsets[10 + 4 * i + 2]],
+          ply[base * id + local_offsets[10 + 4 * i + 3]]
+        ));
+      }
     }
 
     gaussian_opacity[id] = sigmoid(ply[base * id + local_offsets[58]]);

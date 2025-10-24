@@ -87,7 +87,7 @@ Renderer::Renderer() {
                                       {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
                                       {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
                                   },
-                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, 4}});
+                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePlyPushConstants)}});
   parse_ply_pipeline_ = gpu::ComputePipeline::Create(*device_, *parse_ply_pipeline_layout_, parse_ply);
 
   compute_pipeline_layout_ =
@@ -193,6 +193,12 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     index_data.push_back(4 * i + 1);
     index_data.push_back(4 * i + 3);
   }
+
+  uint32_t sh_degree = 3;  // TODO
+
+  ParsePlyPushConstants parse_ply_push_constants;
+  parse_ply_push_constants.point_count = point_count;
+  parse_ply_push_constants.sh_degree = sh_degree;
 
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
@@ -303,10 +309,10 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     vkCmdPipelineBarrier2(*cb, &acquire_dependency_info);
 
     // ply_buffer -> gaussian_splats
-    vkCmdPushConstants(*cb, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(point_count),
-                       &point_count);
     cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_layout_,
                          {*ply_buffer, *position, *cov3d, *opacity, *sh});
+    vkCmdPushConstants(*cb, *parse_ply_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                       sizeof(parse_ply_push_constants), &parse_ply_push_constants);
 
     vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
     vkCmdDispatch(*cb, WorkgroupSize(point_count, 256), 1, 1);
@@ -388,13 +394,15 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
   }
   sem->Increment();
 
-  return std::make_shared<GaussianSplats>(point_count, position, cov3d, sh, opacity, index_buffer);
+  return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer);
 }
 
 std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
                                               const glm::mat4& projection, uint32_t width, uint32_t height,
                                               const glm::vec3& background, float eps2d, uint8_t* dst) {
   std::shared_ptr<RenderedImage> rendered_image;
+
+  uint32_t sh_degree = splats->sh_degree();  // TODO
 
   auto cq = device_->compute_queue();
   auto gq = device_->graphics_queue();
@@ -411,6 +419,8 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   compute_push_constants.model = glm::mat4(1.f);
   compute_push_constants.point_count = N;
   compute_push_constants.eps2d = eps2d;
+  compute_push_constants.sh_degree_data = splats->sh_degree();
+  compute_push_constants.sh_degree_draw = sh_degree;
 
   GraphicsPushConstants graphics_push_constants;
   graphics_push_constants.background = glm::vec4(background, 1.f);
