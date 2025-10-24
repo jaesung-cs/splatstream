@@ -97,7 +97,7 @@ void main() {
       gaussian_sh[3 * id + 0] = f16vec4(vec4(ply[base * id + local_offsets[10 +  0]], ply[base * id + local_offsets[10 +  1]], ply[base * id + local_offsets[10 +  2]], ply[base * id + local_offsets[10 +  3]]));
       gaussian_sh[3 * id + 1] = f16vec4(vec4(ply[base * id + local_offsets[10 + 16]], ply[base * id + local_offsets[10 + 17]], ply[base * id + local_offsets[10 + 18]], ply[base * id + local_offsets[10 + 19]]));
       gaussian_sh[3 * id + 2] = f16vec4(vec4(ply[base * id + local_offsets[10 + 32]], ply[base * id + local_offsets[10 + 33]], ply[base * id + local_offsets[10 + 34]], ply[base * id + local_offsets[10 + 35]]));
-    } else if (sh_degree == 3) {
+    } else if (sh_degree == 2) {
       gaussian_sh[7 * id + 0] = f16vec4(vec4(ply[base * id + local_offsets[10 +  0]], ply[base * id + local_offsets[10 +  1]], ply[base * id + local_offsets[10 +  2]], ply[base * id + local_offsets[10 +  3]]));
       gaussian_sh[7 * id + 1] = f16vec4(vec4(ply[base * id + local_offsets[10 +  4]], ply[base * id + local_offsets[10 +  5]], ply[base * id + local_offsets[10 +  6]], ply[base * id + local_offsets[10 +  7]]));
       gaussian_sh[7 * id + 2] = f16vec4(vec4(ply[base * id + local_offsets[10 + 16]], ply[base * id + local_offsets[10 + 17]], ply[base * id + local_offsets[10 + 18]], ply[base * id + local_offsets[10 + 19]]));
