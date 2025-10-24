@@ -23,23 +23,20 @@ PYBIND11_MODULE(_core, m) {
         const auto* projection_ptr = static_cast<const float*>(py_projection.request().ptr);
         auto* dst_ptr = static_cast<uint8_t*>(dst.request().ptr);
 
+        vkgs::DrawOptions draw_options = {};
         // row-major data to column-major
-        std::vector<float> view(16);
         for (int r = 0; r < 4; ++r) {
           for (int c = 0; c < 4; ++c) {
-            view[c * 4 + r] = view_ptr[r * 4 + c];
+            draw_options.view[c * 4 + r] = view_ptr[r * 4 + c];
+            draw_options.projection[c * 4 + r] = projection_ptr[r * 4 + c];
           }
         }
-
-        std::vector<float> projection(16);
-        for (int r = 0; r < 4; ++r) {
-          for (int c = 0; c < 4; ++c) {
-            projection[c * 4 + r] = projection_ptr[r * 4 + c];
-          }
-        }
-
-        return renderer.Draw(splats, view.data(), projection.data(), width, height, background_ptr, eps2d, sh_degree,
-                             dst_ptr);
+        draw_options.width = width;
+        draw_options.height = height;
+        std::memcpy(draw_options.background, background_ptr, 3 * sizeof(float));
+        draw_options.eps2d = eps2d;
+        draw_options.sh_degree = sh_degree;
+        return renderer.Draw(splats, draw_options, dst_ptr);
       });
 
   py::class_<vkgs::GaussianSplats>(m, "GaussianSplats")

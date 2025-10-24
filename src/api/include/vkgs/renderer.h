@@ -6,6 +6,8 @@
 
 #include "vkgs/export_api.h"
 
+#include "vkgs/draw_options.h"
+
 namespace vkgs {
 
 class GaussianSplats;
@@ -22,15 +24,7 @@ class VKGS_API Renderer {
   uint32_t transfer_queue_index() const noexcept;
 
   GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
-
-  /**
-   * view: 4x4 column-major matrix.
-   * projection: 4x4 column-major matrix.
-   * background: 3 components rgb.
-   * dst: (height, width, 4) uint8 image, row-major.
-   */
-  RenderedImage Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width, uint32_t height,
-                     const float* background, float eps2d, int sh_degree, uint8_t* dst);
+  RenderedImage Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
   const auto* impl() const noexcept { return impl_.get(); }
 

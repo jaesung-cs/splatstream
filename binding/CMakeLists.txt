@@ -37,4 +37,4 @@ set_property(TARGET vkgs_api PROPERTY INSTALL_RPATH
   "${origin_token}/"
 )
 
-install(TARGETS vkgs_api vkgs_core splatstream DESTINATION splatstream)
+install(TARGETS vkgs_api splatstream DESTINATION splatstream)

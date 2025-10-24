@@ -17,7 +17,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(vk_radix_sort)
 
-add_library(vkgs_core SHARED
+add_library(vkgs_core STATIC
   src/compute_storage.cc
   src/gaussian_splats.cc
   src/graphics_storage.cc
@@ -43,7 +43,7 @@ target_link_libraries(vkgs_core
     vk_radix_sort
 )
 
-target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
+target_compile_definitions(vkgs_core PUBLIC VKGS_CORE_STATIC)
 
 add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)

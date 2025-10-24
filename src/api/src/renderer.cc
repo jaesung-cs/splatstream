@@ -1,7 +1,12 @@
 #include "vkgs/renderer.h"
 
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include "vkgs/gaussian_splats.h"
 #include "vkgs/rendered_image.h"
+
+#include "vkgs/core/draw_options.h"
 
 #include "renderer_impl.h"
 
@@ -20,9 +25,16 @@ GaussianSplats Renderer::LoadFromPly(const std::string& path, int sh_degree) {
   return impl_->LoadFromPly(path, sh_degree);
 }
 
-RenderedImage Renderer::Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
-                             uint32_t height, const float* background, float eps2d, int sh_degree, uint8_t* dst) {
-  return impl_->Draw(splats, view, projection, width, height, background, eps2d, sh_degree, dst);
+RenderedImage Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
+  core::DrawOptions core_draw_options = {};
+  core_draw_options.view = glm::make_mat4(draw_options.view);
+  core_draw_options.projection = glm::make_mat4(draw_options.projection);
+  core_draw_options.width = draw_options.width;
+  core_draw_options.height = draw_options.height;
+  core_draw_options.background = glm::make_vec3(draw_options.background);
+  core_draw_options.eps2d = draw_options.eps2d;
+  core_draw_options.sh_degree = draw_options.sh_degree;
+  return impl_->Draw(splats, core_draw_options, dst);
 }
 
 }  // namespace vkgs
