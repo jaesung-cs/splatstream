@@ -65,14 +65,22 @@ if __name__ == "__main__":
 
     splats = ss.load_from_ply(splat_path)
 
+    width = 256
+    height = 256
+    fov_x = math.radians(120.0)
+    fov_y = math.radians(120.0)
+
+    K = np.zeros((3, 3))
+    K[0, 0] = width / (2 * math.tan(fov_x / 2))
+    K[1, 1] = height / (2 * math.tan(fov_y / 2))
+    K[0, 2] = width / 2
+    K[1, 2] = height / 2
+    K[2, 2] = 1
+
     N = 64
     viewmats = []
-    Ks = []
+    backgrounds = []
     for i in range(N):
-        width = 256
-        height = 256
-        fov_x = math.radians(120.0)
-        fov_y = math.radians(120.0)
 
         # view
         theta = 2.0 * math.pi * (i / N)
@@ -85,28 +93,28 @@ if __name__ == "__main__":
         C2W[3, 3] = 1.0
         W2C = np.linalg.inv(C2W)
 
-        K = np.zeros((3, 3))
-        K[0, 0] = width / (2 * math.tan(fov_x / 2))
-        K[1, 1] = height / (2 * math.tan(fov_y / 2))
-        K[0, 2] = width / 2
-        K[1, 2] = height / 2
-        K[2, 2] = 1
+        s = 0.5 * math.sin(theta) + 0.5
+        c = 0.5 * math.cos(theta) + 0.5
+        background = np.array([0, s, c])
 
         viewmats.append(W2C)
-        Ks.append(K)
+        backgrounds.append(background)
 
     viewmats = np.stack(viewmats)
-    Ks = np.stack(Ks)
+    backgrounds = np.stack(backgrounds)
 
     print("draw start")
-    image = ss.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
+    image = ss.draw(
+        splats, viewmats, K, width, height, far=1e5, backgrounds=backgrounds
+    ).numpy()
     print("draw end")
 
-    image = image[..., :3]
+    image = np.concatenate((image[..., :3], image[..., 3:].repeat(3, axis=-1)), axis=-2)
+
     for i in range(len(image)):
-        s = (i * height) // N
-        e = ((i + 1) * height) // N
-        image[i, (width - width // N) :, s:e, :] = 255
+        s = (i * 2 * width) // N
+        e = ((i + 1) * 2 * width) // N
+        image[i, (height - height // N) :, s:e, :] = 255
 
     print("save start")
     imgs = []

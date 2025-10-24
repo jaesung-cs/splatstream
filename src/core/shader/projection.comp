@@ -7,6 +7,7 @@ layout(local_size_x = 256) in;
 layout(push_constant, std430) uniform PushConstants {
   mat4 model;
   uint point_count;
+  float eps2d;
 };
 
 // TODO: use uniform buffer
@@ -92,8 +93,8 @@ void main() {
 
   // low-pass filter: eps2d = 0.3 (default)
   float det_orig = cov2d[0][0] * cov2d[1][1] - cov2d[1][0] * cov2d[0][1];
-  cov2d[0][0] += 1.2f / screen_size.x / screen_size.x;
-  cov2d[1][1] += 1.2f / screen_size.y / screen_size.y;
+  cov2d[0][0] += eps2d * 4.f / screen_size.x / screen_size.x;
+  cov2d[1][1] += eps2d * 4.f / screen_size.y / screen_size.y;
   float det_blur = cov2d[0][0] * cov2d[1][1] - cov2d[1][0] * cov2d[0][1];
   float compensation = sqrt(max(det_orig / det_blur, 0.f));
 

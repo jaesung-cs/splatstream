@@ -7,9 +7,14 @@
 namespace vkgs {
 namespace core {
 
-struct PushConstants {
+struct ComputePushConstants {
   alignas(16) glm::mat4 model;
   alignas(16) uint32_t point_count;
+  float eps2d;
+};
+
+struct GraphicsPushConstants {
+  alignas(16) glm::vec4 background;
 };
 
 struct Camera {

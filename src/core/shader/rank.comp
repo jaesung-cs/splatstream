@@ -5,6 +5,7 @@ layout(local_size_x = 256) in;
 layout(push_constant, std430) uniform PushConstants {
   mat4 model;
   uint point_count;
+  float eps2d;
 };
 
 // TODO: use uniform buffer

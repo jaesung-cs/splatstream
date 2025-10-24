@@ -26,7 +26,7 @@ class Renderer::Impl {
   GaussianSplats LoadFromPly(const std::string& path);
 
   RenderedImage Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width, uint32_t height,
-                     uint8_t* dst);
+                     const float* background, float eps2d, uint8_t* dst);
 
  private:
   std::shared_ptr<core::Renderer> renderer_;

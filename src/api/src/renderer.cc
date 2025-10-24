@@ -19,8 +19,8 @@ uint32_t Renderer::transfer_queue_index() const noexcept { return impl_->transfe
 GaussianSplats Renderer::LoadFromPly(const std::string& path) { return impl_->LoadFromPly(path); }
 
 RenderedImage Renderer::Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
-                             uint32_t height, uint8_t* dst) {
-  return impl_->Draw(splats, view, projection, width, height, dst);
+                             uint32_t height, const float* background, float eps2d, uint8_t* dst) {
+  return impl_->Draw(splats, view, projection, width, height, background, eps2d, dst);
 }
 
 }  // namespace vkgs

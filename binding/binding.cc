@@ -16,7 +16,9 @@ PYBIND11_MODULE(_core, m) {
       .def_property_readonly("transfer_queue_index", &vkgs::Renderer::transfer_queue_index)
       .def("load_from_ply", &vkgs::Renderer::LoadFromPly)
       .def("draw", [](vkgs::Renderer& renderer, vkgs::GaussianSplats splats, py::array_t<float> py_view,
-                      py::array_t<float> py_projection, uint32_t width, uint32_t height, py::array_t<uint8_t> dst) {
+                      py::array_t<float> py_projection, uint32_t width, uint32_t height,
+                      py::array_t<float> py_background, float eps2d, py::array_t<uint8_t> dst) {
+        const auto* background_ptr = static_cast<const float*>(py_background.request().ptr);
         const auto* view_ptr = static_cast<const float*>(py_view.request().ptr);
         const auto* projection_ptr = static_cast<const float*>(py_projection.request().ptr);
         auto* dst_ptr = static_cast<uint8_t*>(dst.request().ptr);
@@ -36,7 +38,7 @@ PYBIND11_MODULE(_core, m) {
           }
         }
 
-        return renderer.Draw(splats, view.data(), projection.data(), width, height, dst_ptr);
+        return renderer.Draw(splats, view.data(), projection.data(), width, height, background_ptr, eps2d, dst_ptr);
       });
 
   py::class_<vkgs::GaussianSplats>(m, "GaussianSplats")
