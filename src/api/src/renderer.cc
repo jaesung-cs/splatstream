@@ -1,28 +1,39 @@
 #include "vkgs/renderer.h"
 
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include "vkgs/gaussian_splats.h"
 #include "vkgs/rendered_image.h"
 
-#include "renderer_impl.h"
+#include "vkgs/core/draw_options.h"
+#include "vkgs/core/renderer.h"
 
 namespace vkgs {
 
-Renderer::Renderer() : impl_(std::make_shared<Impl>()) {}
+Renderer::Renderer() : renderer_(std::make_shared<core::Renderer>()) {}
 
 Renderer::~Renderer() = default;
 
-const std::string& Renderer::device_name() const noexcept { return impl_->device_name(); }
-uint32_t Renderer::graphics_queue_index() const noexcept { return impl_->graphics_queue_index(); }
-uint32_t Renderer::compute_queue_index() const noexcept { return impl_->compute_queue_index(); }
-uint32_t Renderer::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
+const std::string& Renderer::device_name() const noexcept { return renderer_->device_name(); }
+uint32_t Renderer::graphics_queue_index() const noexcept { return renderer_->graphics_queue_index(); }
+uint32_t Renderer::compute_queue_index() const noexcept { return renderer_->compute_queue_index(); }
+uint32_t Renderer::transfer_queue_index() const noexcept { return renderer_->transfer_queue_index(); }
 
 GaussianSplats Renderer::LoadFromPly(const std::string& path, int sh_degree) {
-  return impl_->LoadFromPly(path, sh_degree);
+  return GaussianSplats(renderer_->LoadFromPly(path, sh_degree));
 }
 
-RenderedImage Renderer::Draw(GaussianSplats splats, const float* view, const float* projection, uint32_t width,
-                             uint32_t height, const float* background, float eps2d, int sh_degree, uint8_t* dst) {
-  return impl_->Draw(splats, view, projection, width, height, background, eps2d, sh_degree, dst);
+RenderedImage Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
+  core::DrawOptions core_draw_options = {};
+  core_draw_options.view = glm::make_mat4(draw_options.view);
+  core_draw_options.projection = glm::make_mat4(draw_options.projection);
+  core_draw_options.width = draw_options.width;
+  core_draw_options.height = draw_options.height;
+  core_draw_options.background = glm::make_vec3(draw_options.background);
+  core_draw_options.eps2d = draw_options.eps2d;
+  core_draw_options.sh_degree = draw_options.sh_degree;
+  return RenderedImage(renderer_->Draw(splats.get(), core_draw_options, dst));
 }
 
 }  // namespace vkgs

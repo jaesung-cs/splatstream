@@ -10,6 +10,8 @@
 
 #include "export_api.h"
 
+#include "vkgs/core/draw_options.h"
+
 namespace vkgs {
 namespace gpu {
 
@@ -43,9 +45,8 @@ class VKGS_CORE_API Renderer {
 
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
 
-  std::shared_ptr<RenderedImage> Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
-                                      const glm::mat4& projection, uint32_t width, uint32_t height,
-                                      const glm::vec3& background, float eps2d, int sh_degree, uint8_t* dst);
+  std::shared_ptr<RenderedImage> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
+                                      uint8_t* dst);
 
  private:
   std::shared_ptr<gpu::Device> device_;

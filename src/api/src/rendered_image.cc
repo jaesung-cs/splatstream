@@ -1,16 +1,16 @@
 #include "vkgs/rendered_image.h"
 
-#include "rendered_image_impl.h"
+#include "vkgs/core/rendered_image.h"
 
 namespace vkgs {
 
-RenderedImage::RenderedImage() : impl_(std::make_shared<Impl>()) {}
+RenderedImage::RenderedImage(std::shared_ptr<core::RenderedImage> rendered_image) : rendered_image_(rendered_image) {}
 
 RenderedImage::~RenderedImage() {}
 
-uint32_t RenderedImage::width() const { return impl_->width(); }
-uint32_t RenderedImage::height() const { return impl_->height(); }
+uint32_t RenderedImage::width() const { return rendered_image_->width(); }
+uint32_t RenderedImage::height() const { return rendered_image_->height(); }
 
-void RenderedImage::Wait() const { impl_->Wait(); }
+void RenderedImage::Wait() const { rendered_image_->Wait(); }
 
 }  // namespace vkgs

@@ -6,20 +6,22 @@
 #include "vkgs/export_api.h"
 
 namespace vkgs {
+namespace core {
+class GaussianSplats;
+}
 
 class VKGS_API GaussianSplats {
  public:
-  GaussianSplats();
+  explicit GaussianSplats(std::shared_ptr<core::GaussianSplats> gaussian_splats);
   ~GaussianSplats();
 
   size_t size() const;
 
-  const auto* impl() const noexcept { return impl_.get(); }
-  auto* impl() noexcept { return impl_.get(); }
+  // Internal
+  auto get() const noexcept { return gaussian_splats_; }
 
  private:
-  class Impl;
-  std::shared_ptr<Impl> impl_;
+  std::shared_ptr<core::GaussianSplats> gaussian_splats_;
 };
 
 }  // namespace vkgs

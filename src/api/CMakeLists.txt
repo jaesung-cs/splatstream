@@ -2,11 +2,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_library(vkgs_api SHARED
-  src/gaussian_splats_impl.cc
   src/gaussian_splats.cc
-  src/renderer_impl.cc
   src/renderer.cc
-  src/rendered_image_impl.cc
   src/rendered_image.cc
 )
 add_library(vkgs::api ALIAS vkgs_api)

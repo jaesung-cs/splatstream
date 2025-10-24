@@ -427,10 +427,12 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer);
 }
 
-std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
-                                              const glm::mat4& projection, uint32_t width, uint32_t height,
-                                              const glm::vec3& background, float eps2d, int sh_degree, uint8_t* dst) {
+std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
+                                              uint8_t* dst) {
   std::shared_ptr<RenderedImage> rendered_image;
+
+  uint32_t width = draw_options.width;
+  uint32_t height = draw_options.height;
 
   auto cq = device_->compute_queue();
   auto gq = device_->graphics_queue();
@@ -446,17 +448,17 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   ComputePushConstants compute_push_constants;
   compute_push_constants.model = glm::mat4(1.f);
   compute_push_constants.point_count = N;
-  compute_push_constants.eps2d = eps2d;
+  compute_push_constants.eps2d = draw_options.eps2d;
   compute_push_constants.sh_degree_data = splats->sh_degree();
-  compute_push_constants.sh_degree_draw = sh_degree == -1 ? splats->sh_degree() : sh_degree;
+  compute_push_constants.sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree;
 
   GraphicsPushConstants graphics_push_constants;
-  graphics_push_constants.background = glm::vec4(background, 1.f);
+  graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
 
   Camera camera_data;
-  camera_data.projection = projection;
-  camera_data.view = view;
-  camera_data.camera_position = glm::inverse(view)[3];
+  camera_data.projection = draw_options.projection;
+  camera_data.view = draw_options.view;
+  camera_data.camera_position = glm::inverse(draw_options.view)[3];
   camera_data.screen_size = glm::uvec2(width, height);
 
   // Update storages

@@ -1,13 +1,14 @@
 #include "vkgs/gaussian_splats.h"
 
-#include "gaussian_splats_impl.h"
+#include "vkgs/core/gaussian_splats.h"
 
 namespace vkgs {
 
-GaussianSplats::GaussianSplats() : impl_(std::make_shared<Impl>()) {}
+GaussianSplats::GaussianSplats(std::shared_ptr<core::GaussianSplats> gaussian_splats)
+    : gaussian_splats_(gaussian_splats) {}
 
 GaussianSplats::~GaussianSplats() = default;
 
-size_t GaussianSplats::size() const { return impl_->size(); }
+size_t GaussianSplats::size() const { return gaussian_splats_->size(); }
 
 }  // namespace vkgs
