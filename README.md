@@ -3,7 +3,7 @@ Python bindings for streamlined 3dgs rendering.
 
 [![Build Status](https://github.com/jaesung-cs/splatstream/workflows/Build%20Python%20Package/badge.svg)](https://github.com/jaesung-cs/splatstream/actions/workflows/build.yml)
 [![Release Status](https://github.com/jaesung-cs/splatstream/workflows/Release%20Python%20Package/badge.svg)](https://github.com/jaesung-cs/splatstream/actions/workflows/release.yml)
-[![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos-lightgrey.svg)](https://github.com/jaesung-cs/splatstream/actions)
 
 This is a more modularized and organized code of my previous c++ project [vkgs](https://github.com/jaesung-cs/vkgs).
