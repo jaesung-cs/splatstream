@@ -6,8 +6,8 @@ from .rendered_image import RenderedImage
 singleton_renderer = _core.Renderer()
 
 
-def load_from_ply(path: str) -> _core.GaussianSplats:
-    return singleton_renderer.load_from_ply(path)
+def load_from_ply(path: str, sh_degree: int = -1) -> _core.GaussianSplats:
+    return singleton_renderer.load_from_ply(path, sh_degree)
 
 
 def draw(
@@ -20,6 +20,7 @@ def draw(
     far: float | np.ndarray = 100.0,
     backgrounds: np.ndarray | None = None,
     eps2d: float | np.ndarray = 0.3,
+    sh_degree: int | np.ndarray = -1,
 ) -> RenderedImage:
     """
     viewmats: (..., 4, 4)
@@ -27,6 +28,8 @@ def draw(
     near: (...) or scalar
     far: (...) or scalar
     backgrounds: (..., 3)
+    eps2d: (...) or scalar
+    sh_degree: (...) or scalar. -1 for max degree.
     """
     if isinstance(near, (int, float)):
         near = np.array(near)
@@ -36,6 +39,9 @@ def draw(
 
     if isinstance(eps2d, (int, float)):
         eps2d = np.array(eps2d)
+
+    if isinstance(sh_degree, int):
+        sh_degree = np.array(sh_degree)
 
     if backgrounds is None:
         backgrounds = np.array([0, 0, 0])
@@ -60,11 +66,14 @@ def draw(
         near.shape,
         far.shape,
         backgrounds.shape[:-1],
+        eps2d.shape,
+        sh_degree.shape,
     )
     viewmats = np.broadcast_to(viewmats, (*batch_dims, 4, 4))
     Ks = np.broadcast_to(Ks, (*batch_dims, 3, 3))
     backgrounds = np.broadcast_to(backgrounds, (*batch_dims, 3))
     eps2d = np.broadcast_to(eps2d, batch_dims)
+    sh_degree = np.broadcast_to(sh_degree, batch_dims)
 
     # allocate image
     images = np.zeros((*batch_dims, height, width, 4), dtype=np.uint8)
@@ -80,7 +89,8 @@ def draw(
     viewmats = np.ascontiguousarray(viewmats.reshape(-1, 4, 4))
     projections = np.ascontiguousarray(projections.reshape(-1, 4, 4))
     backgrounds = np.ascontiguousarray(backgrounds.reshape(-1, 3))
-    eps2d = np.ascontiguousarray(eps2d)
+    eps2d = np.ascontiguousarray(eps2d.reshape(-1))
+    sh_degree = np.ascontiguousarray(sh_degree.reshape(-1))
     images = np.ascontiguousarray(images.reshape(-1, height, width, 4))
 
     rendered_images = []
@@ -94,6 +104,7 @@ def draw(
                 height,
                 backgrounds[i],
                 eps2d[i],
+                sh_degree[i],
                 images[i],
             )
         )

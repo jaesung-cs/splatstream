@@ -54,17 +54,23 @@ if __name__ == "__main__":
             )
             f.write(data.tobytes())
 
-    splats = ss.load_from_ply(splat_path)
+    splats = ss.load_from_ply(splat_path, sh_degree=3)
+
+    width = 256
+    height = 256
+    fov_x = math.radians(120.0)
+    fov_y = math.radians(120.0)
+
+    K = np.zeros((3, 3))
+    K[0, 0] = width / (2 * math.tan(fov_x / 2))
+    K[1, 1] = height / (2 * math.tan(fov_y / 2))
+    K[0, 2] = width / 2
+    K[1, 2] = height / 2
+    K[2, 2] = 1
 
     N = 64
     viewmats = []
-    Ks = []
     for i in range(N):
-        width = 256
-        height = 256
-        fov_x = math.radians(120.0)
-        fov_y = math.radians(120.0)
-
         # view
         theta = 2.0 * math.pi * (i / N)
         radius = 10.0
@@ -76,36 +82,39 @@ if __name__ == "__main__":
         C2W[3, 3] = 1.0
         W2C = np.linalg.inv(C2W)
 
-        K = np.zeros((3, 3))
-        K[0, 0] = width / (2 * math.tan(fov_x / 2))
-        K[1, 1] = height / (2 * math.tan(fov_y / 2))
-        K[0, 2] = width / 2
-        K[1, 2] = height / 2
-        K[2, 2] = 1
-
         viewmats.append(W2C)
-        Ks.append(K)
 
     viewmats = np.stack(viewmats)
-    Ks = np.stack(Ks)
+    sh_degrees = np.array([0, 1, 2, 3])
 
     print("draw start")
-    image = ss.draw(splats, viewmats, Ks, width, height, far=1e5).numpy()
+    images = ss.draw(
+        splats,
+        viewmats,  # (N, 4, 4)
+        K,
+        width,
+        height,
+        far=1e5,
+        sh_degree=sh_degrees[:, None],  # (4, 1)
+    ).numpy()  # (4, N, 4, 4)
     print("draw end")
 
-    image = image[..., :3]
-    for i in range(len(image)):
-        s = (i * height) // N
-        e = ((i + 1) * height) // N
-        image[i, (width - width // N) :, s:e, :] = 255
+    for idx, sh_degree in enumerate(sh_degrees):
+        image = images[idx, ..., :3]
 
-    print("save start")
-    imgs = []
-    for i in range(len(image)):
-        img = Image.fromarray(image[i])
-        img.save(f"test_sh/{i+1:05d}.png")
-        imgs.append(img)
+        for i in range(len(image)):
+            s = (i * height) // N
+            e = ((i + 1) * height) // N
+            image[i, (width - width // N) :, s:e, :] = 255
 
-    gif_path = "test_sh/result.gif"
-    imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], duration=20, loop=0)
-    print(f"saved animation to {gif_path}")
+        print("save start")
+        imgs = []
+        for i in range(len(image)):
+            img = Image.fromarray(image[i])
+            imgs.append(img)
+
+        gif_path = f"test_sh/sh_degree_{sh_degree}.gif"
+        imgs[0].save(
+            gif_path, save_all=True, append_images=imgs[1:], duration=20, loop=0
+        )
+        print(f"saved animation to {gif_path}")

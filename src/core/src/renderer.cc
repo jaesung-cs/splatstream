@@ -125,7 +125,7 @@ uint32_t Renderer::graphics_queue_index() const noexcept { return device_->graph
 uint32_t Renderer::compute_queue_index() const noexcept { return device_->compute_queue_index(); }
 uint32_t Renderer::transfer_queue_index() const noexcept { return device_->transfer_queue_index(); }
 
-std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
+std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, int sh_degree) {
   std::ifstream in(path, std::ios::binary);
 
   // parse header
@@ -158,6 +158,38 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     }
   }
 
+  int K = 0;
+  for (const auto& [key, _] : offsets) {
+    if (key.find("f_rest_") != std::string::npos) {
+      K = std::max(K, std::stoi(key.substr(7)));
+    }
+  }
+  K = K + 1;
+
+  int sh_degree_data = 0;
+  switch (K) {
+    case 0:  // no f_rest
+      sh_degree_data = 0;
+      break;
+    case 9:  // f_rest_[0..9)
+      sh_degree_data = 1;
+      break;
+    case 24:  // f_rest_[0..24)
+      sh_degree_data = 2;
+      break;
+    case 45:  // f_rest_[0..45)
+      sh_degree_data = 3;
+      break;
+    default:
+      throw std::runtime_error("Unsupported SH degree for having f_rest_[0.." + std::to_string(K - 1) + "]");
+  }
+  K /= 3;
+
+  if (sh_degree == -1) sh_degree = sh_degree_data;
+  if (sh_degree > sh_degree_data) {
+    throw std::runtime_error("SH degree for drawing is greater than the maximum degree of the data");
+  }
+
   std::vector<uint32_t> ply_offsets(60);
   ply_offsets[0] = offsets["x"] / 4;
   ply_offsets[1] = offsets["y"] / 4;
@@ -172,10 +204,10 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
   ply_offsets[10 + 0] = offsets["f_dc_0"] / 4;
   ply_offsets[10 + 16] = offsets["f_dc_1"] / 4;
   ply_offsets[10 + 32] = offsets["f_dc_2"] / 4;
-  for (int i = 0; i < 15; ++i) {
-    ply_offsets[10 + 1 + i] = offsets["f_rest_" + std::to_string(i)] / 4;
-    ply_offsets[10 + 17 + i] = offsets["f_rest_" + std::to_string(15 + i)] / 4;
-    ply_offsets[10 + 33 + i] = offsets["f_rest_" + std::to_string(30 + i)] / 4;
+  for (int i = 0; i < K; ++i) {
+    ply_offsets[10 + 1 + i] = offsets["f_rest_" + std::to_string(K * 0 + i)] / 4;
+    ply_offsets[10 + 17 + i] = offsets["f_rest_" + std::to_string(K * 1 + i)] / 4;
+    ply_offsets[10 + 33 + i] = offsets["f_rest_" + std::to_string(K * 2 + i)] / 4;
   }
   ply_offsets[58] = offsets["opacity"] / 4;
   ply_offsets[59] = offset / 4;
@@ -193,8 +225,6 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
     index_data.push_back(4 * i + 1);
     index_data.push_back(4 * i + 3);
   }
-
-  uint32_t sh_degree = 3;  // TODO
 
   ParsePlyPushConstants parse_ply_push_constants;
   parse_ply_push_constants.point_count = point_count;
@@ -399,10 +429,8 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path) {
 
 std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
                                               const glm::mat4& projection, uint32_t width, uint32_t height,
-                                              const glm::vec3& background, float eps2d, uint8_t* dst) {
+                                              const glm::vec3& background, float eps2d, int sh_degree, uint8_t* dst) {
   std::shared_ptr<RenderedImage> rendered_image;
-
-  uint32_t sh_degree = splats->sh_degree();  // TODO
 
   auto cq = device_->compute_queue();
   auto gq = device_->graphics_queue();
@@ -420,7 +448,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   compute_push_constants.point_count = N;
   compute_push_constants.eps2d = eps2d;
   compute_push_constants.sh_degree_data = splats->sh_degree();
-  compute_push_constants.sh_degree_draw = sh_degree;
+  compute_push_constants.sh_degree_draw = sh_degree == -1 ? splats->sh_degree() : sh_degree;
 
   GraphicsPushConstants graphics_push_constants;
   graphics_push_constants.background = glm::vec4(background, 1.f);

@@ -41,11 +41,11 @@ class VKGS_CORE_API Renderer {
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
-  std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path);
+  std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
 
   std::shared_ptr<RenderedImage> Draw(std::shared_ptr<GaussianSplats> splats, const glm::mat4& view,
                                       const glm::mat4& projection, uint32_t width, uint32_t height,
-                                      const glm::vec3& background, float eps2d, uint8_t* dst);
+                                      const glm::vec3& background, float eps2d, int sh_degree, uint8_t* dst);
 
  private:
   std::shared_ptr<gpu::Device> device_;
