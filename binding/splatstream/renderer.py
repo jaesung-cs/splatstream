@@ -84,6 +84,7 @@ def draw(
     projections[..., 2, 2] = far / (near - far)
     projections[..., 2, 3] = near * far / (near - far)
     projections[..., 3, 2] = -1
+    projections[..., 3, 3] = 0
 
     # flatten
     viewmats = np.ascontiguousarray(viewmats.reshape(-1, 4, 4))

@@ -60,8 +60,9 @@ if __name__ == "__main__":
     for i in range(N):
         color = Image.fromarray(image[i, ..., :3])
         alpha = Image.fromarray(image[i, ..., 3])
-        # color.save(f"result/{i+1:05d}.png")
-        # alpha.save(f"result/{i+1:05d}_alpha.png")
+        if i < 10:
+            color.save(f"result/{i+1:05d}.png")
+            alpha.save(f"result/{i+1:05d}_alpha.png")
 
         colors.append(color)
 
