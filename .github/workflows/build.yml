@@ -53,7 +53,7 @@ jobs:
         cibuildwheel ./binding --output-dir wheelhouse
         ls ./wheelhouse
       env:
-        CIBW_BUILD: "cp310-* cp311-* cp312-*"
+        CIBW_BUILD: "cp310-*"
         CIBW_ARCHS_WINDOWS: "AMD64"
         CIBW_ARCHS_LINUX: "x86_64"
         CIBW_ARCHS_MACOS: "arm64"
