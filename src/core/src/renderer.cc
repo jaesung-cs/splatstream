@@ -166,19 +166,24 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   }
   K = K + 1;
 
-  int sh_degree_data = 0;
+  int sh_degree_data = 0;  // [0, 1, 2, 3], sh degree
+  int sh_packed_size = 0;  // [1, 3, 7, 12], storage dimension for packing with f16vec4.
   switch (K) {
     case 0:  // no f_rest
       sh_degree_data = 0;
+      sh_packed_size = 1;
       break;
     case 9:  // f_rest_[0..9)
       sh_degree_data = 1;
+      sh_packed_size = 3;
       break;
     case 24:  // f_rest_[0..24)
       sh_degree_data = 2;
+      sh_packed_size = 7;
       break;
     case 45:  // f_rest_[0..45)
       sh_degree_data = 3;
+      sh_packed_size = 12;
       break;
     default:
       throw std::runtime_error("Unsupported SH degree for having f_rest_[0.." + std::to_string(K - 1) + "]");
@@ -239,7 +244,8 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
 
   auto position = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
   auto cov3d = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
-  auto sh = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 48 * 2);
+  auto sh = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                point_count * sh_packed_size * 4 * sizeof(uint16_t));
   auto opacity = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
   auto index_stage =
