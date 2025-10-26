@@ -9,7 +9,7 @@
 namespace vkgs {
 namespace core {
 
-struct ParsePlyPushConstants {
+struct ParsePushConstants {
   alignas(16) uint32_t point_count;
   uint32_t sh_degree;
 };
