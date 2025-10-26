@@ -114,10 +114,10 @@ Renderer::Renderer() {
       gpu::PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
                                   {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(GraphicsPushConstants)}});
   splat_pipeline_ = gpu::GraphicsPipeline::Create(*device_, *graphics_pipeline_layout_, splat_vert, splat_frag,
-                                                  VK_FORMAT_R32G32B32A32_SFLOAT);
+                                                  VK_FORMAT_R16G16B16A16_SFLOAT);
   splat_background_pipeline_ =
       gpu::GraphicsPipeline::Create(*device_, *graphics_pipeline_layout_, splat_background_vert, splat_background_frag,
-                                    VK_FORMAT_R32G32B32A32_SFLOAT);
+                                    VK_FORMAT_R16G16B16A16_SFLOAT);
 }
 
 Renderer::~Renderer() = default;
