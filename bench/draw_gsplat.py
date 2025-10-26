@@ -42,35 +42,40 @@ def draw_gsplat(ply_data, draw_data, chunk_size: int | None = None):
     print("warming up done")
 
     print("drawing...")
-    torch.cuda.synchronize()
-    start_time = time.time()
+
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+
     images = []
-    for i in range(0, len(viewmats), chunk_size):
-        viewmats_chunk = viewmats[i : i + chunk_size]
-        Ks_chunk = Ks[i : i + chunk_size]
-        images_chunk, alphas, meta = gsplat.rasterization(
-            means=means,
-            quats=quats,
-            scales=scales,
-            opacities=opacities,
-            colors=colors,
-            viewmats=viewmats_chunk,
-            Ks=Ks_chunk,
-            width=draw_data["width"],
-            height=draw_data["height"],
-            sh_degree=3,
-            near_plane=0.1,
-            far_plane=1e3,
-            rasterize_mode="antialiased",
-        )
-        images_chunk = (images_chunk.clip(0.0, 1.0) * 255.0).to(torch.uint8).cpu()
-        images.append(images_chunk)
+
     torch.cuda.synchronize()
-    end_time = time.time()
-    rendering_time = end_time - start_time
+    with torch.inference_mode():
+        start.record()
+        for i in range(0, len(viewmats), chunk_size):
+            viewmats_chunk = viewmats[i : i + chunk_size]
+            Ks_chunk = Ks[i : i + chunk_size]
+            images_chunk, alphas, meta = gsplat.rasterization(
+                means=means,
+                quats=quats,
+                scales=scales,
+                opacities=opacities,
+                colors=colors,
+                viewmats=viewmats_chunk,
+                Ks=Ks_chunk,
+                width=draw_data["width"],
+                height=draw_data["height"],
+                sh_degree=3,
+                near_plane=0.1,
+                far_plane=1e3,
+                rasterize_mode="antialiased",
+            )
+            images.append(images_chunk)
+        end.record()
+    torch.cuda.synchronize()
+    rendering_time = start.elapsed_time(end) / 1000.0
     print("draw end")
 
-    colors = torch.cat(images).numpy()
+    colors = (torch.cat(images).clip(0.0, 1.0) * 255.0).to(torch.uint8).cpu().numpy()
     return {
         "chunk_size": chunk_size,
         "colors": colors,
