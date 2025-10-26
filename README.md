@@ -30,6 +30,9 @@ Python bindings for streamlined 3dgs rendering.
   - Check [this (link to gpuinfo)](https://vulkan.gpuinfo.org/listdevices.php) out and confirm if your GPU supports API version >=1.4. Most of GPUs may have >=1.4.
   - Vulkan 1.4 was released on December 3, 2024. You must have updated your graphic driver since then.
   - Download the latest graphic driver from your GPU vendor's website for splatstream to use the latest feature in Vulkan.
+- Windows: x64
+- Ubuntu: x64
+- MacOS: arm64
 - `python>=3.10`
 
 ## Requirements (Dev)
