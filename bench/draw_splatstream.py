@@ -4,9 +4,7 @@ import splatstream as ss
 
 
 def draw_splatstream(ply_data, draw_data):
-    # TODO: measure loading time and rendering time separately
     print("loading splats...")
-    start_time = time.time()
     splats = ss.gaussian_splats(
         means=ply_data["means"],
         quats=ply_data["quats"],
@@ -14,9 +12,12 @@ def draw_splatstream(ply_data, draw_data):
         opacities=ply_data["opacities"],
         colors=ply_data["colors"],
     )
+    # Wait for CPU -> GPU, to measure rendering time only
+    splats.wait()
     print("loading splats done")
 
     print("drawing...")
+    start_time = time.time()
     images = ss.draw(
         splats=splats,
         viewmats=draw_data["viewmats"],

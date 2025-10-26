@@ -206,6 +206,8 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   auto cq = device_->compute_queue();
   auto gq = device_->graphics_queue();
 
+  std::shared_ptr<gpu::Task> task;
+
   // Transfer queue: stage to buffers
   {
     auto cb = tq->AllocateCommandBuffer();
@@ -391,7 +393,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     submit.commandBufferInfoCount = 1;
     submit.pCommandBufferInfos = &command_buffer_info;
     vkQueueSubmit2(*cq, 1, &submit, *fence);
-    task_monitor_->Add(fence, {cb, sem, position, quats, scales, cov3d, colors, sh, opacity});
+    task = task_monitor_->Add(fence, {cb, sem, position, quats, scales, cov3d, colors, sh, opacity});
   }
 
   // Graphics queue: make visible
@@ -437,7 +439,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
 
   sem->Increment();
 
-  return std::make_shared<GaussianSplats>(size, sh_degree, position, cov3d, sh, opacity, index_buffer);
+  return std::make_shared<GaussianSplats>(size, sh_degree, position, cov3d, sh, opacity, index_buffer, task);
 }
 
 std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, int sh_degree) {
@@ -578,6 +580,8 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   auto gq = device_->graphics_queue();
   auto tq = device_->transfer_queue();
 
+  std::shared_ptr<gpu::Task> task;
+
   // Transfer queue: stage to buffers
   {
     auto cb = tq->AllocateCommandBuffer();
@@ -697,7 +701,7 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
     submit.pCommandBufferInfos = &command_buffer_info;
 
     vkQueueSubmit2(*cq, 1, &submit, *fence);
-    task_monitor_->Add(fence, {cb, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
+    task = task_monitor_->Add(fence, {cb, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
   }
 
   // Graphics queue: acquire index buffer
@@ -745,7 +749,7 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   }
   sem->Increment();
 
-  return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer);
+  return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer, task);
 }
 
 std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,

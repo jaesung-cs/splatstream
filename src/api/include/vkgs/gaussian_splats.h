@@ -17,6 +17,8 @@ class VKGS_API GaussianSplats {
 
   size_t size() const;
 
+  void Wait() const noexcept;
+
   // Internal
   auto get() const noexcept { return gaussian_splats_; }
 

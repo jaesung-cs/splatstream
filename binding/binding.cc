@@ -51,7 +51,9 @@ PYBIND11_MODULE(_core, m) {
         return renderer.Draw(splats, draw_options, dst_ptr);
       });
 
-  py::class_<vkgs::GaussianSplats>(m, "GaussianSplats").def_property_readonly("size", &vkgs::GaussianSplats::size);
+  py::class_<vkgs::GaussianSplats>(m, "GaussianSplats")
+      .def_property_readonly("size", &vkgs::GaussianSplats::size)
+      .def("wait", &vkgs::GaussianSplats::Wait);
 
   py::class_<vkgs::RenderedImage>(m, "RenderedImage").def("wait", &vkgs::RenderedImage::Wait);
 }
