@@ -25,8 +25,8 @@ $ python bench/bench.py
 ```bash
 $ python .\bench\bench.py --ply_path models/train_30000.ply --colmap_path models/tandt_db/tandt/train --scale 0.5 --target splatstream --first 20
 ...
-PSNR: 23.21 ± 1.35
-FPS: 107.06
+PSNR: 23.20 ± 1.35
+FPS: 438.01
 
 $ python .\bench\bench.py --ply_path models/train_30000.ply --colmap_path models/tandt_db/tandt/train --scale 0.5 --target gsplat --first 20 --chunk_size 10
 ...
@@ -54,7 +54,7 @@ FPS: 380.52
 
 |    | Dataset | scale | #imgs | chunk size | PSNR | FPS |
 |:--:|:-------:|:-----:|:-----:|:----------:|:----:|:---:|
-| **gsplat**      | truck | 0.5 | 251 |  10 | 20.59 ± 1.66 | **330.61** |
-|   splatstream   | truck | 0.5 | 251 | N/A | 20.69 ± 1.58 |   113.78   |
-| **gsplat**      | train | 0.5 | 301 |  10 | 22.29 ± 2.41 | **339.76** |
-|   splatstream   | train | 0.5 | 301 | N/A | 22.11 ± 2.29 |   111.70   |
+|   gsplat        | truck | 0.5 | 251 |  10 | 20.59 ± 1.66 |   330.61   |
+| **splatstream** | truck | 0.5 | 251 | N/A | 20.67 ± 1.58 | **436.64** |
+|   gsplat        | train | 0.5 | 301 |  10 | 22.29 ± 2.41 |   339.76   |
+| **splatstream** | train | 0.5 | 301 | N/A | 22.11 ± 2.29 | **494.96** |
