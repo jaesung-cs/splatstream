@@ -129,7 +129,7 @@ uint32_t Renderer::transfer_queue_index() const noexcept { return device_->trans
 
 std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, const float* means_ptr,
                                                                const float* quats_ptr, const float* scales_ptr,
-                                                               const uint16_t* sh_ptr, const float* opacity_ptr,
+                                                               const float* opacities_ptr, const uint16_t* colors_ptr,
                                                                int sh_degree) {
   std::vector<uint32_t> index_data;
   index_data.reserve(6 * size);
@@ -142,23 +142,23 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     index_data.push_back(4 * i + 3);
   }
 
-  int sh_size = 0;
+  int colors_size = 0;
   int sh_packed_size = 0;
   switch (sh_degree) {
     case 0:
-      sh_size = 1;
+      colors_size = 1;
       sh_packed_size = 1;
       break;
     case 1:
-      sh_size = 4;
+      colors_size = 4;
       sh_packed_size = 3;
       break;
     case 2:
-      sh_size = 9;
+      colors_size = 9;
       sh_packed_size = 7;
       break;
     case 3:
-      sh_size = 16;
+      colors_size = 16;
       sh_packed_size = 12;
       break;
     default:
@@ -168,8 +168,8 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   auto position_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
   auto quats_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float), true);
   auto scales_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
-  auto sh_stage =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * sh_size * 3 * sizeof(uint16_t), true);
+  auto colors_stage =
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t), true);
   auto opacity_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * sizeof(float), true);
   auto index_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 6 * sizeof(uint32_t), true);
 
@@ -179,8 +179,8 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
                                    size * 4 * sizeof(float));
   auto scales = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     size * 3 * sizeof(float));
-  auto raw_sh = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                    size * sh_size * 3 * sizeof(uint16_t));
+  auto colors = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                    size * colors_size * 3 * sizeof(uint16_t));
   auto opacity = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                      size * sizeof(float));
 
@@ -193,8 +193,8 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   std::memcpy(position_stage->data(), means_ptr, position_stage->size());
   std::memcpy(quats_stage->data(), quats_ptr, quats_stage->size());
   std::memcpy(scales_stage->data(), scales_ptr, scales_stage->size());
-  std::memcpy(sh_stage->data(), sh_ptr, sh_stage->size());
-  std::memcpy(opacity_stage->data(), opacity_ptr, opacity_stage->size());
+  std::memcpy(opacity_stage->data(), opacities_ptr, opacity_stage->size());
+  std::memcpy(colors_stage->data(), colors_ptr, colors_stage->size());
   std::memcpy(index_stage->data(), index_data.data(), index_stage->size());
 
   ParsePushConstants parse_data_push_constants = {};
@@ -221,8 +221,8 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     vkCmdCopyBuffer(*cb, *quats_stage, *quats, 1, &region);
     region = {0, 0, scales_stage->size()};
     vkCmdCopyBuffer(*cb, *scales_stage, *scales, 1, &region);
-    region = {0, 0, sh_stage->size()};
-    vkCmdCopyBuffer(*cb, *sh_stage, *raw_sh, 1, &region);
+    region = {0, 0, colors_stage->size()};
+    vkCmdCopyBuffer(*cb, *colors_stage, *colors, 1, &region);
     region = {0, 0, opacity_stage->size()};
     vkCmdCopyBuffer(*cb, *opacity_stage, *opacity, 1, &region);
     region = {0, 0, index_stage->size()};
@@ -258,7 +258,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     release_barriers[3].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
     release_barriers[3].srcQueueFamilyIndex = tq->family_index();
     release_barriers[3].dstQueueFamilyIndex = cq->family_index();
-    release_barriers[3].buffer = *raw_sh;
+    release_barriers[3].buffer = *colors;
     release_barriers[3].offset = 0;
     release_barriers[3].size = VK_WHOLE_SIZE;
     release_barriers[4] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
@@ -299,7 +299,8 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     submit.pSignalSemaphoreInfos = &signal_semaphore_info;
 
     vkQueueSubmit2(*tq, 1, &submit, *fence);
-    task_monitor_->Add(fence, {cb, position_stage, quats_stage, scales_stage, sh_stage, opacity_stage, index_stage});
+    task_monitor_->Add(fence, {cb, position_stage, quats_stage, scales_stage, colors_stage, opacity_stage, index_stage,
+                               position, quats, scales, colors, opacity, index_buffer});
   }
 
   // Compute queue: parse data
@@ -341,7 +342,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     acquire_barriers[3].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     acquire_barriers[3].srcQueueFamilyIndex = tq->family_index();
     acquire_barriers[3].dstQueueFamilyIndex = cq->family_index();
-    acquire_barriers[3].buffer = *raw_sh;
+    acquire_barriers[3].buffer = *colors;
     acquire_barriers[3].offset = 0;
     acquire_barriers[3].size = VK_WHOLE_SIZE;
     acquire_barriers[4] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
@@ -358,7 +359,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     vkCmdPipelineBarrier2(*cb, &acquire_dependency_info);
 
     cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_,
-                         {*quats, *scales, *cov3d, *raw_sh, *sh});
+                         {*quats, *scales, *cov3d, *colors, *sh});
     vkCmdPushConstants(*cb, *parse_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants),
                        &parse_data_push_constants);
     vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_data_pipeline_);
@@ -390,7 +391,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     submit.commandBufferInfoCount = 1;
     submit.pCommandBufferInfos = &command_buffer_info;
     vkQueueSubmit2(*cq, 1, &submit, *fence);
-    task_monitor_->Add(fence, {cb, sem, quats, scales, cov3d, raw_sh, sh});
+    task_monitor_->Add(fence, {cb, sem, position, quats, scales, cov3d, colors, sh, opacity});
   }
 
   // Graphics queue: make visible

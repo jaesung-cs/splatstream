@@ -44,11 +44,9 @@ class VKGS_CORE_API Renderer {
   uint32_t transfer_queue_index() const noexcept;
 
   std::shared_ptr<GaussianSplats> CreateGaussianSplats(size_t size, const float* means, const float* quats,
-                                                       const float* scales, const uint16_t* raw_sh,
-                                                       const float* opacity, int sh_degree);
-
+                                                       const float* scales, const float* opacities,
+                                                       const uint16_t* colors, int sh_degree);
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
-
   std::shared_ptr<RenderedImage> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                       uint8_t* dst);
 

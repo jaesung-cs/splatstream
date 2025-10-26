@@ -17,14 +17,14 @@ PYBIND11_MODULE(_core, m) {
       .def("load_from_ply", &vkgs::Renderer::LoadFromPly)
       .def("create_gaussian_splats",
            [](vkgs::Renderer& renderer, py::array_t<float> means, py::array_t<float> quats, py::array_t<float> scales,
-              intptr_t sh_ptr, py::array_t<float> opacity, int sh_degree) {
+              py::array_t<float> opacities, intptr_t colors_ptr, int sh_degree) {
              size_t N = means.shape(0);
              const auto* means_ptr = static_cast<const float*>(means.request().ptr);
              const auto* quats_ptr = static_cast<const float*>(quats.request().ptr);
              const auto* scales_ptr = static_cast<const float*>(scales.request().ptr);
-             const auto* sh_u16_ptr = reinterpret_cast<const uint16_t*>(sh_ptr);
-             const auto* opacity_ptr = static_cast<const float*>(opacity.request().ptr);
-             return renderer.CreateGaussianSplats(N, means_ptr, quats_ptr, scales_ptr, sh_u16_ptr, opacity_ptr,
+             const auto* opacities_ptr = static_cast<const float*>(opacities.request().ptr);
+             const auto* colors_u16_ptr = reinterpret_cast<const uint16_t*>(colors_ptr);
+             return renderer.CreateGaussianSplats(N, means_ptr, quats_ptr, scales_ptr, opacities_ptr, colors_u16_ptr,
                                                   sh_degree);
            })
       .def("draw", [](vkgs::Renderer& renderer, vkgs::GaussianSplats splats, py::array_t<float> view,
