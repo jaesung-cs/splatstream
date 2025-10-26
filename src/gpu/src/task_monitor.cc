@@ -24,8 +24,8 @@ void TaskMonitor::gc() {
   for (int i = 0; i < LOOP && i < tasks_.size(); ++i) {
     rotation_index_ = (rotation_index_ + 1) % tasks_.size();
 
-    if (tasks_[i]->IsDone()) {
-      std::swap(tasks_[i], tasks_.back());
+    if (tasks_[rotation_index_]->IsDone()) {
+      std::swap(tasks_[rotation_index_], tasks_.back());
       tasks_.pop_back();
     }
   }

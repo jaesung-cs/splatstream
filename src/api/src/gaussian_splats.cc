@@ -11,4 +11,6 @@ GaussianSplats::~GaussianSplats() = default;
 
 size_t GaussianSplats::size() const { return gaussian_splats_->size(); }
 
+void GaussianSplats::Wait() const noexcept { gaussian_splats_->Wait(); }
+
 }  // namespace vkgs

@@ -24,6 +24,11 @@ GaussianSplats Renderer::LoadFromPly(const std::string& path, int sh_degree) {
   return GaussianSplats(renderer_->LoadFromPly(path, sh_degree));
 }
 
+GaussianSplats Renderer::CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
+                                              const float* opacities, const uint16_t* colors, int sh_degree) {
+  return GaussianSplats(renderer_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree));
+}
+
 RenderedImage Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
   core::DrawOptions core_draw_options = {};
   core_draw_options.view = glm::make_mat4(draw_options.view);

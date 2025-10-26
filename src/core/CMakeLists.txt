@@ -47,6 +47,7 @@ target_compile_definitions(vkgs_core PUBLIC VKGS_CORE_STATIC)
 
 add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)
+add_shader(vkgs_core shader/parse_data.comp parse_data)
 add_shader(vkgs_core shader/projection.comp projection)
 add_shader(vkgs_core shader/rank.comp rank)
 add_shader(vkgs_core shader/splat_background.frag splat_background_frag)

@@ -2,8 +2,58 @@ import numpy as np
 
 from . import _core
 from .rendered_image import RenderedImage
+from .singleton_renderer import singleton_renderer
 
-singleton_renderer = _core.Renderer()
+
+def gaussian_splats(
+    means: np.ndarray,
+    quats: np.ndarray,
+    scales: np.ndarray,
+    opacities: np.ndarray,
+    colors: np.ndarray,
+) -> _core.GaussianSplats:
+    """
+    means: (N, 3)
+    quats: (N, 4), wxyz convention.
+    scales: (N, 3)
+    opacities: (N)
+    colors: (N, 3) for sh degree = 0, or (N, K, 3) sh coefficients. K = 1, 4, 9, or 16.
+    """
+    if colors.ndim == 2:
+        colors = colors[:, None, :]
+
+    assert means.ndim == 2 and means.shape[-1] == 3
+    assert quats.ndim == 2 and quats.shape[-1] == 4
+    assert scales.ndim == 2 and scales.shape[-1] == 3
+    assert colors.ndim == 3 and colors.shape[-1] == 3
+    assert opacities.ndim == 1
+    assert (
+        means.shape[0]
+        == quats.shape[0]
+        == scales.shape[0]
+        == colors.shape[0]
+        == opacities.shape[0]
+    )
+
+    K = colors.shape[-2]
+    assert K in [1, 4, 9, 16]
+
+    sh_degree = {1: 0, 4: 1, 9: 2, 16: 3}[K]
+
+    quats = quats / np.linalg.norm(quats, axis=-1, keepdims=True)
+
+    means = np.ascontiguousarray(means, dtype=np.float32)
+    quats = np.ascontiguousarray(quats, dtype=np.float32)
+    scales = np.ascontiguousarray(scales, dtype=np.float32)
+    colors = np.ascontiguousarray(colors, dtype=np.float16)
+    opacities = np.ascontiguousarray(opacities, dtype=np.float32)
+
+    # float16 is not acceptable by pybind11, so pass the pointer instead.
+    colors_ptr = colors.ctypes.data
+
+    return singleton_renderer.create_gaussian_splats(
+        means, quats, scales, opacities, colors_ptr, sh_degree
+    )
 
 
 def load_from_ply(path: str, sh_degree: int = -1) -> _core.GaussianSplats:

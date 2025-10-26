@@ -75,8 +75,12 @@ void main() {
 
 ## Image Format
 A pixel color is determined by many small splats, with very small contributions to the pixel.
-The image must be in format of `R32G32B32A32_SFLOAT` to blend correctly, where color and alpha values are loaded and stored in every blend operation.
-Then, `vkCmdBlitImage` command draws it to another image of `R8G8B8A8_UNORM` format.
+
+`R8G8B8A8_UNORM` for color attachment format degrades image quality a lot, because color and alpha values are loaded and stored in blend operations, losing too many significant digits every time.
+
+`R16G16B16A16_SFLOAT` is the best choice; it greatly boosts speed (4x faster than `R32G32B32A32_SFLOAT`) but still retains the image quality (average PSNR is dropped only by 0.02.)
+
+After rendering finishes, `vkCmdBlitImage` command copies to an image of `R8G8B8A8_UNORM` format.
 Value clipping between range [0, 1] is automatically performed by blitting.
 
 ## Double Buffering

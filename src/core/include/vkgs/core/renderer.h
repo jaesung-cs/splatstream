@@ -43,8 +43,10 @@ class VKGS_CORE_API Renderer {
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
+  std::shared_ptr<GaussianSplats> CreateGaussianSplats(size_t size, const float* means, const float* quats,
+                                                       const float* scales, const float* opacities,
+                                                       const uint16_t* colors, int sh_degree);
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
-
   std::shared_ptr<RenderedImage> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                       uint8_t* dst);
 
@@ -53,8 +55,9 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<gpu::TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
 
-  std::shared_ptr<gpu::PipelineLayout> parse_ply_pipeline_layout_;
+  std::shared_ptr<gpu::PipelineLayout> parse_pipeline_layout_;
   std::shared_ptr<gpu::ComputePipeline> parse_ply_pipeline_;
+  std::shared_ptr<gpu::ComputePipeline> parse_data_pipeline_;
 
   std::shared_ptr<gpu::PipelineLayout> compute_pipeline_layout_;
   std::shared_ptr<gpu::ComputePipeline> rank_pipeline_;

@@ -27,6 +27,8 @@ class VKGS_API Renderer {
   uint32_t transfer_queue_index() const noexcept;
 
   GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
+  GaussianSplats CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
+                                      const float* opacities, const uint16_t* colors, int sh_degree);
   RenderedImage Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
  private:
