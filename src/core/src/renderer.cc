@@ -12,6 +12,7 @@
 #include "volk.h"
 
 #include "vkgs/gpu/cmd/barrier.h"
+#include "vkgs/gpu/cmd/queue_submission.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/device.h"
@@ -242,21 +243,11 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
 
     vkEndCommandBuffer(*cb);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
+    gpu::cmd::QueueSubmission()
+        .Command(*cb)
+        .Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Submit(*tq, *fence);
 
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *sem;
-    signal_semaphore_info.value = sem->value() + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    submit.signalSemaphoreInfoCount = 1;
-    submit.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*tq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, position_stage, quats_stage, scales_stage, colors_stage, opacity_stage, index_stage,
                                position, quats, scales, colors, opacity, index_buffer});
   }
@@ -292,20 +283,11 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
 
     vkEndCommandBuffer(*cb);
 
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+        .Command(*cb)
+        .Submit(*cq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    vkQueueSubmit2(*cq, 1, &submit, *fence);
     task = task_monitor_->Add(fence, {cb, sem, position, quats, scales, cov3d, colors, sh, opacity});
   }
 
@@ -324,20 +306,11 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
 
     vkEndCommandBuffer(*cb);
 
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT)
+        .Command(*cb)
+        .Submit(*gq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    vkQueueSubmit2(*gq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, sem, index_buffer});
   }
 
@@ -508,21 +481,11 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
 
     vkEndCommandBuffer(*cb);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
+    gpu::cmd::QueueSubmission()
+        .Command(*cb)
+        .Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Submit(*tq, *fence);
 
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *sem;
-    signal_semaphore_info.value = sem->value() + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    submit.signalSemaphoreInfoCount = 1;
-    submit.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*tq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, sem, ply_stage, ply_buffer, index_stage, index_buffer});
   }
 
@@ -556,21 +519,11 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
     vkEndCommandBuffer(*cb);
 
     // Submit
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Command(*cb)
+        .Submit(*cq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-
-    vkQueueSubmit2(*cq, 1, &submit, *fence);
     task = task_monitor_->Add(fence, {cb, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
   }
 
@@ -590,21 +543,11 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
     vkEndCommandBuffer(*cb);
 
     // Submit
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Command(*cb)
+        .Submit(*gq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-
-    vkQueueSubmit2(*gq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, sem, index_buffer});
   }
   sem->Increment();
@@ -763,33 +706,13 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(*cb);
 
     // Submit
-    std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+    gpu::cmd::QueueSubmission submission;
     if (frame_index_ >= 2) {
       // G[i-2].read before C[i].comp
-      auto& wait_semaphore_info = wait_semaphore_infos.emplace_back();
-      wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-      wait_semaphore_info.semaphore = *gsem;
-      wait_semaphore_info.value = gval - 2 + 1;
-      wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+      submission.Wait(*gsem, gval - 2 + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     }
+    submission.Command(*cb).Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT).Submit(*cq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *csem;
-    signal_semaphore_info.value = cval + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-
-    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
-    submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
-    submit_info.commandBufferInfoCount = 1;
-    submit_info.pCommandBufferInfos = &command_buffer_info;
-    submit_info.signalSemaphoreInfoCount = 1;
-    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*cq, 1, &submit_info, *fence);
     task_monitor_->Add(fence, {cb, csem, camera_stage, camera, position, cov3d, opacity, sh, visible_point_count, key,
                                index, sort_storage, inverse_index, draw_indirect, instances});
   }
@@ -877,49 +800,27 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(*cb);
 
     // Submit
-    std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos(1);
+    gpu::cmd::QueueSubmission submission;
     // C[i].comp before G[i].read
-    wait_semaphore_infos[0] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_infos[0].semaphore = *csem;
-    wait_semaphore_infos[0].value = cval + 1;
-    wait_semaphore_infos[0].stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                                        VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    submission.Wait(*csem, cval + 1,
+                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                        VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
 
     if (frame_index_ >= 2) {
       // T[i-2].xfer before G[i].output
-      auto& wait_semaphore_info = wait_semaphore_infos.emplace_back();
-      wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-      wait_semaphore_info.semaphore = *tsem;
-      wait_semaphore_info.value = tval - 1 + 1;
-      wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+      submission.Wait(*tsem, tval - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
+    submission
+        .Command(*cb)
+        // G[i].read
+        .Signal(*gsem, gval + 1,
+                VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
+        // G[i].blit
+        .Signal(*gsem, gval + 2, VK_PIPELINE_STAGE_2_BLIT_BIT)
+        .Submit(*gq, *fence);
 
-    std::vector<VkSemaphoreSubmitInfo> signal_semaphore_infos(2);
-    // G[i].read
-    signal_semaphore_infos[0] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_infos[0].semaphore = *gsem;
-    signal_semaphore_infos[0].value = gval + 1;
-    signal_semaphore_infos[0].stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                                          VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-
-    // G[i].blit
-    signal_semaphore_infos[1] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_infos[1].semaphore = *gsem;
-    signal_semaphore_infos[1].value = gval + 2;
-    signal_semaphore_infos[1].stageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
-
-    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
-    submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
-    submit_info.commandBufferInfoCount = 1;
-    submit_info.pCommandBufferInfos = &command_buffer_info;
-    submit_info.signalSemaphoreInfoCount = signal_semaphore_infos.size();
-    submit_info.pSignalSemaphoreInfos = signal_semaphore_infos.data();
-
-    vkQueueSubmit2(*gq, 1, &submit_info, *fence);
     task_monitor_->Add(fence, {cb, image, instances, index_buffer, draw_indirect, gsem});
   }
 
@@ -950,30 +851,14 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(*cb);
 
     // Submit
-    // G[i].blit before T[i].xfer
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *gsem;
-    wait_semaphore_info.value = gval + 2;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    gpu::cmd::QueueSubmission()
+        // G[i].blit before T[i].xfer
+        .Wait(*gsem, gval + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Command(*cb)
+        // T[i].xfer
+        .Signal(*tsem, tval + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Submit(*tq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    // T[i].xfer
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *tsem;
-    signal_semaphore_info.value = tval + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-
-    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = 1;
-    submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit_info.commandBufferInfoCount = 1;
-    submit_info.pCommandBufferInfos = &command_buffer_info;
-    submit_info.signalSemaphoreInfoCount = 1;
-    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*tq, 1, &submit_info, *fence);
     auto task = task_monitor_->Add(fence, {cb, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
       std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
     });

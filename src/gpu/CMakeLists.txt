@@ -22,6 +22,7 @@ FetchContent_MakeAvailable(vma)
 # Static library only to load Vulkan functions statically properly.
 add_library(vkgs_gpu STATIC
   src/cmd/barrier.cc
+  src/cmd/queue_submission.cc
   src/buffer.cc
   src/command_pool.cc
   src/command.cc
