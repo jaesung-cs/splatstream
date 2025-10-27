@@ -12,6 +12,7 @@
 #include "volk.h"
 
 #include "vkgs/gpu/cmd/barrier.h"
+#include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/gpu/cmd/queue_submission.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
@@ -45,21 +46,6 @@
 namespace {
 
 auto WorkgroupSize(size_t count, uint32_t local_size) { return (count + local_size - 1) / local_size; }
-
-void cmdPushDescriptorSet(VkCommandBuffer cb, VkPipelineBindPoint bind_point, VkPipelineLayout pipeline_layout,
-                          const std::vector<VkBuffer>& buffers) {
-  std::vector<VkDescriptorBufferInfo> buffer_infos(buffers.size());
-  std::vector<VkWriteDescriptorSet> writes(buffers.size());
-  for (int i = 0; i < buffers.size(); ++i) {
-    buffer_infos[i] = {buffers[i], 0, VK_WHOLE_SIZE};
-    writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-    writes[i].dstBinding = i;
-    writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[i].descriptorCount = 1;
-    writes[i].pBufferInfo = &buffer_infos[i];
-  }
-  vkCmdPushDescriptorSet(cb, bind_point, pipeline_layout, 0, writes.size(), writes.data());
-}
 
 }  // namespace
 
@@ -269,11 +255,15 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
         .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *opacity)
         .Commit(*cb);
 
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_,
-                         {*quats, *scales, *cov3d, *colors, *sh});
-    vkCmdPushConstants(*cb, *parse_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants),
-                       &parse_data_push_constants);
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_data_pipeline_);
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_)
+        .Storage(0, *quats)
+        .Storage(1, *scales)
+        .Storage(2, *cov3d)
+        .Storage(3, *colors)
+        .Storage(4, *sh)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants), &parse_data_push_constants)
+        .Bind(*parse_data_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(size, 256), 1, 1);
 
     gpu::cmd::Barrier()
@@ -503,12 +493,15 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
         .Commit(*cb);
 
     // ply_buffer -> gaussian_splats
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_,
-                         {*ply_buffer, *position, *cov3d, *opacity, *sh});
-    vkCmdPushConstants(*cb, *parse_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_ply_push_constants),
-                       &parse_ply_push_constants);
-
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_)
+        .Storage(0, *ply_buffer)
+        .Storage(1, *position)
+        .Storage(2, *cov3d)
+        .Storage(3, *opacity)
+        .Storage(4, *sh)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_ply_push_constants), &parse_ply_push_constants)
+        .Bind(*parse_ply_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(point_count, 256), 1, 1);
 
     gpu::cmd::Barrier()
@@ -637,17 +630,15 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         .Commit(*cb);
 
     // Rank
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
-                         {
-                             *camera,
-                             *position,
-                             *visible_point_count,
-                             *key,
-                             *index,
-                         });
-    vkCmdPushConstants(*cb, *compute_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants),
-                       &compute_push_constants);
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *rank_pipeline_);
+    gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_);
+    pipeline.Storage(0, *camera)
+        .Storage(1, *position)
+        .Storage(2, *visible_point_count)
+        .Storage(3, *key)
+        .Storage(4, *index)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+        .Bind(*rank_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Sort
@@ -665,15 +656,12 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
         .Commit(*cb);
 
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
-                         {
-                             *visible_point_count,
-                             *index,
-                             *inverse_index,
-                         });
-    vkCmdPushConstants(*cb, *compute_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants),
-                       &compute_push_constants);
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *inverse_index_pipeline_);
+    pipeline.Storage(0, *visible_point_count)
+        .Storage(1, *index)
+        .Storage(2, *inverse_index)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+        .Bind(*inverse_index_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Projection
@@ -682,19 +670,17 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
         .Commit(*cb);
 
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
-                         {
-                             *camera,
-                             *position,
-                             *cov3d,
-                             *opacity,
-                             *sh,
-                             *visible_point_count,
-                             *inverse_index,
-                             *draw_indirect,
-                             *instances,
-                         });
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *projection_pipeline_);
+    pipeline.Storage(0, *camera)
+        .Storage(1, *position)
+        .Storage(2, *cov3d)
+        .Storage(3, *opacity)
+        .Storage(4, *sh)
+        .Storage(5, *visible_point_count)
+        .Storage(6, *inverse_index)
+        .Storage(7, *draw_indirect)
+        .Storage(8, *instances)
+        .Bind(*projection_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Release
@@ -753,11 +739,11 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     rendering_info.pColorAttachments = &color_attachment;
     vkCmdBeginRendering(*cb, &rendering_info);
 
-    vkCmdPushConstants(*cb, *graphics_pipeline_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(graphics_push_constants), &graphics_push_constants);
-
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_);
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_, {*instances});
+    gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_);
+    pipeline.Storage(0, *instances)
+        .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
+        .Bind(*splat_pipeline_)
+        .Commit(*cb);
 
     VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
     vkCmdSetViewport(*cb, 0, 1, &viewport);
@@ -767,7 +753,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkCmdBindIndexBuffer(*cb, *index_buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(*cb, *draw_indirect, 0, 1, 0);
 
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_background_pipeline_);
+    pipeline.Bind(*splat_background_pipeline_).Commit(*cb);
     vkCmdDraw(*cb, 3, 1, 0, 0);
 
     vkCmdEndRendering(*cb);
