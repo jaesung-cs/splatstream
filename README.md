@@ -108,12 +108,12 @@ $ cmake --build build --config Release -j
 ## Benchmark
 - Tested on my PC: NVIDIA GeForce RTX 5080, Windows.
 
-|    | Dataset | scale | #imgs | chunk size | PSNR | FPS |
-|:--:|:-------:|:-----:|:-----:|:----------:|:----:|:---:|
-|   gsplat        | truck | 0.5 | 251 |  10 | 20.59 ± 1.66 |   330.61   |
-| **splatstream** | truck | 0.5 | 251 | N/A | 20.67 ± 1.58 | **436.64** |
-|   gsplat        | train | 0.5 | 301 |  10 | 22.29 ± 2.41 |   339.76   |
-| **splatstream** | train | 0.5 | 301 | N/A | 22.11 ± 2.29 | **494.96** |
+  | Implementation | Dataset | #imgs | resolution | #splats | PSNR | FPS |
+  |:---------------|:--------|:-----:|:----------:|:-------:|:----:|:---:|
+  | gsplat      | bicycle | 194 |  1237x822 | 6131954 |   19.18 ± 1.60   |    245.70   |
+  | splatstream | bicycle | 194 |  1237x822 | 6131954 | **19.41 ± 1.67** |  **256.59** |
+  | gsplat      | garden  | 185 |  1297x840 | 5834784 |   18.96 ± 0.74   |    196.80   |
+  | splatstream | garden  | 185 |  1297x840 | 5834784 | **19.30 ± 0.74** |  **221.60** |
 
 See [bench](/bench/README.md) for more details.
 
@@ -128,8 +128,7 @@ See [here](/DETAILS.md).
 - [ ] c++ viewer
 - [x] Build wheels and publish
 - [ ] Find reasons for pixel value difference with `gsplat`
-- [x] Benchmark
-  - [ ] Benchmark more datasets
+- [x] More benchmark results
 
 ## Contribution
 

@@ -11,6 +11,9 @@
 
 #include "volk.h"
 
+#include "vkgs/gpu/cmd/barrier.h"
+#include "vkgs/gpu/cmd/pipeline.h"
+#include "vkgs/gpu/cmd/queue_submission.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/device.h"
@@ -43,21 +46,6 @@
 namespace {
 
 auto WorkgroupSize(size_t count, uint32_t local_size) { return (count + local_size - 1) / local_size; }
-
-void cmdPushDescriptorSet(VkCommandBuffer cb, VkPipelineBindPoint bind_point, VkPipelineLayout pipeline_layout,
-                          const std::vector<VkBuffer>& buffers) {
-  std::vector<VkDescriptorBufferInfo> buffer_infos(buffers.size());
-  std::vector<VkWriteDescriptorSet> writes(buffers.size());
-  for (int i = 0; i < buffers.size(); ++i) {
-    buffer_infos[i] = {buffers[i], 0, VK_WHOLE_SIZE};
-    writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-    writes[i].dstBinding = i;
-    writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[i].descriptorCount = 1;
-    writes[i].pBufferInfo = &buffer_infos[i];
-  }
-  vkCmdPushDescriptorSet(cb, bind_point, pipeline_layout, 0, writes.size(), writes.data());
-}
 
 }  // namespace
 
@@ -230,77 +218,22 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     region = {0, 0, index_stage->size()};
     vkCmdCopyBuffer(*cb, *index_stage, *index_buffer, 1, &region);
 
-    std::vector<VkBufferMemoryBarrier2> release_barriers(6);
-    release_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[0].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[0].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[0].dstQueueFamilyIndex = cq->family_index();
-    release_barriers[0].buffer = *position;
-    release_barriers[0].offset = 0;
-    release_barriers[0].size = VK_WHOLE_SIZE;
-    release_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[1].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[1].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[1].dstQueueFamilyIndex = cq->family_index();
-    release_barriers[1].buffer = *quats;
-    release_barriers[1].offset = 0;
-    release_barriers[1].size = VK_WHOLE_SIZE;
-    release_barriers[2] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[2].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[2].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[2].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[2].dstQueueFamilyIndex = cq->family_index();
-    release_barriers[2].buffer = *scales;
-    release_barriers[2].offset = 0;
-    release_barriers[2].size = VK_WHOLE_SIZE;
-    release_barriers[3] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[3].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[3].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[3].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[3].dstQueueFamilyIndex = cq->family_index();
-    release_barriers[3].buffer = *colors;
-    release_barriers[3].offset = 0;
-    release_barriers[3].size = VK_WHOLE_SIZE;
-    release_barriers[4] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[4].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[4].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[4].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[4].dstQueueFamilyIndex = cq->family_index();
-    release_barriers[4].buffer = *opacity;
-    release_barriers[4].offset = 0;
-    release_barriers[4].size = VK_WHOLE_SIZE;
-    release_barriers[5] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[5].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[5].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[5].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[5].dstQueueFamilyIndex = gq->family_index();
-    release_barriers[5].buffer = *index_buffer;
-    release_barriers[5].offset = 0;
-    release_barriers[5].size = VK_WHOLE_SIZE;
-    VkDependencyInfo release_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    release_dependency_info.bufferMemoryBarrierCount = release_barriers.size();
-    release_dependency_info.pBufferMemoryBarriers = release_barriers.data();
-    vkCmdPipelineBarrier2(*cb, &release_dependency_info);
+    gpu::cmd::Barrier()
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *position)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *quats)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *scales)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *colors)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *opacity)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *gq, *index_buffer)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
+    gpu::cmd::QueueSubmission()
+        .Command(*cb)
+        .Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Submit(*tq, *fence);
 
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *sem;
-    signal_semaphore_info.value = sem->value() + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    submit.signalSemaphoreInfoCount = 1;
-    submit.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*tq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, position_stage, quats_stage, scales_stage, colors_stage, opacity_stage, index_stage,
                                position, quats, scales, colors, opacity, index_buffer});
   }
@@ -314,85 +247,37 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(*cb, &begin_info);
 
-    std::vector<VkBufferMemoryBarrier2> acquire_barriers(5);
-    acquire_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    acquire_barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    acquire_barriers[0].srcQueueFamilyIndex = tq->family_index();
-    acquire_barriers[0].dstQueueFamilyIndex = cq->family_index();
-    acquire_barriers[0].buffer = *position;
-    acquire_barriers[0].offset = 0;
-    acquire_barriers[0].size = VK_WHOLE_SIZE;
-    acquire_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    acquire_barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    acquire_barriers[1].srcQueueFamilyIndex = tq->family_index();
-    acquire_barriers[1].dstQueueFamilyIndex = cq->family_index();
-    acquire_barriers[1].buffer = *quats;
-    acquire_barriers[1].offset = 0;
-    acquire_barriers[1].size = VK_WHOLE_SIZE;
-    acquire_barriers[2] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barriers[2].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    acquire_barriers[2].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    acquire_barriers[2].srcQueueFamilyIndex = tq->family_index();
-    acquire_barriers[2].dstQueueFamilyIndex = cq->family_index();
-    acquire_barriers[2].buffer = *scales;
-    acquire_barriers[2].offset = 0;
-    acquire_barriers[2].size = VK_WHOLE_SIZE;
-    acquire_barriers[3] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barriers[3].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    acquire_barriers[3].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    acquire_barriers[3].srcQueueFamilyIndex = tq->family_index();
-    acquire_barriers[3].dstQueueFamilyIndex = cq->family_index();
-    acquire_barriers[3].buffer = *colors;
-    acquire_barriers[3].offset = 0;
-    acquire_barriers[3].size = VK_WHOLE_SIZE;
-    acquire_barriers[4] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barriers[4].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    acquire_barriers[4].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    acquire_barriers[4].srcQueueFamilyIndex = tq->family_index();
-    acquire_barriers[4].dstQueueFamilyIndex = cq->family_index();
-    acquire_barriers[4].buffer = *opacity;
-    acquire_barriers[4].offset = 0;
-    acquire_barriers[4].size = VK_WHOLE_SIZE;
-    VkDependencyInfo acquire_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    acquire_dependency_info.bufferMemoryBarrierCount = acquire_barriers.size();
-    acquire_dependency_info.pBufferMemoryBarriers = acquire_barriers.data();
-    vkCmdPipelineBarrier2(*cb, &acquire_dependency_info);
+    gpu::cmd::Barrier()
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *position)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *quats)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *scales)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *colors)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *opacity)
+        .Commit(*cb);
 
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_,
-                         {*quats, *scales, *cov3d, *colors, *sh});
-    vkCmdPushConstants(*cb, *parse_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants),
-                       &parse_data_push_constants);
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_data_pipeline_);
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_)
+        .Storage(0, *quats)
+        .Storage(1, *scales)
+        .Storage(2, *cov3d)
+        .Storage(3, *colors)
+        .Storage(4, *sh)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants), &parse_data_push_constants)
+        .Bind(*parse_data_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(size, 256), 1, 1);
 
-    VkMemoryBarrier2 memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-    memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.memoryBarrierCount = 1;
-    dependency_info.pMemoryBarriers = &memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+        .Command(*cb)
+        .Submit(*cq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    vkQueueSubmit2(*cq, 1, &submit, *fence);
     task = task_monitor_->Add(fence, {cb, sem, position, quats, scales, cov3d, colors, sh, opacity});
   }
 
@@ -405,35 +290,17 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(*cb, &begin_info);
 
-    VkBufferMemoryBarrier2 acquire_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barrier.dstStageMask = VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
-    acquire_barrier.dstAccessMask = VK_ACCESS_2_INDEX_READ_BIT;
-    acquire_barrier.srcQueueFamilyIndex = tq->family_index();
-    acquire_barrier.dstQueueFamilyIndex = gq->family_index();
-    acquire_barrier.buffer = *index_buffer;
-    acquire_barrier.offset = 0;
-    acquire_barrier.size = VK_WHOLE_SIZE;
-    VkDependencyInfo acquire_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    acquire_dependency_info.bufferMemoryBarrierCount = 1;
-    acquire_dependency_info.pBufferMemoryBarriers = &acquire_barrier;
-    vkCmdPipelineBarrier2(*cb, &acquire_dependency_info);
+    gpu::cmd::Barrier()
+        .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, *tq, *gq, *index_buffer)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT)
+        .Command(*cb)
+        .Submit(*gq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    vkQueueSubmit2(*gq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, sem, index_buffer});
   }
 
@@ -597,46 +464,18 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
     region = {0, 0, index_stage->size()};
     vkCmdCopyBuffer(*cb, *index_stage, *index_buffer, 1, &region);
 
-    // Release barrier
-    std::vector<VkBufferMemoryBarrier2> release_barriers(2);
-    release_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[0].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[0].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[0].dstQueueFamilyIndex = cq->family_index();
-    release_barriers[0].buffer = *ply_buffer;
-    release_barriers[0].offset = 0;
-    release_barriers[0].size = VK_WHOLE_SIZE;
-    release_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    release_barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    release_barriers[1].srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    release_barriers[1].srcQueueFamilyIndex = tq->family_index();
-    release_barriers[1].dstQueueFamilyIndex = gq->family_index();
-    release_barriers[1].buffer = *index_buffer;
-    release_barriers[1].offset = 0;
-    release_barriers[1].size = VK_WHOLE_SIZE;
-    VkDependencyInfo release_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    release_dependency_info.bufferMemoryBarrierCount = release_barriers.size();
-    release_dependency_info.pBufferMemoryBarriers = release_barriers.data();
-    vkCmdPipelineBarrier2(*cb, &release_dependency_info);
+    gpu::cmd::Barrier()
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *ply_buffer)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *gq, *index_buffer)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
+    gpu::cmd::QueueSubmission()
+        .Command(*cb)
+        .Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Submit(*tq, *fence);
 
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *sem;
-    signal_semaphore_info.value = sem->value() + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-    submit.signalSemaphoreInfoCount = 1;
-    submit.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*tq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, sem, ply_stage, ply_buffer, index_stage, index_buffer});
   }
 
@@ -649,58 +488,35 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(*cb, &begin_info);
 
-    // Acquire barrier
-    VkBufferMemoryBarrier2 acquire_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    acquire_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    acquire_barrier.srcQueueFamilyIndex = tq->family_index();
-    acquire_barrier.dstQueueFamilyIndex = cq->family_index();
-    acquire_barrier.buffer = *ply_buffer;
-    acquire_barrier.offset = 0;
-    acquire_barrier.size = VK_WHOLE_SIZE;
-    VkDependencyInfo acquire_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    acquire_dependency_info.bufferMemoryBarrierCount = 1;
-    acquire_dependency_info.pBufferMemoryBarriers = &acquire_barrier;
-    vkCmdPipelineBarrier2(*cb, &acquire_dependency_info);
+    gpu::cmd::Barrier()
+        .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *ply_buffer)
+        .Commit(*cb);
 
     // ply_buffer -> gaussian_splats
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_,
-                         {*ply_buffer, *position, *cov3d, *opacity, *sh});
-    vkCmdPushConstants(*cb, *parse_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_ply_push_constants),
-                       &parse_ply_push_constants);
-
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *parse_ply_pipeline_);
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_)
+        .Storage(0, *ply_buffer)
+        .Storage(1, *position)
+        .Storage(2, *cov3d)
+        .Storage(3, *opacity)
+        .Storage(4, *sh)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_ply_push_constants), &parse_ply_push_constants)
+        .Bind(*parse_ply_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(point_count, 256), 1, 1);
 
-    // Visibility barrier
-    VkMemoryBarrier2 visibility_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-    visibility_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    visibility_barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    visibility_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    visibility_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    VkDependencyInfo visibility_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    visibility_dependency_info.memoryBarrierCount = 1;
-    visibility_dependency_info.pMemoryBarriers = &visibility_barrier;
-    vkCmdPipelineBarrier2(*cb, &visibility_dependency_info);
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
     // Submit
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Command(*cb)
+        .Submit(*cq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-
-    vkQueueSubmit2(*cq, 1, &submit, *fence);
     task = task_monitor_->Add(fence, {cb, sem, parse_ply_pipeline_, ply_buffer, position, cov3d, sh, opacity});
   }
 
@@ -713,38 +529,18 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(*cb, &begin_info);
 
-    // Acquire barrier
-    VkBufferMemoryBarrier2 acquire_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    acquire_barrier.dstStageMask = VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
-    acquire_barrier.dstAccessMask = VK_ACCESS_2_INDEX_READ_BIT;
-    acquire_barrier.srcQueueFamilyIndex = tq->family_index();
-    acquire_barrier.dstQueueFamilyIndex = gq->family_index();
-    acquire_barrier.buffer = *index_buffer;
-    acquire_barrier.offset = 0;
-    acquire_barrier.size = VK_WHOLE_SIZE;
-    VkDependencyInfo acquire_dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    acquire_dependency_info.bufferMemoryBarrierCount = 1;
-    acquire_dependency_info.pBufferMemoryBarriers = &acquire_barrier;
-    vkCmdPipelineBarrier2(*cb, &acquire_dependency_info);
+    gpu::cmd::Barrier()
+        .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, *tq, *gq, *index_buffer)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
     // Submit
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *sem;
-    wait_semaphore_info.value = sem->value() + 1;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    gpu::cmd::QueueSubmission()
+        .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Command(*cb)
+        .Submit(*gq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &command_buffer_info;
-
-    vkQueueSubmit2(*gq, 1, &submit, *fence);
     task_monitor_->Add(fence, {cb, sem, index_buffer});
   }
   sem->Increment();
@@ -828,144 +624,81 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkCmdFillBuffer(*cb, *visible_point_count, 0, sizeof(uint32_t), 0);
     vkCmdFillBuffer(*cb, *inverse_index, 0, N * sizeof(uint32_t), -1);
 
-    VkMemoryBarrier2 memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-    memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.memoryBarrierCount = 1;
-    dependency_info.pMemoryBarriers = &memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+        .Commit(*cb);
 
     // Rank
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
-                         {
-                             *camera,
-                             *position,
-                             *visible_point_count,
-                             *key,
-                             *index,
-                         });
-    vkCmdPushConstants(*cb, *compute_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants),
-                       &compute_push_constants);
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *rank_pipeline_);
+    gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_);
+    pipeline.Storage(0, *camera)
+        .Storage(1, *position)
+        .Storage(2, *visible_point_count)
+        .Storage(3, *key)
+        .Storage(4, *index)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+        .Bind(*rank_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Sort
-    memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-    memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    memory_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT;
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.memoryBarrierCount = 1;
-    dependency_info.pMemoryBarriers = &memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT)
+        .Commit(*cb);
 
     sorter_->SortKeyValueIndirect(*cb, N, *visible_point_count, *key, *index, *sort_storage);
 
     // Inverse index
-    memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-    memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.memoryBarrierCount = 1;
-    dependency_info.pMemoryBarriers = &memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+        .Commit(*cb);
 
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
-                         {
-                             *visible_point_count,
-                             *index,
-                             *inverse_index,
-                         });
-    vkCmdPushConstants(*cb, *compute_pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants),
-                       &compute_push_constants);
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *inverse_index_pipeline_);
+    pipeline.Storage(0, *visible_point_count)
+        .Storage(1, *index)
+        .Storage(2, *inverse_index)
+        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+        .Bind(*inverse_index_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Projection
-    memory_barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-    memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memory_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.memoryBarrierCount = 1;
-    dependency_info.pMemoryBarriers = &memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+        .Commit(*cb);
 
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_,
-                         {
-                             *camera,
-                             *position,
-                             *cov3d,
-                             *opacity,
-                             *sh,
-                             *visible_point_count,
-                             *inverse_index,
-                             *draw_indirect,
-                             *instances,
-                         });
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_COMPUTE, *projection_pipeline_);
+    pipeline.Storage(0, *camera)
+        .Storage(1, *position)
+        .Storage(2, *cov3d)
+        .Storage(3, *opacity)
+        .Storage(4, *sh)
+        .Storage(5, *visible_point_count)
+        .Storage(6, *inverse_index)
+        .Storage(7, *draw_indirect)
+        .Storage(8, *instances)
+        .Bind(*projection_pipeline_)
+        .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
     // Release
-    std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers(2);
-    buffer_memory_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    buffer_memory_barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    buffer_memory_barriers[0].srcQueueFamilyIndex = cq->family_index();
-    buffer_memory_barriers[0].dstQueueFamilyIndex = gq->family_index();
-    buffer_memory_barriers[0].buffer = *instances;
-    buffer_memory_barriers[0].offset = 0;
-    buffer_memory_barriers[0].size = VK_WHOLE_SIZE;
-    buffer_memory_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    buffer_memory_barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    buffer_memory_barriers[1].srcQueueFamilyIndex = cq->family_index();
-    buffer_memory_barriers[1].dstQueueFamilyIndex = gq->family_index();
-    buffer_memory_barriers[1].buffer = *draw_indirect;
-    buffer_memory_barriers[1].offset = 0;
-    buffer_memory_barriers[1].size = VK_WHOLE_SIZE;
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.bufferMemoryBarrierCount = buffer_memory_barriers.size();
-    dependency_info.pBufferMemoryBarriers = buffer_memory_barriers.data();
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *instances)
+        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *draw_indirect)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
     // Submit
-    std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos;
+    gpu::cmd::QueueSubmission submission;
     if (frame_index_ >= 2) {
       // G[i-2].read before C[i].comp
-      auto& wait_semaphore_info = wait_semaphore_infos.emplace_back();
-      wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-      wait_semaphore_info.semaphore = *gsem;
-      wait_semaphore_info.value = gval - 2 + 1;
-      wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+      submission.Wait(*gsem, gval - 2 + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     }
+    submission.Command(*cb).Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT).Submit(*cq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *csem;
-    signal_semaphore_info.value = cval + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-
-    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
-    submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
-    submit_info.commandBufferInfoCount = 1;
-    submit_info.pCommandBufferInfos = &command_buffer_info;
-    submit_info.signalSemaphoreInfoCount = 1;
-    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*cq, 1, &submit_info, *fence);
     task_monitor_->Add(fence, {cb, csem, camera_stage, camera, position, cov3d, opacity, sh, visible_point_count, key,
                                index, sort_storage, inverse_index, draw_indirect, instances});
   }
@@ -982,41 +715,14 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(*cb, &begin_info);
 
-    // Acquire
-    std::vector<VkBufferMemoryBarrier2> buffer_memory_barriers(2);
-    buffer_memory_barriers[0] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-    buffer_memory_barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    buffer_memory_barriers[0].srcQueueFamilyIndex = cq->family_index();
-    buffer_memory_barriers[0].dstQueueFamilyIndex = gq->family_index();
-    buffer_memory_barriers[0].buffer = *instances;
-    buffer_memory_barriers[0].offset = 0;
-    buffer_memory_barriers[0].size = VK_WHOLE_SIZE;
-    buffer_memory_barriers[1] = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
-    buffer_memory_barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
-    buffer_memory_barriers[1].dstAccessMask = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
-    buffer_memory_barriers[1].srcQueueFamilyIndex = cq->family_index();
-    buffer_memory_barriers[1].dstQueueFamilyIndex = gq->family_index();
-    buffer_memory_barriers[1].buffer = *draw_indirect;
-    buffer_memory_barriers[1].offset = 0;
-    buffer_memory_barriers[1].size = VK_WHOLE_SIZE;
-    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.bufferMemoryBarrierCount = buffer_memory_barriers.size();
-    dependency_info.pBufferMemoryBarriers = buffer_memory_barriers.data();
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
-
-    // Layout transition to color attachment
-    VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    image_memory_barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    image_memory_barrier.image = *image;
-    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.imageMemoryBarrierCount = 1;
-    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        // Acquire
+        .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq, *instances)
+        .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq, *draw_indirect)
+        // Layout transition to color attachment
+        .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, *image)
+        .Commit(*cb);
 
     // Rendering
     VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -1033,11 +739,11 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     rendering_info.pColorAttachments = &color_attachment;
     vkCmdBeginRendering(*cb, &rendering_info);
 
-    vkCmdPushConstants(*cb, *graphics_pipeline_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(graphics_push_constants), &graphics_push_constants);
-
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_pipeline_);
-    cmdPushDescriptorSet(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_, {*instances});
+    gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_);
+    pipeline.Storage(0, *instances)
+        .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
+        .Bind(*splat_pipeline_)
+        .Commit(*cb);
 
     VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
     vkCmdSetViewport(*cb, 0, 1, &viewport);
@@ -1047,39 +753,19 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkCmdBindIndexBuffer(*cb, *index_buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(*cb, *draw_indirect, 0, 1, 0);
 
-    vkCmdBindPipeline(*cb, VK_PIPELINE_BIND_POINT_GRAPHICS, *splat_background_pipeline_);
+    pipeline.Bind(*splat_background_pipeline_).Commit(*cb);
     vkCmdDraw(*cb, 3, 1, 0, 0);
 
     vkCmdEndRendering(*cb);
 
     // float -> uint8
-    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    image_memory_barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
-    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    image_memory_barrier.image = *image;
-    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.imageMemoryBarrierCount = 1;
-    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
-
-    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
-    image_memory_barrier.srcAccessMask = 0;
-    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
-    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    image_memory_barrier.image = *image_u8;
-    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.imageMemoryBarrierCount = 1;
-    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+               VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image)
+        .Image(0, 0, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *image_u8)
+        .Commit(*cb);
 
     VkImageBlit image_region = {};
     image_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
@@ -1092,66 +778,35 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
                    1, &image_region, VK_FILTER_NEAREST);
 
     // Layout transition to transfer src, and release
-    image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
-    image_memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    image_memory_barrier.srcQueueFamilyIndex = gq->family_index();
-    image_memory_barrier.dstQueueFamilyIndex = tq->family_index();
-    image_memory_barrier.image = *image_u8;
-    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.imageMemoryBarrierCount = 1;
-    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Release(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq, *image_u8)
+        .Commit(*cb);
 
     vkEndCommandBuffer(*cb);
 
     // Submit
-    std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos(1);
+    gpu::cmd::QueueSubmission submission;
     // C[i].comp before G[i].read
-    wait_semaphore_infos[0] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_infos[0].semaphore = *csem;
-    wait_semaphore_infos[0].value = cval + 1;
-    wait_semaphore_infos[0].stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                                        VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    submission.Wait(*csem, cval + 1,
+                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                        VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
 
     if (frame_index_ >= 2) {
       // T[i-2].xfer before G[i].output
-      auto& wait_semaphore_info = wait_semaphore_infos.emplace_back();
-      wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-      wait_semaphore_info.semaphore = *tsem;
-      wait_semaphore_info.value = tval - 1 + 1;
-      wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+      submission.Wait(*tsem, tval - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
+    submission
+        .Command(*cb)
+        // G[i].read
+        .Signal(*gsem, gval + 1,
+                VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
+        // G[i].blit
+        .Signal(*gsem, gval + 2, VK_PIPELINE_STAGE_2_BLIT_BIT)
+        .Submit(*gq, *fence);
 
-    std::vector<VkSemaphoreSubmitInfo> signal_semaphore_infos(2);
-    // G[i].read
-    signal_semaphore_infos[0] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_infos[0].semaphore = *gsem;
-    signal_semaphore_infos[0].value = gval + 1;
-    signal_semaphore_infos[0].stageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                                          VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-
-    // G[i].blit
-    signal_semaphore_infos[1] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_infos[1].semaphore = *gsem;
-    signal_semaphore_infos[1].value = gval + 2;
-    signal_semaphore_infos[1].stageMask = VK_PIPELINE_STAGE_2_BLIT_BIT;
-
-    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.size();
-    submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
-    submit_info.commandBufferInfoCount = 1;
-    submit_info.pCommandBufferInfos = &command_buffer_info;
-    submit_info.signalSemaphoreInfoCount = signal_semaphore_infos.size();
-    submit_info.pSignalSemaphoreInfos = signal_semaphore_infos.data();
-
-    vkQueueSubmit2(*gq, 1, &submit_info, *fence);
     task_monitor_->Add(fence, {cb, image, instances, index_buffer, draw_indirect, gsem});
   }
 
@@ -1164,20 +819,10 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(*cb, &begin_info);
 
-    // Acquire
-    VkImageMemoryBarrier2 image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    image_memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    image_memory_barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
-    image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    image_memory_barrier.srcQueueFamilyIndex = gq->family_index();
-    image_memory_barrier.dstQueueFamilyIndex = tq->family_index();
-    image_memory_barrier.image = *image_u8;
-    image_memory_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    dependency_info.imageMemoryBarrierCount = 1;
-    dependency_info.pImageMemoryBarriers = &image_memory_barrier;
-    vkCmdPipelineBarrier2(*cb, &dependency_info);
+    gpu::cmd::Barrier()
+        .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq, *image_u8)
+        .Commit(*cb);
 
     // Image to buffer
     VkBufferImageCopy region;
@@ -1192,30 +837,14 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(*cb);
 
     // Submit
-    // G[i].blit before T[i].xfer
-    VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    wait_semaphore_info.semaphore = *gsem;
-    wait_semaphore_info.value = gval + 2;
-    wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    gpu::cmd::QueueSubmission()
+        // G[i].blit before T[i].xfer
+        .Wait(*gsem, gval + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Command(*cb)
+        // T[i].xfer
+        .Signal(*tsem, tval + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+        .Submit(*tq, *fence);
 
-    VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = *cb;
-
-    // T[i].xfer
-    VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    signal_semaphore_info.semaphore = *tsem;
-    signal_semaphore_info.value = tval + 1;
-    signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-
-    VkSubmitInfo2 submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    submit_info.waitSemaphoreInfoCount = 1;
-    submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
-    submit_info.commandBufferInfoCount = 1;
-    submit_info.pCommandBufferInfos = &command_buffer_info;
-    submit_info.signalSemaphoreInfoCount = 1;
-    submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
-
-    vkQueueSubmit2(*tq, 1, &submit_info, *fence);
     auto task = task_monitor_->Add(fence, {cb, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
       std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
     });

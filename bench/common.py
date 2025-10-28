@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+from PIL import Image
 from plyfile import PlyData
 
 from scene.dataset_readers import readColmapSceneInfo
@@ -41,14 +42,18 @@ def load_ply(ply_path):
     return vertex_data
 
 
-def load_colmap_data(colmap_path: str, scale: float = 1.0, first: int | None = None):
+def load_colmap_data(colmap_path: str, scale: int = 1, first: int | None = None):
     scene = readColmapSceneInfo(colmap_path)
 
     assert all(c.width == scene.cameras[0].width for c in scene.cameras)
     assert all(c.height == scene.cameras[0].height for c in scene.cameras)
 
-    width = int(math.ceil(scene.cameras[0].width * scale))
-    height = int(math.ceil(scene.cameras[0].height * scale))
+    def get_image_path(path: str):
+        if scale != 1:
+            return path.replace("images", f"images_{scale}")
+        return path
+
+    width, height = Image.open(get_image_path(scene.cameras[0].image_path)).size
 
     viewmats = []
     Ks = []
@@ -75,7 +80,7 @@ def load_colmap_data(colmap_path: str, scale: float = 1.0, first: int | None = N
 
         viewmats.append(W2C)
         Ks.append(K)
-        image_paths.append(camera.image_path)
+        image_paths.append(get_image_path(camera.image_path))
 
     viewmats = np.stack(viewmats)
     Ks = np.stack(Ks)
