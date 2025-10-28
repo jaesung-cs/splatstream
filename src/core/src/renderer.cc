@@ -120,14 +120,19 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
                                                                const float* opacities_ptr, const uint16_t* colors_ptr,
                                                                int sh_degree) {
   std::vector<uint32_t> index_data;
-  index_data.reserve(6 * size);
+  index_data.reserve(11 * size);
   for (int i = 0; i < size; ++i) {
-    index_data.push_back(4 * i + 0);
-    index_data.push_back(4 * i + 1);
-    index_data.push_back(4 * i + 2);
-    index_data.push_back(4 * i + 2);
-    index_data.push_back(4 * i + 1);
-    index_data.push_back(4 * i + 3);
+    index_data.push_back(9 * i + 0);
+    index_data.push_back(9 * i + 1);
+    index_data.push_back(9 * i + 2);
+    index_data.push_back(9 * i + 3);
+    index_data.push_back(9 * i + 4);
+    index_data.push_back(9 * i + 5);
+    index_data.push_back(9 * i + 6);
+    index_data.push_back(9 * i + 7);
+    index_data.push_back(9 * i + 8);
+    index_data.push_back(9 * i + 1);
+    index_data.push_back(UINT32_MAX);
   }
 
   int colors_size = 0;
@@ -159,7 +164,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   auto colors_stage =
       gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t), true);
   auto opacity_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * sizeof(float), true);
-  auto index_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 6 * sizeof(uint32_t), true);
+  auto index_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 11 * sizeof(uint32_t), true);
 
   auto position = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                       size * 3 * sizeof(float));
@@ -176,7 +181,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   auto sh =
       gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * sh_packed_size * 4 * sizeof(uint16_t));
   auto index_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                          size * 6 * sizeof(uint32_t));
+                                          size * 11 * sizeof(uint32_t));
 
   std::memcpy(position_stage->data(), means_ptr, position_stage->size());
   std::memcpy(quats_stage->data(), quats_ptr, quats_stage->size());
@@ -405,14 +410,19 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   in.read(buffer.data(), buffer.size());
 
   std::vector<uint32_t> index_data;
-  index_data.reserve(6 * point_count);
+  index_data.reserve(11 * point_count);
   for (int i = 0; i < point_count; ++i) {
-    index_data.push_back(4 * i + 0);
-    index_data.push_back(4 * i + 1);
-    index_data.push_back(4 * i + 2);
-    index_data.push_back(4 * i + 2);
-    index_data.push_back(4 * i + 1);
-    index_data.push_back(4 * i + 3);
+    index_data.push_back(9 * i + 0);
+    index_data.push_back(9 * i + 1);
+    index_data.push_back(9 * i + 2);
+    index_data.push_back(9 * i + 3);
+    index_data.push_back(9 * i + 4);
+    index_data.push_back(9 * i + 5);
+    index_data.push_back(9 * i + 6);
+    index_data.push_back(9 * i + 7);
+    index_data.push_back(9 * i + 8);
+    index_data.push_back(9 * i + 1);
+    index_data.push_back(UINT32_MAX);
   }
 
   ParsePushConstants parse_ply_push_constants = {};
@@ -433,9 +443,9 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   auto opacity = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
   auto index_stage =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, point_count * 6 * sizeof(uint32_t), true);
+      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, point_count * 11 * sizeof(uint32_t), true);
   auto index_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                          point_count * 6 * sizeof(uint32_t));
+                                          point_count * 11 * sizeof(uint32_t));
 
   std::memcpy(ply_stage->data(), ply_offsets.data(), ply_offsets.size() * sizeof(uint32_t));
   std::memcpy(ply_stage->data<char>() + ply_offsets.size() * sizeof(uint32_t), buffer.data(), buffer.size());

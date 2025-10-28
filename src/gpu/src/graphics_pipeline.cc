@@ -1,6 +1,7 @@
 #include "vkgs/gpu/graphics_pipeline.h"
 
 #include <array>
+#include "vulkan/vulkan_core.h"
 
 namespace vkgs {
 namespace gpu {
@@ -42,7 +43,8 @@ GraphicsPipeline::GraphicsPipeline(VkDevice device, VkPipelineLayout pipeline_la
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly_state = {
       VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-  input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+  input_assembly_state.primitiveRestartEnable = VK_TRUE;
 
   VkPipelineViewportStateCreateInfo viewport_state = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
   viewport_state.viewportCount = 1;

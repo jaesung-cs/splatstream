@@ -8,15 +8,22 @@ layout(location = 0) out vec4 out_color;
 layout(location = 1) out vec2 out_position;
 
 void main() {
-  // index [0,1,2,2,1,3], 4 vertices for a splat.
-  int index = gl_VertexIndex / 4;
+  // index [0,1,2,3,4,5,6,7,8,1-1], 9 vertices, 11 indices for a splat.
+  int index = gl_VertexIndex / 9;
   vec3 ndc_position = instances[index * 3 + 0].xyz;
   mat2 rot_scale = mat2(instances[index * 3 + 1].xy, instances[index * 3 + 1].zw);
   vec4 color = instances[index * 3 + 2];
 
-  // quad positions (-1, -1), (-1, 1), (1, -1), (1, 1), ccw in screen space.
-  int vert_index = gl_VertexIndex % 4;
-  vec2 position = vec2(vert_index / 2, vert_index % 2) * 2.f - 1.f;
+  // vertexpositions (-cos(theta), sin(theta)), ccw in screen space.
+  int vert_index = gl_VertexIndex % 9;
+  vec2 position;
+  if (vert_index == 0) {
+    position = vec2(0.f, 0.f);
+  } else {
+    const float PI = 3.14159265358979323846;
+    float theta = 2.f * PI * (vert_index - 1) / 8.f;
+    position = vec2(-cos(theta), sin(theta));
+  }
 
   float confidence_radius = 3.33f;
 
