@@ -27,7 +27,7 @@
 #include "vkgs/gpu/graphics_pipeline.h"
 
 #include "vkgs/core/gaussian_splats.h"
-#include "vkgs/core/rendered_image.h"
+#include "vkgs/core/rendering_task.h"
 #include "generated/parse_ply.h"
 #include "generated/parse_data.h"
 #include "generated/rank.h"
@@ -40,7 +40,6 @@
 #include "sorter.h"
 #include "compute_storage.h"
 #include "graphics_storage.h"
-#include "transfer_storage.h"
 #include "struct.h"
 
 namespace {
@@ -61,7 +60,6 @@ Renderer::Renderer() {
     auto& double_buffer = double_buffer_[i];
     double_buffer.compute_storage = std::make_shared<ComputeStorage>(device_);
     double_buffer.graphics_storage = std::make_shared<GraphicsStorage>(device_);
-    double_buffer.transfer_storage = std::make_shared<TransferStorage>(device_);
     double_buffer.compute_semaphore = device_->AllocateSemaphore();
     double_buffer.graphics_semaphore = device_->AllocateSemaphore();
     double_buffer.transfer_semaphore = device_->AllocateSemaphore();
@@ -548,12 +546,11 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer, task);
 }
 
-std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
-                                              uint8_t* dst) {
-  std::shared_ptr<RenderedImage> rendered_image;
-
-  uint32_t width = draw_options.width;
-  uint32_t height = draw_options.height;
+std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> splats,
+                                              const std::vector<DrawOptions>& batch_draw_options, uint32_t width,
+                                              uint32_t height, uint8_t* dst) {
+  std::shared_ptr<RenderingTask> rendering_task;
+  std::vector<std::shared_ptr<gpu::Fence>> fences;
 
   auto cq = device_->compute_queue();
   auto gq = device_->graphics_queue();
@@ -566,51 +563,22 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto opacity = splats->opacity();
   auto index_buffer = splats->index_buffer();
 
-  ComputePushConstants compute_push_constants;
-  compute_push_constants.model = glm::mat4(1.f);
-  compute_push_constants.point_count = N;
-  compute_push_constants.eps2d = draw_options.eps2d;
-  compute_push_constants.sh_degree_data = splats->sh_degree();
-  compute_push_constants.sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree;
+  uint32_t B = batch_draw_options.size();
+  auto image_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, B * width * height * 4, true);
+  auto camera_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, B * sizeof(Camera), true);
+  auto camera = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                    B * sizeof(Camera));
 
-  GraphicsPushConstants graphics_push_constants;
-  graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
+  std::vector<Camera> camera_data(B);
+  for (int i = 0; i < B; ++i) {
+    camera_data[i].projection = batch_draw_options[i].projection;
+    camera_data[i].view = batch_draw_options[i].view;
+    camera_data[i].camera_position = glm::inverse(batch_draw_options[i].view)[3];
+    camera_data[i].screen_size = glm::uvec2(width, height);
+  }
+  std::memcpy(camera_stage->data(), camera_data.data(), B * sizeof(Camera));
 
-  Camera camera_data;
-  camera_data.projection = draw_options.projection;
-  camera_data.view = draw_options.view;
-  camera_data.camera_position = glm::inverse(draw_options.view)[3];
-  camera_data.screen_size = glm::uvec2(width, height);
-
-  // Update storages
-  const auto& double_buffer = double_buffer_[frame_index_ % 2];
-  auto compute_storage = double_buffer.compute_storage;
-  auto graphics_storage = double_buffer.graphics_storage;
-  auto transfer_storage = double_buffer.transfer_storage;
-  auto csem = double_buffer.compute_semaphore;
-  auto cval = csem->value();
-  auto gsem = double_buffer.graphics_semaphore;
-  auto gval = gsem->value();
-  auto tsem = double_buffer.transfer_semaphore;
-  auto tval = tsem->value();
-
-  compute_storage->Update(N, sorter_->GetStorageRequirements(N));
-  graphics_storage->Update(width, height);
-  transfer_storage->Update(width, height);
-
-  auto visible_point_count = compute_storage->visible_point_count();
-  auto key = compute_storage->key();
-  auto index = compute_storage->index();
-  auto sort_storage = compute_storage->sort_storage();
-  auto inverse_index = compute_storage->inverse_index();
-  auto camera = compute_storage->camera();
-  auto draw_indirect = compute_storage->draw_indirect();
-  auto instances = compute_storage->instances();
-  auto camera_stage = compute_storage->camera_stage();
-
-  std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
-
-  // Compute queue
+  // Compute queue: copy camera data to buffer
   {
     auto fence = device_->AllocateFence();
     auto cb = cq->AllocateCommandBuffer();
@@ -619,246 +587,302 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(*cb, &begin_info);
 
-    VkBufferCopy region = {0, 0, sizeof(Camera)};
+    VkBufferCopy region = {0, 0, B * sizeof(Camera)};
     vkCmdCopyBuffer(*cb, *camera_stage, *camera, 1, &region);
-    vkCmdFillBuffer(*cb, *visible_point_count, 0, sizeof(uint32_t), 0);
-    vkCmdFillBuffer(*cb, *inverse_index, 0, N * sizeof(uint32_t), -1);
 
     gpu::cmd::Barrier()
         .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
         .Commit(*cb);
 
-    // Rank
-    gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_);
-    pipeline.Storage(0, *camera)
-        .Storage(1, *position)
-        .Storage(2, *visible_point_count)
-        .Storage(3, *key)
-        .Storage(4, *index)
-        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
-        .Bind(*rank_pipeline_)
-        .Commit(*cb);
-    vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
-
-    // Sort
-    gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT)
-        .Commit(*cb);
-
-    sorter_->SortKeyValueIndirect(*cb, N, *visible_point_count, *key, *index, *sort_storage);
-
-    // Inverse index
-    gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-        .Commit(*cb);
-
-    pipeline.Storage(0, *visible_point_count)
-        .Storage(1, *index)
-        .Storage(2, *inverse_index)
-        .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
-        .Bind(*inverse_index_pipeline_)
-        .Commit(*cb);
-    vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
-
-    // Projection
-    gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-        .Commit(*cb);
-
-    pipeline.Storage(0, *camera)
-        .Storage(1, *position)
-        .Storage(2, *cov3d)
-        .Storage(3, *opacity)
-        .Storage(4, *sh)
-        .Storage(5, *visible_point_count)
-        .Storage(6, *inverse_index)
-        .Storage(7, *draw_indirect)
-        .Storage(8, *instances)
-        .Bind(*projection_pipeline_)
-        .Commit(*cb);
-    vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
-
-    // Release
-    gpu::cmd::Barrier()
-        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *instances)
-        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *draw_indirect)
-        .Commit(*cb);
-
     vkEndCommandBuffer(*cb);
 
-    // Submit
-    gpu::cmd::QueueSubmission submission;
-    if (frame_index_ >= 2) {
-      // G[i-2].read before C[i].comp
-      submission.Wait(*gsem, gval - 2 + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-    }
-    submission.Command(*cb).Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT).Submit(*cq, *fence);
-
-    task_monitor_->Add(fence, {cb, csem, camera_stage, camera, position, cov3d, opacity, sh, visible_point_count, key,
-                               index, sort_storage, inverse_index, draw_indirect, instances});
+    gpu::cmd::QueueSubmission().Command(*cb).Submit(*cq, *fence);
+    task_monitor_->Add(fence, {cb, camera_stage, camera});
   }
 
-  auto image = graphics_storage->image();
-  auto image_u8 = graphics_storage->image_u8();
+  for (int i = 0; i < B; ++i) {
+    const auto& draw_options = batch_draw_options[i];
 
-  // Graphics queue
-  {
-    auto fence = device_->AllocateFence();
-    auto cb = gq->AllocateCommandBuffer();
+    // Update storages
+    const auto& double_buffer = double_buffer_[frame_index_ % 2];
+    auto compute_storage = double_buffer.compute_storage;
+    auto graphics_storage = double_buffer.graphics_storage;
+    auto csem = double_buffer.compute_semaphore;
+    auto cval = csem->value();
+    auto gsem = double_buffer.graphics_semaphore;
+    auto gval = gsem->value();
+    auto tsem = double_buffer.transfer_semaphore;
+    auto tval = tsem->value();
 
-    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(*cb, &begin_info);
+    compute_storage->Update(N, sorter_->GetStorageRequirements(N));
+    graphics_storage->Update(width, height);
 
-    gpu::cmd::Barrier()
-        // Acquire
-        .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq, *instances)
-        .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq, *draw_indirect)
-        // Layout transition to color attachment
-        .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, *image)
-        .Commit(*cb);
+    auto visible_point_count = compute_storage->visible_point_count();
+    auto key = compute_storage->key();
+    auto index = compute_storage->index();
+    auto sort_storage = compute_storage->sort_storage();
+    auto inverse_index = compute_storage->inverse_index();
+    auto draw_indirect = compute_storage->draw_indirect();
+    auto instances = compute_storage->instances();
 
-    // Rendering
-    VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    color_attachment.imageView = image->image_view();
-    color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.clearValue.color = {0.f, 0.f, 0.f, 0.f};
-    VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-    rendering_info.renderArea.offset = {0, 0};
-    rendering_info.renderArea.extent = {width, height};
-    rendering_info.layerCount = 1;
-    rendering_info.colorAttachmentCount = 1;
-    rendering_info.pColorAttachments = &color_attachment;
-    vkCmdBeginRendering(*cb, &rendering_info);
+    // Compute queue
+    {
+      ComputePushConstants compute_push_constants = {};
+      compute_push_constants.model = glm::mat4(1.f);
+      compute_push_constants.point_count = N;
+      compute_push_constants.eps2d = draw_options.eps2d;
+      compute_push_constants.sh_degree_data = splats->sh_degree();
+      compute_push_constants.sh_degree_draw =
+          draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree;
 
-    gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_);
-    pipeline.Storage(0, *instances)
-        .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
-        .Bind(*splat_pipeline_)
-        .Commit(*cb);
+      auto fence = device_->AllocateFence();
+      auto cb = cq->AllocateCommandBuffer();
 
-    VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
-    vkCmdSetViewport(*cb, 0, 1, &viewport);
-    VkRect2D scissor = {0, 0, width, height};
-    vkCmdSetScissor(*cb, 0, 1, &scissor);
+      VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+      begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+      vkBeginCommandBuffer(*cb, &begin_info);
 
-    vkCmdBindIndexBuffer(*cb, *index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(*cb, *draw_indirect, 0, 1, 0);
+      vkCmdFillBuffer(*cb, *visible_point_count, 0, sizeof(uint32_t), 0);
+      vkCmdFillBuffer(*cb, *inverse_index, 0, N * sizeof(uint32_t), -1);
 
-    pipeline.Bind(*splat_background_pipeline_).Commit(*cb);
-    vkCmdDraw(*cb, 3, 1, 0, 0);
+      gpu::cmd::Barrier()
+          .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+          .Commit(*cb);
 
-    vkCmdEndRendering(*cb);
+      // Rank
+      gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_);
+      pipeline.Storage(0, *camera, i * sizeof(Camera), sizeof(Camera))
+          .Storage(1, *position)
+          .Storage(2, *visible_point_count)
+          .Storage(3, *key)
+          .Storage(4, *index)
+          .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+          .Bind(*rank_pipeline_)
+          .Commit(*cb);
+      vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
-    // float -> uint8
-    gpu::cmd::Barrier()
-        .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-               VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image)
-        .Image(0, 0, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *image_u8)
-        .Commit(*cb);
+      // Sort
+      gpu::cmd::Barrier()
+          .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                  VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT)
+          .Commit(*cb);
 
-    VkImageBlit image_region = {};
-    image_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    image_region.srcOffsets[0] = {0, 0, 0};
-    image_region.srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
-    image_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    image_region.dstOffsets[0] = {0, 0, 0};
-    image_region.dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
-    vkCmdBlitImage(*cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                   1, &image_region, VK_FILTER_NEAREST);
+      sorter_->SortKeyValueIndirect(*cb, N, *visible_point_count, *key, *index, *sort_storage);
 
-    // Layout transition to transfer src, and release
-    gpu::cmd::Barrier()
-        .Release(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq, *image_u8)
-        .Commit(*cb);
+      // Inverse index
+      gpu::cmd::Barrier()
+          .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+          .Commit(*cb);
 
-    vkEndCommandBuffer(*cb);
+      pipeline.Storage(0, *visible_point_count)
+          .Storage(1, *index)
+          .Storage(2, *inverse_index)
+          .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+          .Bind(*inverse_index_pipeline_)
+          .Commit(*cb);
+      vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
 
-    // Submit
-    gpu::cmd::QueueSubmission submission;
-    // C[i].comp before G[i].read
-    submission.Wait(*csem, cval + 1,
-                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                        VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
+      // Projection
+      gpu::cmd::Barrier()
+          .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+          .Commit(*cb);
 
-    if (frame_index_ >= 2) {
-      // T[i-2].xfer before G[i].output
-      submission.Wait(*tsem, tval - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      pipeline.Storage(0, *camera, i * sizeof(Camera), sizeof(Camera))
+          .Storage(1, *position)
+          .Storage(2, *cov3d)
+          .Storage(3, *opacity)
+          .Storage(4, *sh)
+          .Storage(5, *visible_point_count)
+          .Storage(6, *inverse_index)
+          .Storage(7, *draw_indirect)
+          .Storage(8, *instances)
+          .Bind(*projection_pipeline_)
+          .Commit(*cb);
+      vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
+
+      // Release
+      gpu::cmd::Barrier()
+          .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *instances)
+          .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *draw_indirect)
+          .Commit(*cb);
+
+      vkEndCommandBuffer(*cb);
+
+      // Submit
+      gpu::cmd::QueueSubmission submission;
+      if (frame_index_ >= 2) {
+        // G[i-2].read before C[i].comp
+        submission.Wait(*gsem, gval - 2 + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      }
+      submission.Command(*cb).Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT).Submit(*cq, *fence);
+
+      task_monitor_->Add(fence, {cb, csem, camera, position, cov3d, opacity, sh, visible_point_count, key, index,
+                                 sort_storage, inverse_index, draw_indirect, instances});
     }
 
-    submission
-        .Command(*cb)
-        // G[i].read
-        .Signal(*gsem, gval + 1,
-                VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
-        // G[i].blit
-        .Signal(*gsem, gval + 2, VK_PIPELINE_STAGE_2_BLIT_BIT)
-        .Submit(*gq, *fence);
+    auto image = graphics_storage->image();
+    auto image_u8 = graphics_storage->image_u8();
 
-    task_monitor_->Add(fence, {cb, image, instances, index_buffer, draw_indirect, gsem});
+    // Graphics queue
+    {
+      GraphicsPushConstants graphics_push_constants = {};
+      graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
+
+      auto fence = device_->AllocateFence();
+      auto cb = gq->AllocateCommandBuffer();
+
+      VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+      begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+      vkBeginCommandBuffer(*cb, &begin_info);
+
+      gpu::cmd::Barrier()
+          // Acquire
+          .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq, *instances)
+          .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
+                   *draw_indirect)
+          // Layout transition to color attachment
+          .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, *image)
+          .Commit(*cb);
+
+      // Rendering
+      VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+      color_attachment.imageView = image->image_view();
+      color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+      color_attachment.clearValue.color = {0.f, 0.f, 0.f, 0.f};
+      VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+      rendering_info.renderArea.offset = {0, 0};
+      rendering_info.renderArea.extent = {width, height};
+      rendering_info.layerCount = 1;
+      rendering_info.colorAttachmentCount = 1;
+      rendering_info.pColorAttachments = &color_attachment;
+      vkCmdBeginRendering(*cb, &rendering_info);
+
+      gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_);
+      pipeline.Storage(0, *instances)
+          .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
+          .Bind(*splat_pipeline_)
+          .Commit(*cb);
+
+      VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
+      vkCmdSetViewport(*cb, 0, 1, &viewport);
+      VkRect2D scissor = {0, 0, width, height};
+      vkCmdSetScissor(*cb, 0, 1, &scissor);
+
+      vkCmdBindIndexBuffer(*cb, *index_buffer, 0, VK_INDEX_TYPE_UINT32);
+      vkCmdDrawIndexedIndirect(*cb, *draw_indirect, 0, 1, 0);
+
+      pipeline.Bind(*splat_background_pipeline_).Commit(*cb);
+      vkCmdDraw(*cb, 3, 1, 0, 0);
+
+      vkCmdEndRendering(*cb);
+
+      // float -> uint8
+      gpu::cmd::Barrier()
+          .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                 VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image)
+          .Image(0, 0, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *image_u8)
+          .Commit(*cb);
+
+      VkImageBlit image_region = {};
+      image_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+      image_region.srcOffsets[0] = {0, 0, 0};
+      image_region.srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+      image_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+      image_region.dstOffsets[0] = {0, 0, 0};
+      image_region.dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+      vkCmdBlitImage(*cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                     1, &image_region, VK_FILTER_NEAREST);
+
+      // Layout transition to transfer src, and release
+      gpu::cmd::Barrier()
+          .Release(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq, *image_u8)
+          .Commit(*cb);
+
+      vkEndCommandBuffer(*cb);
+
+      // Submit
+      gpu::cmd::QueueSubmission submission;
+      // C[i].comp before G[i].read
+      submission.Wait(*csem, cval + 1,
+                      VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                          VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
+
+      if (frame_index_ >= 2) {
+        // T[i-2].xfer before G[i].output
+        submission.Wait(*tsem, tval - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      }
+
+      submission
+          .Command(*cb)
+          // G[i].read
+          .Signal(*gsem, gval + 1,
+                  VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                      VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
+          // G[i].blit
+          .Signal(*gsem, gval + 2, VK_PIPELINE_STAGE_2_BLIT_BIT)
+          .Submit(*gq, *fence);
+
+      task_monitor_->Add(fence, {cb, image, instances, index_buffer, draw_indirect, gsem});
+    }
+
+    // Transfer queue
+    {
+      auto fence = device_->AllocateFence();
+      auto cb = tq->AllocateCommandBuffer();
+
+      VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+      begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+      vkBeginCommandBuffer(*cb, &begin_info);
+
+      gpu::cmd::Barrier()
+          .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq, *image_u8)
+          .Commit(*cb);
+
+      // Image to buffer
+      VkBufferImageCopy region;
+      region.bufferOffset = i * width * height * 4;
+      region.bufferRowLength = 0;
+      region.bufferImageHeight = 0;
+      region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+      region.imageOffset = {0, 0, 0};
+      region.imageExtent = {width, height, 1};
+      vkCmdCopyImageToBuffer(*cb, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_stage, 1, &region);
+
+      vkEndCommandBuffer(*cb);
+
+      // Submit
+      gpu::cmd::QueueSubmission()
+          // G[i].blit before T[i].xfer
+          .Wait(*gsem, gval + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+          .Command(*cb)
+          // T[i].xfer
+          .Signal(*tsem, tval + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+          .Submit(*tq, *fence);
+
+      task_monitor_->Add(fence, {cb, image_u8, image_stage, tsem});
+      fences.push_back(fence);
+    }
+
+    csem->Increment();
+    gsem->Increment();
+    gsem->Increment();
+    tsem->Increment();
+    frame_index_++;
   }
 
-  auto image_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
-  {
-    auto fence = device_->AllocateFence();
-    auto cb = tq->AllocateCommandBuffer();
-
-    VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(*cb, &begin_info);
-
-    gpu::cmd::Barrier()
-        .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq, *image_u8)
-        .Commit(*cb);
-
-    // Image to buffer
-    VkBufferImageCopy region;
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {width, height, 1};
-    vkCmdCopyImageToBuffer(*cb, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_buffer, 1, &region);
-
-    vkEndCommandBuffer(*cb);
-
-    // Submit
-    gpu::cmd::QueueSubmission()
-        // G[i].blit before T[i].xfer
-        .Wait(*gsem, gval + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-        .Command(*cb)
-        // T[i].xfer
-        .Signal(*tsem, tval + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
-        .Submit(*tq, *fence);
-
-    auto task = task_monitor_->Add(fence, {cb, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
-      std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
-    });
-
-    rendered_image = std::make_shared<RenderedImage>(width, height, task);
-  }
-
-  csem->Increment();
-  gsem->Increment();
-  gsem->Increment();
-  tsem->Increment();
-  frame_index_++;
-
-  return rendered_image;
+  return std::make_shared<RenderingTask>(std::move(fences), image_stage, B * width * height * 4, dst);
 }
 
 }  // namespace core

@@ -22,9 +22,7 @@ class ComputeStorage {
   ~ComputeStorage();
 
   auto visible_point_count() const noexcept { return visible_point_count_; }
-  auto camera() const noexcept { return camera_; }
   auto draw_indirect() const noexcept { return draw_indirect_; }
-  auto camera_stage() const noexcept { return camera_stage_; }
   auto key() const noexcept { return key_; }
   auto index() const noexcept { return index_; }
   auto sort_storage() const noexcept { return sort_storage_; }
@@ -39,9 +37,7 @@ class ComputeStorage {
 
   // Fixed
   std::shared_ptr<gpu::Buffer> visible_point_count_;  // (1)
-  std::shared_ptr<gpu::Buffer> camera_;               // (Camera)
   std::shared_ptr<gpu::Buffer> draw_indirect_;        // (DrawIndirect)
-  std::shared_ptr<gpu::Buffer> camera_stage_;         // (Camera)
 
   // Variable
   std::shared_ptr<gpu::Buffer> key_;            // (N)

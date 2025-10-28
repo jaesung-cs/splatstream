@@ -11,13 +11,13 @@ Pipeline::Pipeline(VkPipelineBindPoint bind_point, VkPipelineLayout layout)
 
 Pipeline::~Pipeline() = default;
 
-Pipeline& Pipeline::Storage(int binding, VkBuffer buffer) {
-  descriptors_[binding] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer};
+Pipeline& Pipeline::Storage(int binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range) {
+  descriptors_[binding] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer, offset, range};
   return *this;
 }
 
-Pipeline& Pipeline::Uniform(int binding, VkBuffer buffer) {
-  descriptors_[binding] = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, buffer};
+Pipeline& Pipeline::Uniform(int binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range) {
+  descriptors_[binding] = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, buffer, offset, range};
   return *this;
 }
 
@@ -38,7 +38,7 @@ void Pipeline::Commit(VkCommandBuffer cb) {
     std::vector<VkWriteDescriptorSet> writes;
     for (const auto& [binding, descriptor] : descriptors_) {
       auto& buffer_info = buffer_infos.emplace_back();
-      buffer_info = {descriptor.buffer, 0, VK_WHOLE_SIZE};
+      buffer_info = {descriptor.buffer, descriptor.offset, descriptor.range};
 
       auto& write = writes.emplace_back();
       write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};

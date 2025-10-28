@@ -3,7 +3,7 @@
 
 #include "vkgs/renderer.h"
 #include "vkgs/gaussian_splats.h"
-#include "vkgs/rendered_image.h"
+#include "vkgs/rendering_task.h"
 
 namespace py = pybind11;
 
@@ -29,31 +29,34 @@ PYBIND11_MODULE(_core, m) {
            })
       .def("draw", [](vkgs::Renderer& renderer, vkgs::GaussianSplats splats, py::array_t<float> view,
                       py::array_t<float> projection, uint32_t width, uint32_t height, py::array_t<float> background,
-                      float eps2d, int sh_degree, py::array_t<uint8_t> dst) {
+                      py::array_t<float> eps2d, py::array_t<int> sh_degree, py::array_t<uint8_t> dst) {
+        auto B = view.shape(0);
         const auto* background_ptr = static_cast<const float*>(background.request().ptr);
         const auto* view_ptr = static_cast<const float*>(view.request().ptr);
         const auto* projection_ptr = static_cast<const float*>(projection.request().ptr);
+        const auto* eps2d_ptr = static_cast<const float*>(eps2d.request().ptr);
+        const auto* sh_degree_ptr = static_cast<const int*>(sh_degree.request().ptr);
         auto* dst_ptr = static_cast<uint8_t*>(dst.request().ptr);
 
-        vkgs::DrawOptions draw_options = {};
-        // row-major data to column-major
-        for (int r = 0; r < 4; ++r) {
-          for (int c = 0; c < 4; ++c) {
-            draw_options.view[c * 4 + r] = view_ptr[r * 4 + c];
-            draw_options.projection[c * 4 + r] = projection_ptr[r * 4 + c];
+        std::vector<vkgs::DrawOptions> draw_options(B);
+        for (int i = 0; i < B; ++i) {
+          // row-major data to column-major
+          for (int r = 0; r < 4; ++r) {
+            for (int c = 0; c < 4; ++c) {
+              draw_options[i].view[c * 4 + r] = view_ptr[i * 16 + r * 4 + c];
+              draw_options[i].projection[c * 4 + r] = projection_ptr[i * 16 + r * 4 + c];
+            }
           }
+          std::memcpy(draw_options[i].background, background_ptr + i * 3, 3 * sizeof(float));
+          draw_options[i].eps2d = eps2d_ptr[i];
+          draw_options[i].sh_degree = sh_degree_ptr[i];
         }
-        draw_options.width = width;
-        draw_options.height = height;
-        std::memcpy(draw_options.background, background_ptr, 3 * sizeof(float));
-        draw_options.eps2d = eps2d;
-        draw_options.sh_degree = sh_degree;
-        return renderer.Draw(splats, draw_options, dst_ptr);
+        return renderer.Draw(splats, draw_options, width, height, dst_ptr);
       });
 
   py::class_<vkgs::GaussianSplats>(m, "GaussianSplats")
       .def_property_readonly("size", &vkgs::GaussianSplats::size)
       .def("wait", &vkgs::GaussianSplats::Wait);
 
-  py::class_<vkgs::RenderedImage>(m, "RenderedImage").def("wait", &vkgs::RenderedImage::Wait);
+  py::class_<vkgs::RenderingTask>(m, "RenderingTask").def("wait", &vkgs::RenderingTask::Wait);
 }

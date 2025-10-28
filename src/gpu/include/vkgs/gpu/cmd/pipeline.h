@@ -18,9 +18,9 @@ class VKGS_GPU_API Pipeline {
   Pipeline(VkPipelineBindPoint bind_point, VkPipelineLayout layout);
   ~Pipeline();
 
-  Pipeline& Storage(int binding, VkBuffer buffer);
+  Pipeline& Storage(int binding, VkBuffer buffer, VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE);
 
-  Pipeline& Uniform(int binding, VkBuffer buffer);
+  Pipeline& Uniform(int binding, VkBuffer buffer, VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE);
 
   Pipeline& PushConstant(VkShaderStageFlags stage, uint32_t offset, uint32_t size, const void* values);
 
@@ -35,6 +35,8 @@ class VKGS_GPU_API Pipeline {
   struct DescriptorInfo {
     VkDescriptorType type;
     VkBuffer buffer;
+    VkDeviceSize offset;
+    VkDeviceSize range;
   };
   std::map<int, DescriptorInfo> descriptors_;
 

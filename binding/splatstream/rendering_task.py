@@ -3,18 +3,17 @@ import numpy as np
 from . import _core
 
 
-class RenderedImage:
+class RenderingTask:
     def __init__(
         self,
         images: np.ndarray,
         shape: tuple[int],
-        rendered_images: list[_core.RenderedImage],
+        task: _core.RenderingTask,
     ):
         self._images = images
         self._shape = shape
-        self._rendered_images = rendered_images
+        self._task = task
 
     def numpy(self) -> np.ndarray:
-        for rendered_image in self._rendered_images:
-            rendered_image.wait()
+        self._task.wait()
         return self._images.reshape(*self._shape)

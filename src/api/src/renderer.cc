@@ -4,7 +4,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "vkgs/gaussian_splats.h"
-#include "vkgs/rendered_image.h"
+#include "vkgs/rendering_task.h"
 
 #include "vkgs/core/draw_options.h"
 #include "vkgs/core/renderer.h"
@@ -29,16 +29,18 @@ GaussianSplats Renderer::CreateGaussianSplats(size_t size, const float* means, c
   return GaussianSplats(renderer_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree));
 }
 
-RenderedImage Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
-  core::DrawOptions core_draw_options = {};
-  core_draw_options.view = glm::make_mat4(draw_options.view);
-  core_draw_options.projection = glm::make_mat4(draw_options.projection);
-  core_draw_options.width = draw_options.width;
-  core_draw_options.height = draw_options.height;
-  core_draw_options.background = glm::make_vec3(draw_options.background);
-  core_draw_options.eps2d = draw_options.eps2d;
-  core_draw_options.sh_degree = draw_options.sh_degree;
-  return RenderedImage(renderer_->Draw(splats.get(), core_draw_options, dst));
+RenderingTask Renderer::Draw(GaussianSplats splats, const std::vector<DrawOptions>& draw_options, uint32_t width,
+                             uint32_t height, uint8_t* dst) {
+  std::vector<core::DrawOptions> core_draw_options;
+  core_draw_options.resize(draw_options.size());
+  for (size_t i = 0; i < draw_options.size(); ++i) {
+    core_draw_options[i].view = glm::make_mat4(draw_options[i].view);
+    core_draw_options[i].projection = glm::make_mat4(draw_options[i].projection);
+    core_draw_options[i].background = glm::make_vec3(draw_options[i].background);
+    core_draw_options[i].eps2d = draw_options[i].eps2d;
+    core_draw_options[i].sh_degree = draw_options[i].sh_degree;
+  }
+  return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, width, height, dst));
 }
 
 }  // namespace vkgs

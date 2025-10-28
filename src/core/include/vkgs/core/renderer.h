@@ -5,8 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-
-#include <glm/glm.hpp>
+#include <vector>
 
 #include "export_api.h"
 
@@ -27,11 +26,10 @@ class Semaphore;
 namespace core {
 
 class GaussianSplats;
-class RenderedImage;
+class RenderingTask;
 class Sorter;
 class ComputeStorage;
 class GraphicsStorage;
-class TransferStorage;
 
 class VKGS_CORE_API Renderer {
  public:
@@ -47,8 +45,9 @@ class VKGS_CORE_API Renderer {
                                                        const float* scales, const float* opacities,
                                                        const uint16_t* colors, int sh_degree);
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
-  std::shared_ptr<RenderedImage> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
-                                      uint8_t* dst);
+  std::shared_ptr<RenderingTask> Draw(std::shared_ptr<GaussianSplats> splats,
+                                      const std::vector<DrawOptions>& batch_draw_options, uint32_t width,
+                                      uint32_t height, uint8_t* dst);
 
  private:
   std::shared_ptr<gpu::Device> device_;
@@ -71,7 +70,6 @@ class VKGS_CORE_API Renderer {
   struct DoubleBuffer {
     std::shared_ptr<ComputeStorage> compute_storage;
     std::shared_ptr<GraphicsStorage> graphics_storage;
-    std::shared_ptr<TransferStorage> transfer_storage;
     std::shared_ptr<gpu::Semaphore> compute_semaphore;
     std::shared_ptr<gpu::Semaphore> graphics_semaphore;
     std::shared_ptr<gpu::Semaphore> transfer_semaphore;

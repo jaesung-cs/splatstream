@@ -1,7 +1,7 @@
 import numpy as np
 
 from . import _core
-from .rendered_image import RenderedImage
+from .rendering_task import RenderingTask
 from .singleton_renderer import singleton_renderer
 
 
@@ -71,7 +71,7 @@ def draw(
     backgrounds: np.ndarray | None = None,
     eps2d: float | np.ndarray = 0.3,
     sh_degree: int | np.ndarray = -1,
-) -> RenderedImage:
+) -> RenderingTask:
     """
     viewmats: (..., 4, 4)
     Ks: (..., 3, 3)
@@ -144,20 +144,18 @@ def draw(
     sh_degree = np.ascontiguousarray(sh_degree.reshape(-1))
     images = np.ascontiguousarray(images.reshape(-1, height, width, 4))
 
-    rendered_images = []
-    for i in range(len(images)):
-        rendered_images.append(
-            singleton_renderer.draw(
-                splats,
-                viewmats[i],
-                projections[i],
-                width,
-                height,
-                backgrounds[i],
-                eps2d[i],
-                sh_degree[i],
-                images[i],
-            )
-        )
-
-    return RenderedImage(images, (*batch_dims, height, width, 4), rendered_images)
+    return RenderingTask(
+        images,
+        (*batch_dims, height, width, 4),
+        singleton_renderer.draw(
+            splats,
+            viewmats,
+            projections,
+            width,
+            height,
+            backgrounds,
+            eps2d,
+            sh_degree,
+            images,
+        ),
+    )

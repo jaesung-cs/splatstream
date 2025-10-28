@@ -9,8 +9,6 @@ namespace core {
 struct DrawOptions {
   glm::mat4 view;
   glm::mat4 projection;
-  uint32_t width;
-  uint32_t height;
   glm::vec3 background;
   float eps2d;
   int sh_degree;
