@@ -192,7 +192,10 @@ void main() {
   color = max(color + 0.5f, 0.f);
   float opacity = gaussian_opacity[id];
 
-  instances[inverse_id * 3 + 0].xyz = pos.xyz;
+  const float confidence_radius = 3.33f;
+  float radius = sqrt(max(confidence_radius * confidence_radius + 2.f * log(opacity * compensation), 0.f));
+
+  instances[inverse_id * 3 + 0] = vec4(pos.xyz, radius);
   instances[inverse_id * 3 + 1] = vec4(rot_scale[0], rot_scale[1]);
   instances[inverse_id * 3 + 2] = vec4(color, opacity * compensation);
 }

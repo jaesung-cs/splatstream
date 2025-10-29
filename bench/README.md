@@ -66,18 +66,18 @@ FPS: 380.52
   | Implementation | Dataset | chunk size | PSNR | FPS |
   |:---------------|:--------|:----------:|:----:|:---:|
   | gsplat      | bicycle |  2  |   19.18 ± 1.60   |    245.70   |
-  | splatstream | bicycle | N/A | **19.41 ± 1.67** |  **256.59** |
+  | splatstream | bicycle | N/A | **19.22 ± 1.67** |  **308.66** |
   | gsplat      | bonsai  |  2  |   30.91 ± 2.35   |  **380.56** |
-  | splatstream | bonsai  | N/A | **31.12 ± 2.23** |    281.56   |
-  | gsplat      | counter |  2  |   29.35 ± 1.40   |    295.98   |
-  | splatstream | counter | N/A | **29.44 ± 1.41** |  **318.02** |
+  | splatstream | bonsai  | N/A | **31.06 ± 2.22** |    245.68   |
+  | gsplat      | counter |  2  |   29.35 ± 1.40   |  **295.98** |
+  | splatstream | counter | N/A | **29.42 ± 1.40** |    294.09   |
   | gsplat      | garden  |  2  |   18.96 ± 0.74   |    196.80   |
-  | splatstream | garden  | N/A | **19.30 ± 0.74** |  **221.60** |
+  | splatstream | garden  | N/A | **19.11 ± 0.74** |  **299.31** |
   | gsplat      | kitchen |  2  |   29.69 ± 1.88   |    186.26   |
-  | splatstream | kitchen | N/A | **29.97 ± 1.83** |  **242.94** |
+  | splatstream | kitchen | N/A | **29.90 ± 1.84** |  **337.29** |
   | gsplat      | room    |  2  | **32.37 ± 1.88** |  **339.28** |
-  | splatstream | room    | N/A |   32.11 ± 1.78   |    319.37   |
-  | gsplat      | truck   |  2  |   20.59 ± 1.66   |    392.87   |
-  | splatstream | truck   | N/A | **20.67 ± 1.58** |  **415.46** |
+  | splatstream | room    | N/A |   32.08 ± 1.78   |    313.44   |
+  | gsplat      | truck   |  2  | **20.59 ± 1.66** |    392.87   |
+  | splatstream | truck   | N/A |   20.48 ± 1.60   |  **603.73** |
   | gsplat      | train   |  2  | **22.29 ± 2.41** |    431.35   |
-  | splatstream | train   | N/A |   22.11 ± 2.29   |  **511.62** |
+  | splatstream | train   | N/A |   22.04 ± 2.27   |  **762.21** |
