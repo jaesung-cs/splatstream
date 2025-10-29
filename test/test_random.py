@@ -6,6 +6,10 @@ import numpy as np
 import splatstream as ss
 
 
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
+
+
 def _random_quat(N: int):
     u1 = np.random.rand(N)
     u2 = np.random.rand(N)
@@ -24,49 +28,17 @@ def _random_quat(N: int):
 
 
 if __name__ == "__main__":
-    os.makedirs("test_random", exist_ok=True)
-
-    splat_path = "test_random/gsplat.ply"
-
     N = 1000
-    with open(splat_path, "wb") as f:
-        f.write(b"ply\n")
-        f.write(b"format binary_little_endian 1.0\n")
-        f.write(f"element vertex {N}\n".encode())
-        f.write(b"property float x\n")
-        f.write(b"property float y\n")
-        f.write(b"property float z\n")
-        f.write(b"property float scale_0\n")
-        f.write(b"property float scale_1\n")
-        f.write(b"property float scale_2\n")
-        f.write(b"property float rot_0\n")
-        f.write(b"property float rot_1\n")
-        f.write(b"property float rot_2\n")
-        f.write(b"property float rot_3\n")
-        f.write(b"property float f_dc_0\n")
-        f.write(b"property float f_dc_1\n")
-        f.write(b"property float f_dc_2\n")
-        for i in range(45):
-            f.write(f"property float f_rest_{i}\n".encode())
-        f.write(b"property float opacity\n")
-        f.write(b"end_header\n")
+    splats = ss.gaussian_splats(
+        means=np.random.randn(N, 3) * 2.5,
+        quats=_random_quat(N),
+        scales=np.random.rand(N, 3) * 0.49 + 0.01,
+        opacities=sigmoid(np.random.rand(N) * 3 - 3),
+        colors=np.random.rand(N, 16, 3) * 2 - 1,
+    )
 
-        pos = np.random.randn(N, 3).astype(np.float32) * 2.5
-        scale = np.log(np.random.rand(N, 3) * 0.49 + 0.01).astype(np.float32)  # exp
-        rot = _random_quat(N).astype(np.float32)
-        dc = np.random.rand(N, 3).astype(np.float32) * 2 - 1
-        rest = np.random.rand(N, 45).astype(np.float32) * 1 - 0.5
-        opacity = np.random.rand(N, 1).astype(np.float32) * 3 - 3  # sigmoid
-
-        data = np.ascontiguousarray(
-            np.concatenate((pos, scale, rot, dc, rest, opacity), axis=-1)
-        )
-        f.write(data.tobytes())
-
-    splats = ss.load_from_ply(splat_path)
-
-    width = 128
-    height = 128
+    width = 256
+    height = 256
     fov_x = math.radians(120.0)
     fov_y = math.radians(120.0)
 
@@ -77,11 +49,10 @@ if __name__ == "__main__":
     K[1, 2] = height / 2
     K[2, 2] = 1
 
-    N = 64
+    N = 128
     viewmats = []
     backgrounds = []
     for i in range(N):
-
         # view
         theta = 2.0 * math.pi * (i / N)
         radius = 10.0
@@ -119,6 +90,7 @@ if __name__ == "__main__":
         image[i, (height - height // N) :, s:e, :] = 255
 
     print("save start")
+    os.makedirs("test_random", exist_ok=True)
     imgs = []
     for i in range(len(image)):
         img = Image.fromarray(image[i])
