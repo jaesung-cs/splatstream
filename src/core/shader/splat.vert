@@ -21,8 +21,9 @@ void main() {
     position = vec2(0.f, 0.f);
   } else {
     const float PI = 3.14159265358979323846;
-    float theta = 2.f * PI * (vert_index - 1) / 8.f;
-    position = vec2(-cos(theta), sin(theta));
+    const float alpha = 2.f * PI / 8.f;
+    float theta = alpha * (vert_index - 1);
+    position = vec2(-cos(theta), sin(theta)) / cos(alpha / 2.f);
   }
 
   float confidence_radius = 3.33f;
