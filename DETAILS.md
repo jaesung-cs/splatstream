@@ -83,5 +83,24 @@ A pixel color is determined by many small splats, with very small contributions 
 After rendering finishes, `vkCmdBlitImage` command copies to an image of `R8G8B8A8_UNORM` format.
 Value clipping between range [0, 1] is automatically performed by blitting.
 
+## Triangle vs. Quad vs. Octagon, Triangle List vs. Strip vs. Fan
+The 2d oval splat range can be covered with different geometries: triangle, quad, octagon, any regular polygon.
+
+As the number of vertices increases, the oval area can be bound more tightly, thus reducing number of fragment shader invocation. However, it also increases the length of index buffer, the number of vertex shader invocation, and memory read accesses.
+
+For polygons more complex than polygon, one can still use TRIANGLE_LIST drawing multiple triangles, but TRIANGLE_STRIP and TRIANGLE_FAN are also available and intriguing options.
+
+For example, for octagon covering a circle of radius 1:
+- vertices: $r \cdot (\cos(\theta), \sin(\theta))$ where $r = 1 / \cos(\pi / 8)$, $\theta = 2 \pi i / 8$, $i = 0..7$.
+- TRIANGLE_LIST: [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7], 18 indices.
+- TRIANGLE_STRIP: [0, 1, 7, 2, 6, 3, 5, 4, RESTART], 9 indices.
+- TRIANGLE_FAN: [0, 1, 2, 3, 4, 5, 6, 7, RESTART], 9 indices.
+
+Note that Metal doesn't support TRIANGLE_FAN but the error message from MoltenVK doesn't say it, reporting undefined behavior instead.
+
+Also, modern hardwares take advantages of vertex caches the most from TRIANGLE_LIST, compared to TRIANGLE_STRIP or TRIANGLE_FAN.
+
+Overall, at this moment, it is found that quad makes the best balance; not too large covered area and the vertex shader invocations, input assembly with TRIANGLE_LIST.
+
 ## Double Buffering
 ...
