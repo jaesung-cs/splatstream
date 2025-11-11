@@ -54,8 +54,8 @@ auto GetIndexData(int size) {
     index_data.push_back(4 * i + 0);
     index_data.push_back(4 * i + 1);
     index_data.push_back(4 * i + 2);
+    index_data.push_back(4 * i + 0);
     index_data.push_back(4 * i + 2);
-    index_data.push_back(4 * i + 1);
     index_data.push_back(4 * i + 3);
   }
   return index_data;

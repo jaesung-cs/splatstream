@@ -15,7 +15,7 @@ const vec2 positions[4] = vec2[4](
 );
 
 void main() {
-  // index [0,1,2,2,1,3], 4 vertices for a splat.
+  // index [0,1,2,0,2,3], 4 vertices for a splat.
   int index = gl_VertexIndex / 4;
   vec4 ndc_position = instances[index * 3 + 0];  // xyz, radius
   vec4 rot_scale_vec = instances[index * 3 + 1];
