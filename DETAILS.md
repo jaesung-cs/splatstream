@@ -115,8 +115,10 @@ Say $C_{i}.{stage}$, $G_{i}.{stage}$, and $T_{i}.{stage}$ represent the i-th ren
 Here's the only synchronization constraint between queues:
 
 $$
-C_{i}.write \rightarrow G_{i}.read
-G_{i}.write \rightarrow T_{i}.read
+\begin{align*}
+C_{i}.\text{write} \rightarrow G_{i}.\text{read} \\
+G_{i}.\text{write} \rightarrow T_{i}.\text{read}
+\end{align*}
 $$
 
 Rendering multiple scenes may be fully parallelized because the tasks are independent. However, it requires a lot of memory for intermediate results (projected 2d splats, image, etc.), linearly proportional to the batch size, which could be reused for the next rendering task once previous task is done.
@@ -126,8 +128,10 @@ Say we have N-buffer. Then some synchronization constraint are introduced: the i
 - Graphics write must happens after previous Transfer read.
 
 $$
-G_{i}.read \rightarrow C_{i+N}.write \\
-T_{i}.read \rightarrow G_{i+N}.write
+\begin{align*}
+G_{i}.\text{read} \rightarrow C_{i+N}.\text{write} \\
+T_{i}.\text{read} \rightarrow G_{i+N}.\text{write}
+\end{align*}
 $$
 
 Those 4 synchronizations are sufficient to make sure that all resources are reused with N-buffering.
