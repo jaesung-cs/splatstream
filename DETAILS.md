@@ -113,6 +113,7 @@ GPUs may support dedicated queues for Compute, Graphics, and Transfer tasks depe
 Let's consider a case of rendering a single scene first.
 Say $C_{i}.{stage}$, $G_{i}.{stage}$, and $T_{i}.{stage}$ represent the i-th rendering task in compute, graphics, and transfer queue respectively.
 Here's the only synchronization constraint between queues:
+
 $$
 C_{i}.write \rightarrow G_{i}.read
 G_{i}.write \rightarrow T_{i}.read
@@ -123,6 +124,7 @@ Rendering multiple scenes may be fully parallelized because the tasks are indepe
 Say we have N-buffer. Then some synchronization constraint are introduced: the intermediate storages in i-th task will be reused in {i+N}-th task.
 - Compute write must happens after previous Graphics read.
 - Graphics write must happens after previous Transfer read.
+
 $$
 G_{i}.read \rightarrow C_{i+N}.write \\
 T_{i}.read \rightarrow G_{i+N}.write
