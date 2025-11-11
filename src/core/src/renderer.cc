@@ -27,7 +27,7 @@
 #include "vkgs/gpu/graphics_pipeline.h"
 
 #include "vkgs/core/gaussian_splats.h"
-#include "vkgs/core/rendered_image.h"
+#include "vkgs/core/rendering_task.h"
 #include "generated/parse_ply.h"
 #include "generated/parse_data.h"
 #include "generated/rank.h"
@@ -544,9 +544,9 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer, task);
 }
 
-std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
+std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                               uint8_t* dst) {
-  std::shared_ptr<RenderedImage> rendered_image;
+  std::shared_ptr<RenderingTask> rendering_task;
 
   uint32_t width = draw_options.width;
   uint32_t height = draw_options.height;
@@ -840,7 +840,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
       std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
     });
 
-    rendered_image = std::make_shared<RenderedImage>(width, height, task);
+    rendering_task = std::make_shared<RenderingTask>(task);
   }
 
   csem->Increment();
@@ -849,7 +849,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   tsem->Increment();
   frame_index_++;
 
-  return rendered_image;
+  return rendering_task;
 }
 
 }  // namespace core

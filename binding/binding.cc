@@ -3,7 +3,7 @@
 
 #include "vkgs/renderer.h"
 #include "vkgs/gaussian_splats.h"
-#include "vkgs/rendered_image.h"
+#include "vkgs/rendering_task.h"
 
 namespace py = pybind11;
 
@@ -55,5 +55,5 @@ PYBIND11_MODULE(_core, m) {
       .def_property_readonly("size", &vkgs::GaussianSplats::size)
       .def("wait", &vkgs::GaussianSplats::Wait);
 
-  py::class_<vkgs::RenderedImage>(m, "RenderedImage").def("wait", &vkgs::RenderedImage::Wait);
+  py::class_<vkgs::RenderingTask>(m, "RenderingTask").def("wait", &vkgs::RenderingTask::Wait);
 }

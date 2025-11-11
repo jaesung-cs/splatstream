@@ -8,13 +8,13 @@ class RenderedImage:
         self,
         images: np.ndarray,
         shape: tuple[int],
-        rendered_images: list[_core.RenderedImage],
+        tasks: list[_core.RenderingTask],
     ):
         self._images = images
         self._shape = shape
-        self._rendered_images = rendered_images
+        self._tasks = tasks
 
     def numpy(self) -> np.ndarray:
-        for rendered_image in self._rendered_images:
-            rendered_image.wait()
+        for task in self._tasks:
+            task.wait()
         return self._images.reshape(*self._shape)

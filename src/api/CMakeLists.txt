@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_library(vkgs_api SHARED
   src/gaussian_splats.cc
   src/renderer.cc
-  src/rendered_image.cc
+  src/rendering_task.cc
 )
 add_library(vkgs::api ALIAS vkgs_api)
 

@@ -4,7 +4,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "vkgs/gaussian_splats.h"
-#include "vkgs/rendered_image.h"
+#include "vkgs/rendering_task.h"
 
 #include "vkgs/core/draw_options.h"
 #include "vkgs/core/renderer.h"
@@ -29,7 +29,7 @@ GaussianSplats Renderer::CreateGaussianSplats(size_t size, const float* means, c
   return GaussianSplats(renderer_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree));
 }
 
-RenderedImage Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
+RenderingTask Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
   core::DrawOptions core_draw_options = {};
   core_draw_options.view = glm::make_mat4(draw_options.view);
   core_draw_options.projection = glm::make_mat4(draw_options.projection);
@@ -38,7 +38,7 @@ RenderedImage Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_opti
   core_draw_options.background = glm::make_vec3(draw_options.background);
   core_draw_options.eps2d = draw_options.eps2d;
   core_draw_options.sh_degree = draw_options.sh_degree;
-  return RenderedImage(renderer_->Draw(splats.get(), core_draw_options, dst));
+  return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, dst));
 }
 
 }  // namespace vkgs

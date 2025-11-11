@@ -21,7 +21,7 @@ add_library(vkgs_core STATIC
   src/compute_storage.cc
   src/gaussian_splats.cc
   src/graphics_storage.cc
-  src/rendered_image.cc
+  src/rendering_task.cc
   src/renderer.cc
   src/sorter.cc
   src/transfer_storage.cc

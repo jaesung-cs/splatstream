@@ -27,7 +27,7 @@ class Semaphore;
 namespace core {
 
 class GaussianSplats;
-class RenderedImage;
+class RenderingTask;
 class Sorter;
 class ComputeStorage;
 class GraphicsStorage;
@@ -47,7 +47,7 @@ class VKGS_CORE_API Renderer {
                                                        const float* scales, const float* opacities,
                                                        const uint16_t* colors, int sh_degree);
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
-  std::shared_ptr<RenderedImage> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
+  std::shared_ptr<RenderingTask> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                       uint8_t* dst);
 
  private:
