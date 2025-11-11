@@ -39,6 +39,7 @@ add_library(vkgs_gpu STATIC
   src/semaphore.cc
   src/task_monitor.cc
   src/task.cc
+  src/timer.cc
   src/volk_impl.cc
   src/vma_impl.cc
 )

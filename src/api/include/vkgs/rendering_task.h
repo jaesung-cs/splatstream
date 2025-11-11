@@ -6,6 +6,8 @@
 
 #include "vkgs/export_api.h"
 
+#include "vkgs/draw_result.h"
+
 namespace vkgs {
 namespace core {
 class RenderingTask;
@@ -16,10 +18,13 @@ class VKGS_API RenderingTask {
   explicit RenderingTask(std::shared_ptr<core::RenderingTask> task);
   ~RenderingTask();
 
-  void Wait() const;
+  void Wait();
+
+  const auto& draw_result() const noexcept { return result_; }
 
  private:
   std::shared_ptr<core::RenderingTask> task_;
+  DrawResult result_ = {};
 };
 
 }  // namespace vkgs

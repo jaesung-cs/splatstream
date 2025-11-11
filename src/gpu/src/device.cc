@@ -183,10 +183,15 @@ Device::Device() {
   timeline_semaphore_features.pNext = &synchronization_features;
   timeline_semaphore_features.timelineSemaphore = VK_TRUE;
 
+  VkPhysicalDeviceHostQueryResetFeatures host_query_reset_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES};
+  host_query_reset_features.pNext = &timeline_semaphore_features;
+  host_query_reset_features.hostQueryReset = VK_TRUE;
+
   // VkPhysicalDeviceVulkan11Features
   VkPhysicalDevice16BitStorageFeatures k16bit_storage_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES};
-  k16bit_storage_features.pNext = &timeline_semaphore_features;
+  k16bit_storage_features.pNext = &host_query_reset_features;
   k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
 
   VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};

@@ -25,6 +25,7 @@
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/graphics_pipeline.h"
+#include "vkgs/gpu/timer.h"
 
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendering_task.h"
@@ -546,7 +547,7 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
 
 std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                               uint8_t* dst) {
-  std::shared_ptr<RenderingTask> rendering_task;
+  auto rendering_task = std::make_shared<RenderingTask>();
 
   uint32_t width = draw_options.width;
   uint32_t height = draw_options.height;
@@ -605,6 +606,8 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto camera_stage = compute_storage->camera_stage();
 
   std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
+
+  auto timer = gpu::Timer::Create(*device_, 3);
 
   // Compute queue
   {
@@ -678,6 +681,8 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         .Bind(*projection_pipeline_)
         .Commit(*cb);
     vkCmdDispatch(*cb, WorkgroupSize(N, 256), 1, 1);
+
+    timer->Record(*cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
     // Release
     gpu::cmd::Barrier()
@@ -773,6 +778,8 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkCmdBlitImage(*cb, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                    1, &image_region, VK_FILTER_NEAREST);
 
+    timer->Record(*cb, VK_PIPELINE_STAGE_2_BLIT_BIT);
+
     // Layout transition to transfer src, and release
     gpu::cmd::Barrier()
         .Release(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -825,6 +832,8 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     region.imageExtent = {width, height, 1};
     vkCmdCopyImageToBuffer(*cb, *image_u8, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image_buffer, 1, &region);
 
+    timer->Record(*cb, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+
     vkEndCommandBuffer(*cb);
 
     // Submit
@@ -836,11 +845,18 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         .Signal(*tsem, tval + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
         .Submit(*tq, *fence);
 
-    auto task = task_monitor_->Add(fence, {cb, image, image_buffer, tsem}, [width, height, image_buffer, dst] {
-      std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
-    });
+    auto task = task_monitor_->Add(fence, {cb, image, image_buffer, tsem},
+                                   [width, height, image_buffer, dst, timer, rendering_task] {
+                                     std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
 
-    rendering_task = std::make_shared<RenderingTask>(task);
+                                     auto timestamps = timer->GetTimestamps();
+                                     DrawResult draw_result = {};
+                                     draw_result.compute_timestamp = timestamps[0];
+                                     draw_result.graphics_timestamp = timestamps[1];
+                                     draw_result.transfer_timestamp = timestamps[2];
+                                     rendering_task->SetDrawResult(draw_result);
+                                   });
+    rendering_task->SetTask(task);
   }
 
   csem->Increment();

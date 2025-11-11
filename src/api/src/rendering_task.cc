@@ -8,6 +8,13 @@ RenderingTask::RenderingTask(std::shared_ptr<core::RenderingTask> task) : task_(
 
 RenderingTask::~RenderingTask() {}
 
-void RenderingTask::Wait() const { task_->Wait(); }
+void RenderingTask::Wait() {
+  task_->Wait();
+
+  auto result = task_->draw_result();
+  result_.compute_timestamp = result.compute_timestamp;
+  result_.graphics_timestamp = result.graphics_timestamp;
+  result_.transfer_timestamp = result.transfer_timestamp;
+}
 
 }  // namespace vkgs

@@ -5,9 +5,13 @@
 namespace vkgs {
 namespace core {
 
-RenderingTask::RenderingTask(std::shared_ptr<gpu::Task> task) : task_(task) {}
+RenderingTask::RenderingTask() = default;
 
-RenderingTask::~RenderingTask() {}
+RenderingTask::~RenderingTask() = default;
+
+void RenderingTask::SetTask(std::shared_ptr<gpu::Task> task) { task_ = task; }
+
+void RenderingTask::SetDrawResult(const DrawResult& result) { result_ = result; }
 
 void RenderingTask::Wait() {
   if (task_) {
