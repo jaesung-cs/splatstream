@@ -71,14 +71,13 @@ Renderer::Renderer() {
   task_monitor_ = std::make_shared<gpu::TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());
 
-  for (int i = 0; i < 2; ++i) {
-    auto& double_buffer = double_buffer_[i];
-    double_buffer.compute_storage = std::make_shared<ComputeStorage>(device_);
-    double_buffer.graphics_storage = std::make_shared<GraphicsStorage>(device_);
-    double_buffer.transfer_storage = std::make_shared<TransferStorage>(device_);
-    double_buffer.compute_semaphore = device_->AllocateSemaphore();
-    double_buffer.graphics_semaphore = device_->AllocateSemaphore();
-    double_buffer.transfer_semaphore = device_->AllocateSemaphore();
+  for (auto& buffer : ring_buffer_) {
+    buffer.compute_storage = std::make_shared<ComputeStorage>(device_);
+    buffer.graphics_storage = std::make_shared<GraphicsStorage>(device_);
+    buffer.transfer_storage = std::make_shared<TransferStorage>(device_);
+    buffer.compute_semaphore = device_->AllocateSemaphore();
+    buffer.graphics_semaphore = device_->AllocateSemaphore();
+    buffer.transfer_semaphore = device_->AllocateSemaphore();
   }
 
   parse_pipeline_layout_ =
@@ -580,15 +579,15 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   camera_data.screen_size = glm::uvec2(width, height);
 
   // Update storages
-  const auto& double_buffer = double_buffer_[frame_index_ % 2];
-  auto compute_storage = double_buffer.compute_storage;
-  auto graphics_storage = double_buffer.graphics_storage;
-  auto transfer_storage = double_buffer.transfer_storage;
-  auto csem = double_buffer.compute_semaphore;
+  const auto& ring_buffer = ring_buffer_[frame_index_ % ring_buffer_.size()];
+  auto compute_storage = ring_buffer.compute_storage;
+  auto graphics_storage = ring_buffer.graphics_storage;
+  auto transfer_storage = ring_buffer.transfer_storage;
+  auto csem = ring_buffer.compute_semaphore;
   auto cval = csem->value();
-  auto gsem = double_buffer.graphics_semaphore;
+  auto gsem = ring_buffer.graphics_semaphore;
   auto gval = gsem->value();
-  auto tsem = double_buffer.transfer_semaphore;
+  auto tsem = ring_buffer.transfer_semaphore;
   auto tval = tsem->value();
 
   compute_storage->Update(N, sorter_->GetStorageRequirements(N));
@@ -690,7 +689,7 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
     // Submit
     gpu::cmd::QueueSubmission submission;
-    if (frame_index_ >= 2) {
+    if (gval >= 2) {
       // G[i-2].read before C[i].comp
       submission.Wait(*gsem, gval - 2 + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     }
@@ -783,18 +782,13 @@ std::shared_ptr<RenderedImage> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkEndCommandBuffer(*cb);
 
     // Submit
-    gpu::cmd::QueueSubmission submission;
-    // C[i].comp before G[i].read
-    submission.Wait(*csem, cval + 1,
-                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                        VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
-
-    if (frame_index_ >= 2) {
-      // T[i-2].xfer before G[i].output
-      submission.Wait(*tsem, tval - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-    }
-
-    submission
+    gpu::cmd::QueueSubmission()
+        // C[i].comp before G[i].read
+        .Wait(*csem, cval + 1,
+              VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                  VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
+        // T[i-2].xfer before G[i].output
+        .Wait(*tsem, tval - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
         .Command(*cb)
         // G[i].read
         .Signal(*gsem, gval + 1,

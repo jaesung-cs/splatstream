@@ -68,7 +68,7 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<gpu::GraphicsPipeline> splat_pipeline_;
   std::shared_ptr<gpu::GraphicsPipeline> splat_background_pipeline_;
 
-  struct DoubleBuffer {
+  struct RingBuffer {
     std::shared_ptr<ComputeStorage> compute_storage;
     std::shared_ptr<GraphicsStorage> graphics_storage;
     std::shared_ptr<TransferStorage> transfer_storage;
@@ -76,7 +76,7 @@ class VKGS_CORE_API Renderer {
     std::shared_ptr<gpu::Semaphore> graphics_semaphore;
     std::shared_ptr<gpu::Semaphore> transfer_semaphore;
   };
-  std::array<DoubleBuffer, 2> double_buffer_;
+  std::array<RingBuffer, 2> ring_buffer_;
 
   uint64_t frame_index_ = 0;
 };
