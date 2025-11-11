@@ -111,9 +111,9 @@ $ cmake --build build --config Release -j
   | Implementation | Dataset | #imgs | resolution | #splats | PSNR | FPS |
   |:---------------|:--------|:-----:|:----------:|:-------:|:----:|:---:|
   | gsplat      | bicycle | 194 |  1237x822 | 6131954 |   19.18 ± 1.60   |    245.70   |
-  | splatstream | bicycle | 194 |  1237x822 | 6131954 | **19.41 ± 1.67** |  **256.59** |
+  | splatstream | bicycle | 194 |  1237x822 | 6131954 | **19.22 ± 1.67** |  **373.08** |
   | gsplat      | garden  | 185 |  1297x840 | 5834784 |   18.96 ± 0.74   |    196.80   |
-  | splatstream | garden  | 185 |  1297x840 | 5834784 | **19.30 ± 0.74** |  **221.60** |
+  | splatstream | garden  | 185 |  1297x840 | 5834784 | **19.11 ± 0.74** |  **320.93** |
 
 See [bench](/bench/README.md) for more details.
 
