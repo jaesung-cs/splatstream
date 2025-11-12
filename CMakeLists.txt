@@ -9,4 +9,5 @@ include(cmake/add_shader.cmake)
 
 add_subdirectory(src/gpu)
 add_subdirectory(src/core)
+add_subdirectory(src/viewer)
 add_subdirectory(src/api)
