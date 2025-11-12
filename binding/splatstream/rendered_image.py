@@ -8,13 +8,23 @@ class RenderedImage:
         self,
         images: np.ndarray,
         shape: tuple[int],
-        rendered_images: list[_core.RenderedImage],
+        tasks: list[_core.RenderingTask],
     ):
         self._images = images
         self._shape = shape
-        self._rendered_images = rendered_images
+        self._tasks = tasks
+        self.compute_timestamps = np.zeros(len(tasks), dtype=np.uint64)
+        self.graphics_timestamps = np.zeros(len(tasks), dtype=np.uint64)
+        self.transfer_timestamps = np.zeros(len(tasks), dtype=np.uint64)
 
     def numpy(self) -> np.ndarray:
-        for rendered_image in self._rendered_images:
-            rendered_image.wait()
+        self.wait()
         return self._images.reshape(*self._shape)
+
+    def wait(self):
+        for i, task in enumerate(self._tasks):
+            task.wait()
+            draw_result = task.draw_result()
+            self.compute_timestamps[i] = draw_result.compute_timestamp
+            self.graphics_timestamps[i] = draw_result.graphics_timestamp
+            self.transfer_timestamps[i] = draw_result.transfer_timestamp

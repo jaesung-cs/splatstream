@@ -83,5 +83,73 @@ A pixel color is determined by many small splats, with very small contributions 
 After rendering finishes, `vkCmdBlitImage` command copies to an image of `R8G8B8A8_UNORM` format.
 Value clipping between range [0, 1] is automatically performed by blitting.
 
+## Triangle vs. Quad vs. Octagon, Triangle List vs. Strip vs. Fan
+The 2d oval splat range can be covered with different geometries: triangle, quad, octagon, any regular polygon.
+
+As the number of vertices increases, the oval area can be bound more tightly, thus reducing number of fragment shader invocation. However, it also increases the length of index buffer, the number of vertex shader invocation, and memory read accesses.
+
+For polygons more complex than polygon, one can still use TRIANGLE_LIST drawing multiple triangles, but TRIANGLE_STRIP and TRIANGLE_FAN are also available and intriguing options.
+
+For example, for octagon covering a circle of radius 1:
+- vertices: $r \cdot (\cos(\theta), \sin(\theta))$ where $r = 1 / \cos(\pi / 8)$, $\theta = 2 \pi i / 8$, $i = 0..7$.
+- TRIANGLE_LIST: [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7], 18 indices.
+- TRIANGLE_STRIP: [0, 1, 7, 2, 6, 3, 5, 4, RESTART], 9 indices.
+- TRIANGLE_FAN: [0, 1, 2, 3, 4, 5, 6, 7, RESTART], 9 indices.
+
+Note that Metal doesn't support TRIANGLE_FAN but the error message from MoltenVK doesn't say it, reporting undefined behavior instead.
+
+Also, modern hardwares take advantages of vertex caches the most from TRIANGLE_LIST, compared to TRIANGLE_STRIP or TRIANGLE_FAN.
+
+Overall, at this moment, it is found that quad makes the best balance; not too large covered area and the vertex shader invocations, input assembly with TRIANGLE_LIST.
+
 ## Double Buffering
-...
+Rendering one scene consists of compute, graphics, and transfer stages.
+- Compute: sort 3d splats in front-to-back order, and project them into the 2d image space.
+- Graphics: open a rasterization render pass to render 2d splats as quads.
+- Transfer: copy output image to the output buffer.
+
+GPUs may support dedicated queues for Compute, Graphics, and Transfer tasks depending on the vendor, possibly running asynchronously and thus maximizing throughput.
+
+Let's consider a case of rendering a single scene first.
+Say $C_{i}.{stage}$, $G_{i}.{stage}$, and $T_{i}.{stage}$ represent the i-th rendering task in compute, graphics, and transfer queue respectively.
+Here's the only synchronization constraint between queues:
+
+$$
+\begin{align*}
+C_{i}.\text{write} \rightarrow G_{i}.\text{read} \\
+G_{i}.\text{write} \rightarrow T_{i}.\text{read}
+\end{align*}
+$$
+
+Rendering multiple scenes may be fully parallelized because the tasks are independent. However, it requires a lot of memory for intermediate results (projected 2d splats, image, etc.), linearly proportional to the batch size, which could be reused for the next rendering task once previous task is done.
+
+Say we have N-buffer. Then some synchronization constraint are introduced: the intermediate storages in i-th task will be reused in {i+N}-th task.
+- Compute write must happens after previous Graphics read.
+- Graphics write must happens after previous Transfer read.
+
+$$
+\begin{align*}
+G_{i}.\text{read} \rightarrow C_{i+N}.\text{write} \\
+T_{i}.\text{read} \rightarrow G_{i+N}.\text{write}
+\end{align*}
+$$
+
+Those 4 synchronizations are sufficient to make sure that all resources are reused with N-buffering.
+
+All together, here shows a diagram demonstrating dependency chains for i, i+N, i+2N, represented with numbers 0, 1, 2 for simplicity (note that i+1, i+2, ..., i+N-1 are still completely independent):
+```
++----------------+
+| Compute  Queue | [C0.w]      [C1.w]      [C2.w]        ...
++----------------+      \       ^   \       ^   \       ^
+                         \C0.0 /G0.0 \C1.0 /G1.0 \C2.0 /G2.0
++----------------+        v   /       v   /       v   /
+| Graphics Queue |       [G0.r G0.w] [G1.r G1.w] [G2.r G2.w]        ...
++----------------+                 \       ^   \       ^   \       ^
+                                    \G0.1 /T0.0 \G1.1 /T2.0 \G2.1 /T2.1
++----------------+                   v   /       v   /       v   /
+| Transfer Queue |                  [T0.r]      [T1.r]      [T2.r]        ...
++----------------+
+```
+Each queue submission is represented within `[]`. The semaphores are depicted with arrows, representing 3 different timeline semaphores C, G, T and its their stages 0 for C, T and 0, 1 for G.
+
+In a random splat scene, double buffering (N=2) is 10% faster than single buffer (N=1). Triple buffering (N=3) is just the same as double buffering in throughput.

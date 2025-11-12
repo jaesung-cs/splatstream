@@ -1,4 +1,5 @@
 from PIL import Image
+import time
 import math
 import os
 
@@ -28,17 +29,18 @@ def _random_quat(N: int):
 
 
 if __name__ == "__main__":
-    N = 1000
+    N = 100000
     splats = ss.gaussian_splats(
-        means=np.random.randn(N, 3) * 2.5,
+        means=np.random.randn(N, 3) * 30.0,
         quats=_random_quat(N),
-        scales=np.random.rand(N, 3) * 0.49 + 0.01,
-        opacities=sigmoid(np.random.rand(N) * 3 - 3),
+        scales=np.random.rand(N, 3) * 0.24 + 0.01,
+        opacities=sigmoid(np.random.rand(N) - 2),
         colors=np.random.rand(N, 16, 3) * 2 - 1,
     )
+    splats.wait()
 
-    width = 256
-    height = 256
+    width = 128
+    height = 128
     fov_x = math.radians(120.0)
     fov_y = math.radians(120.0)
 
@@ -49,7 +51,7 @@ if __name__ == "__main__":
     K[1, 2] = height / 2
     K[2, 2] = 1
 
-    N = 128
+    N = 32
     viewmats = []
     backgrounds = []
     for i in range(N):
@@ -75,10 +77,14 @@ if __name__ == "__main__":
     backgrounds = np.stack(backgrounds)
 
     print("draw start")
+    start_time = time.time()
     image = ss.draw(
         splats, viewmats, K, width, height, far=1e5, backgrounds=backgrounds
     ).numpy()
+    end_time = time.time()
+    rendering_time = end_time - start_time
     print("draw end")
+    print(f"FPS: {N / rendering_time:.2f}")
 
     image = np.concatenate((image[..., :3], image[..., 3:].repeat(3, axis=-1)), axis=-2)
 

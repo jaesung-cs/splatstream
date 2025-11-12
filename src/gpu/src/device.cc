@@ -62,9 +62,9 @@ Device::Device() {
   // Instance
   VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   app_info.pApplicationName = "vkgs";
-  app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 4);
+  app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 5);
   app_info.pEngineName = "vkgs";
-  app_info.engineVersion = VK_MAKE_VERSION(0, 0, 4);
+  app_info.engineVersion = VK_MAKE_VERSION(0, 0, 5);
   app_info.apiVersion = VK_API_VERSION_1_4;
 
   VkDebugUtilsMessengerCreateInfoEXT messenger_info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
@@ -183,10 +183,15 @@ Device::Device() {
   timeline_semaphore_features.pNext = &synchronization_features;
   timeline_semaphore_features.timelineSemaphore = VK_TRUE;
 
+  VkPhysicalDeviceHostQueryResetFeatures host_query_reset_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES};
+  host_query_reset_features.pNext = &timeline_semaphore_features;
+  host_query_reset_features.hostQueryReset = VK_TRUE;
+
   // VkPhysicalDeviceVulkan11Features
   VkPhysicalDevice16BitStorageFeatures k16bit_storage_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES};
-  k16bit_storage_features.pNext = &timeline_semaphore_features;
+  k16bit_storage_features.pNext = &host_query_reset_features;
   k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
 
   VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};

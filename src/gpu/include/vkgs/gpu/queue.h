@@ -19,6 +19,7 @@ class VKGS_GPU_API Queue {
   ~Queue() = default;
 
   operator VkQueue() const noexcept { return queue_; }
+  operator uint32_t() const noexcept { return family_index_; }
   auto family_index() const noexcept { return family_index_; }
 
   std::shared_ptr<Command> AllocateCommandBuffer();
