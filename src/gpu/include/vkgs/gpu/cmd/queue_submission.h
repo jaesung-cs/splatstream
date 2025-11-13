@@ -4,13 +4,15 @@
 #include <cstdint>
 #include <vector>
 
+#include "vkgs/gpu/export_api.h"
+
 #include "volk.h"
 
 namespace vkgs {
 namespace gpu {
 namespace cmd {
 
-class QueueSubmission {
+class VKGS_GPU_API QueueSubmission {
  public:
   QueueSubmission();
   ~QueueSubmission();

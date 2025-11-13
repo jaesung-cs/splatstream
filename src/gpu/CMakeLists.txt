@@ -1,8 +1,6 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-find_package(Vulkan REQUIRED)
-
 include(FetchContent)
 
 FetchContent_Declare(
@@ -34,7 +32,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(vk_radix_sort)
 
 # Static library only to load Vulkan functions statically properly.
-add_library(vkgs_gpu STATIC
+add_library(vkgs_gpu SHARED
   src/cmd/barrier.cc
   src/cmd/pipeline.cc
   src/cmd/queue_submission.cc
@@ -81,7 +79,7 @@ target_link_libraries(vkgs_gpu
     vk_radix_sort
 )
 
-target_compile_definitions(vkgs_gpu PUBLIC VKGS_GPU_STATIC)
+target_compile_definitions(vkgs_gpu PRIVATE VKGS_GPU_EXPORTS)
 
 # TODO: Disables too many warnings from vma (MacOS only)
 #target_compile_options(vkgs_gpu PRIVATE -Wno-nullability-completeness)
