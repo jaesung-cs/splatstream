@@ -19,6 +19,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(vma)
 
+FetchContent_Declare(
+  glfw
+  GIT_REPOSITORY https://github.com/glfw/glfw.git
+  GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579  # 3.4
+)
+FetchContent_MakeAvailable(glfw)
+
+# TODO: include vk_radix_sort
+
 # Static library only to load Vulkan functions statically properly.
 add_library(vkgs_gpu STATIC
   src/cmd/barrier.cc
@@ -31,6 +40,7 @@ add_library(vkgs_gpu STATIC
   src/device.cc
   src/fence_pool.cc
   src/fence.cc
+  src/gpu.cc
   src/graphics_pipeline.cc
   src/image.cc
   src/pipeline_layout.cc
@@ -40,6 +50,7 @@ add_library(vkgs_gpu STATIC
   src/task_monitor.cc
   src/task.cc
   src/timer.cc
+  src/vk_radix_sort.cc
   src/volk_impl.cc
   src/vma_impl.cc
 )
@@ -61,6 +72,7 @@ target_link_libraries(vkgs_gpu
   PUBLIC
     volk::volk_headers
     GPUOpen::VulkanMemoryAllocator
+    glfw
 )
 
 target_compile_definitions(vkgs_gpu PUBLIC VKGS_GPU_STATIC)

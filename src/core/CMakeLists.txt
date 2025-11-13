@@ -10,15 +10,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 
-FetchContent_Declare(
-  vk_radix_sort
-  GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        66f61f559d1ffd9937f56c6ebdf1dc8aa6810aa7  # v0.1.4
-)
-FetchContent_MakeAvailable(vk_radix_sort)
-
-add_library(vkgs_core STATIC
+add_library(vkgs_core SHARED
   src/compute_storage.cc
+  src/core.cc
   src/gaussian_splats.cc
   src/graphics_storage.cc
   src/rendering_task.cc
@@ -40,10 +34,9 @@ target_link_libraries(vkgs_core
     glm::glm
   PRIVATE
     vkgs::gpu
-    vk_radix_sort
 )
 
-target_compile_definitions(vkgs_core PUBLIC VKGS_CORE_STATIC)
+target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
 
 add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)

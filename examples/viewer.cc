@@ -1,9 +1,14 @@
 #include <iostream>
 
+#include "vkgs/vkgs.h"
 #include "vkgs/viewer/viewer.h"
 
 int main() {
-  vkgs::viewer::Viewer viewer;
-  viewer.Run();
+  vkgs::Init();
+  {
+    vkgs::viewer::Viewer viewer;
+    viewer.Run();
+  }
+  vkgs::Terminate();
   return 0;
 }

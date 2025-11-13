@@ -3,6 +3,8 @@
 #include <iostream>
 #include <vector>
 
+#include <GLFW/glfw3.h>
+
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/fence.h"
@@ -57,8 +59,6 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 }  // namespace
 
 Device::Device() {
-  volkInitialize();
-
   // Instance
   VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   app_info.pApplicationName = "vkgs";
@@ -245,8 +245,6 @@ Device::~Device() {
   vkDestroyDevice(device_, NULL);
   vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
   vkDestroyInstance(instance_, NULL);
-
-  volkFinalize();
 }
 
 uint32_t Device::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }

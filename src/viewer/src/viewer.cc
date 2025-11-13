@@ -9,10 +9,6 @@ namespace vkgs {
 namespace viewer {
 
 Viewer::Viewer() {
-  if (!glfwInit()) throw std::runtime_error("Failed to initialize GLFW");
-  if (!glfwVulkanSupported()) throw std::runtime_error("Failed to initialize GLFW with Vulkan");
-  glfwInitVulkanLoader(vkGetInstanceProcAddr);
-
   // GLFW required instance extensions
   uint32_t count;
   const char** instance_extensions = glfwGetRequiredInstanceExtensions(&count);
@@ -24,7 +20,7 @@ Viewer::Viewer() {
   if (!window_) throw std::runtime_error("Failed to create window");
 }
 
-Viewer::~Viewer() { glfwTerminate(); }
+Viewer::~Viewer() = default;
 
 void Viewer::Run() {
   while (!glfwWindowShouldClose(window_)) {

@@ -30,11 +30,9 @@ if(APPLE)
 else()
   set(origin_token "$ORIGIN")
 endif()
-set_property(TARGET splatstream PROPERTY INSTALL_RPATH
-  "${origin_token}/"
-)
-set_property(TARGET vkgs_api PROPERTY INSTALL_RPATH
-  "${origin_token}/"
+set_property(
+  TARGET splatstream vkgs_api vkgs_core
+  PROPERTY INSTALL_RPATH "${origin_token}/"
 )
 
-install(TARGETS vkgs_api splatstream DESTINATION splatstream)
+install(TARGETS splatstream vkgs_api vkgs_core DESTINATION splatstream)
