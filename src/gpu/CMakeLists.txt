@@ -26,7 +26,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glfw)
 
-# TODO: include vk_radix_sort
+FetchContent_Declare(
+  vk_radix_sort
+  GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
+  GIT_TAG        cde8ba29b9c97e99e81bfd66c1022ce126660c25  # v0.2.0
+)
+FetchContent_MakeAvailable(vk_radix_sort)
 
 # Static library only to load Vulkan functions statically properly.
 add_library(vkgs_gpu STATIC
@@ -50,9 +55,9 @@ add_library(vkgs_gpu STATIC
   src/task_monitor.cc
   src/task.cc
   src/timer.cc
-  src/vk_radix_sort.cc
-  src/volk_impl.cc
   src/vma_impl.cc
+  src/volk_impl.cc
+  src/vrdx_impl.cc
 )
 add_library(vkgs::gpu ALIAS vkgs_gpu)
 
@@ -73,6 +78,7 @@ target_link_libraries(vkgs_gpu
     volk::volk_headers
     GPUOpen::VulkanMemoryAllocator
     glfw
+    vk_radix_sort
 )
 
 target_compile_definitions(vkgs_gpu PUBLIC VKGS_GPU_STATIC)
