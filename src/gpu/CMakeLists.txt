@@ -1,14 +1,9 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-include(FetchContent)
+find_package(Vulkan REQUIRED)
 
-FetchContent_Declare(
-  volk
-  GIT_REPOSITORY https://github.com/zeux/volk.git
-  GIT_TAG        f30088b3f4160810b53e19258dd2f7395e5f0ba3  # vulkan-sdk-1.4.328.1
-)
-FetchContent_MakeAvailable(volk)
+include(FetchContent)
 
 FetchContent_Declare(
   vma
@@ -27,7 +22,7 @@ FetchContent_MakeAvailable(glfw)
 FetchContent_Declare(
   vk_radix_sort
   GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        cde8ba29b9c97e99e81bfd66c1022ce126660c25  # v0.2.0
+  GIT_TAG        dd6e1f3930b1ed633f327c0736d44cd562588493  # v0.2.1
 )
 FetchContent_MakeAvailable(vk_radix_sort)
 
@@ -43,7 +38,6 @@ add_library(vkgs_gpu SHARED
   src/device.cc
   src/fence_pool.cc
   src/fence.cc
-  src/gpu.cc
   src/graphics_pipeline.cc
   src/image.cc
   src/pipeline_layout.cc
@@ -54,15 +48,8 @@ add_library(vkgs_gpu SHARED
   src/task.cc
   src/timer.cc
   src/vma_impl.cc
-  src/volk_impl.cc
-  src/vrdx_impl.cc
 )
 add_library(vkgs::gpu ALIAS vkgs_gpu)
-
-target_compile_definitions(vkgs_gpu
-  PUBLIC
-    VK_NO_PROTOTYPES
-)
 
 target_include_directories(vkgs_gpu
   PUBLIC
@@ -73,10 +60,11 @@ target_include_directories(vkgs_gpu
 
 target_link_libraries(vkgs_gpu
   PUBLIC
-    volk::volk_headers
     GPUOpen::VulkanMemoryAllocator
     glfw
     vk_radix_sort
+  PRIVATE
+    Vulkan::Vulkan
 )
 
 target_compile_definitions(vkgs_gpu PRIVATE VKGS_GPU_EXPORTS)

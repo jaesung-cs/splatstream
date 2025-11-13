@@ -12,12 +12,12 @@ FetchContent_MakeAvailable(imgui)
 
 add_library(vkgs_viewer SHARED
   src/viewer.cc
-  ${imgui_SOURCE_DIR}/imgui.cpp
-  ${imgui_SOURCE_DIR}/imgui_draw.cpp
-  ${imgui_SOURCE_DIR}/imgui_tables.cpp
-  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-  ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+  #${imgui_SOURCE_DIR}/imgui.cpp
+  #${imgui_SOURCE_DIR}/imgui_draw.cpp
+  #${imgui_SOURCE_DIR}/imgui_tables.cpp
+  #${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  #${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+  #${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )
 add_library(vkgs::viewer ALIAS vkgs_viewer)
 
@@ -26,8 +26,8 @@ target_include_directories(vkgs_viewer
     include/
   PRIVATE
     src/
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
+    #${imgui_SOURCE_DIR}
+    #${imgui_SOURCE_DIR}/backends
 )
 
 target_link_libraries(vkgs_viewer
@@ -39,7 +39,7 @@ target_link_libraries(vkgs_viewer
 target_compile_definitions(vkgs_viewer
   PRIVATE
     VKGS_VIEWER_EXPORTS
-    IMGUI_IMPL_VULKAN_USE_VOLK
+    #IMGUI_IMPL_VULKAN_USE_VOLK
 )
 
 set_target_properties(vkgs_viewer PROPERTIES

@@ -31,8 +31,8 @@ else()
   set(origin_token "$ORIGIN")
 endif()
 set_property(
-  TARGET splatstream vkgs_api vkgs_core
+  TARGET splatstream vkgs_api vkgs_core vkgs_gpu
   PROPERTY INSTALL_RPATH "${origin_token}/"
 )
 
-install(TARGETS splatstream vkgs_api vkgs_core DESTINATION splatstream)
+install(TARGETS splatstream vkgs_api vkgs_core vkgs_gpu DESTINATION splatstream)

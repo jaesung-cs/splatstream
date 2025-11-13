@@ -4,8 +4,8 @@
 #include <string>
 #include <memory>
 
-#include "volk.h"
-#include "vk_mem_alloc.h"
+#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 #include "export_api.h"
 
@@ -18,9 +18,21 @@ class Fence;
 class SemaphorePool;
 class FencePool;
 
+struct DeviceCreateInfo {
+  VkInstance instance;
+  VkPhysicalDevice physical_device;
+  VkDevice device;
+  uint32_t graphics_queue_index;
+  uint32_t compute_queue_index;
+  uint32_t transfer_queue_index;
+  VkQueue graphics_queue;
+  VkQueue compute_queue;
+  VkQueue transfer_queue;
+};
+
 class VKGS_GPU_API Device {
  public:
-  Device();
+  Device(const DeviceCreateInfo& create_info);
   ~Device();
 
   operator VkDevice() const noexcept { return device_; }
@@ -47,7 +59,6 @@ class VKGS_GPU_API Device {
   std::string device_name_;
 
   VkInstance instance_ = VK_NULL_HANDLE;
-  VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
   VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
   VkDevice device_ = VK_NULL_HANDLE;
 

@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 
-#include "volk.h"
+#include <vulkan/vulkan.h>
 
 #include "vkgs/gpu/export_api.h"
 

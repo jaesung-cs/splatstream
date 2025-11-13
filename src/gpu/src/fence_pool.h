@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "volk.h"
+#include <vulkan/vulkan.h>
 
 namespace vkgs {
 namespace gpu {

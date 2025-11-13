@@ -6,8 +6,8 @@
 #include <memory>
 #include <cstdint>
 
-#include "volk.h"
-#include "vk_mem_alloc.h"
+#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 #include "export_api.h"
 
