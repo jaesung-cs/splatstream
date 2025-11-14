@@ -10,6 +10,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
+FetchContent_Declare(
+  glfw
+  GIT_REPOSITORY https://github.com/glfw/glfw.git
+  GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579  # 3.4
+)
+FetchContent_MakeAvailable(glfw)
+
 add_library(vkgs_viewer SHARED
   src/viewer.cc
   #${imgui_SOURCE_DIR}/imgui.cpp
@@ -34,6 +41,7 @@ target_link_libraries(vkgs_viewer
   PRIVATE
     vkgs::core
     vkgs::gpu
+    glfw
 )
 
 target_compile_definitions(vkgs_viewer

@@ -1,9 +1,6 @@
 #include "vkgs/gpu/device.h"
 
-#include <iostream>
-#include <vector>
-
-#include <GLFW/glfw3.h>
+#include <vk_mem_alloc.h>
 
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
@@ -49,12 +46,16 @@ Device::Device(const DeviceCreateInfo& create_info) {
   allocator_info.instance = instance_;
   allocator_info.pVulkanFunctions = &functions;
   allocator_info.vulkanApiVersion = VK_API_VERSION_1_4;
-  vmaCreateAllocator(&allocator_info, &allocator_);
+  VmaAllocator allocator;
+  vmaCreateAllocator(&allocator_info, &allocator);
+  allocator_ = allocator;
 }
 
 Device::~Device() {
   WaitIdle();
-  vmaDestroyAllocator(allocator_);
+
+  VmaAllocator allocator = static_cast<VmaAllocator>(allocator_);
+  vmaDestroyAllocator(allocator);
 }
 
 uint32_t Device::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }

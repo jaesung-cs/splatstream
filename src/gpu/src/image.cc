@@ -1,5 +1,7 @@
 #include "vkgs/gpu/image.h"
 
+#include <vk_mem_alloc.h>
+
 #include "vkgs/gpu/device.h"
 
 namespace vkgs {
@@ -12,6 +14,9 @@ std::shared_ptr<Image> Image::Create(std::shared_ptr<Device> device, VkFormat fo
 
 Image::Image(std::shared_ptr<Device> device, VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
     : device_(device), format_(format), width_(width), height_(height) {
+  VmaAllocator allocator = static_cast<VmaAllocator>(device_->allocator());
+  VmaAllocation allocation = VK_NULL_HANDLE;
+
   VkImageCreateInfo image_info = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
   image_info.imageType = VK_IMAGE_TYPE_2D;
   image_info.format = format_;
@@ -25,7 +30,8 @@ Image::Image(std::shared_ptr<Device> device, VkFormat format, uint32_t width, ui
   image_info.usage = usage;
   VmaAllocationCreateInfo allocation_info = {};
   allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
-  vmaCreateImage(device_->allocator(), &image_info, &allocation_info, &image_, &allocation_, NULL);
+  vmaCreateImage(allocator, &image_info, &allocation_info, &image_, &allocation, NULL);
+  allocation_ = allocation;
 
   VkImageViewCreateInfo view_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
   view_info.image = image_;
@@ -38,8 +44,11 @@ Image::Image(std::shared_ptr<Device> device, VkFormat format, uint32_t width, ui
 }
 
 Image::~Image() {
+  VmaAllocator allocator = static_cast<VmaAllocator>(device_->allocator());
+  VmaAllocation allocation = static_cast<VmaAllocation>(allocation_);
+
   vkDestroyImageView(*device_, image_view_, nullptr);
-  vmaDestroyImage(device_->allocator(), image_, allocation_);
+  vmaDestroyImage(allocator, image_, allocation);
 }
 
 }  // namespace gpu

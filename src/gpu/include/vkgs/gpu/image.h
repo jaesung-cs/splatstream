@@ -7,7 +7,6 @@
 #include <cstdint>
 
 #include <vulkan/vulkan.h>
-#include <vk_mem_alloc.h>
 
 #include "export_api.h"
 
@@ -36,7 +35,7 @@ class VKGS_GPU_API Image : public Object {
   std::shared_ptr<Device> device_;
 
   VkImage image_ = VK_NULL_HANDLE;
-  VmaAllocation allocation_ = VK_NULL_HANDLE;
+  void* allocation_ = VK_NULL_HANDLE;
   VkImageView image_view_ = VK_NULL_HANDLE;
   VkFormat format_;
   uint32_t width_;

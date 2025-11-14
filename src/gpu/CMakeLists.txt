@@ -12,20 +12,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(vma)
 
-FetchContent_Declare(
-  glfw
-  GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579  # 3.4
-)
-FetchContent_MakeAvailable(glfw)
-
-FetchContent_Declare(
-  vk_radix_sort
-  GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        dd6e1f3930b1ed633f327c0736d44cd562588493  # v0.2.1
-)
-FetchContent_MakeAvailable(vk_radix_sort)
-
 # Static library only to load Vulkan functions statically properly.
 add_library(vkgs_gpu SHARED
   src/cmd/barrier.cc
@@ -59,12 +45,9 @@ target_include_directories(vkgs_gpu
 )
 
 target_link_libraries(vkgs_gpu
-  PUBLIC
-    GPUOpen::VulkanMemoryAllocator
-    glfw
-    vk_radix_sort
   PRIVATE
     Vulkan::Vulkan
+    GPUOpen::VulkanMemoryAllocator
 )
 
 target_compile_definitions(vkgs_gpu PRIVATE VKGS_GPU_EXPORTS)

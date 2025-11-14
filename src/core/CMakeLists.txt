@@ -17,6 +17,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 
+FetchContent_Declare(
+  vk_radix_sort
+  GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
+  GIT_TAG        dd6e1f3930b1ed633f327c0736d44cd562588493  # v0.2.1
+)
+FetchContent_MakeAvailable(vk_radix_sort)
+
 add_library(vkgs_core SHARED
   src/compute_storage.cc
   src/core.cc
@@ -45,6 +52,7 @@ target_link_libraries(vkgs_core
   PRIVATE
     volk::volk_headers
     vkgs::gpu
+    vk_radix_sort
 )
 
 target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS VRDX_USE_VOLK)

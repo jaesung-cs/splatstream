@@ -5,7 +5,6 @@
 #include <memory>
 
 #include <vulkan/vulkan.h>
-#include <vk_mem_alloc.h>
 
 #include "export_api.h"
 
@@ -62,7 +61,7 @@ class VKGS_GPU_API Device {
   VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
   VkDevice device_ = VK_NULL_HANDLE;
 
-  VmaAllocator allocator_ = VK_NULL_HANDLE;
+  void* allocator_ = VK_NULL_HANDLE;
 
   std::shared_ptr<Queue> graphics_queue_;
   std::shared_ptr<Queue> compute_queue_;
