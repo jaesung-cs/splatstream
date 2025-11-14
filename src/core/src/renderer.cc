@@ -11,6 +11,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/gpu/cmd/queue_submission.h"
@@ -68,8 +69,7 @@ namespace vkgs {
 namespace core {
 
 Renderer::Renderer() {
-  device_ = std::make_shared<gpu::Device>();
-
+  device_ = gpu::GetDevice();
   task_monitor_ = std::make_shared<gpu::TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());
 

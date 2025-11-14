@@ -2,12 +2,29 @@
 
 #include <volk.h>
 
+#include "vkgs/gpu/device.h"
+
 namespace vkgs {
 namespace gpu {
+namespace {
 
-void Init() { volkInitialize(); }
+std::shared_ptr<Device> device;
 
-void Terminate() { volkFinalize(); }
+}
+
+void Init() { Init({}); }
+
+void Init(const DeviceCreateInfo& device_info) {
+  volkInitialize();
+  device = std::make_shared<Device>(device_info);
+}
+
+void Terminate() {
+  device = {};
+  volkFinalize();
+}
+
+std::shared_ptr<Device> GetDevice() { return device; }
 
 }  // namespace gpu
 }  // namespace vkgs

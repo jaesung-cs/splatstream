@@ -8,6 +8,9 @@ struct GLFWwindow;
 namespace vkgs {
 namespace viewer {
 
+void VKGS_VIEWER_API Init();
+void VKGS_VIEWER_API Terminate();
+
 class VKGS_VIEWER_API Viewer {
  public:
   Viewer();

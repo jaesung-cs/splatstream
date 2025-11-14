@@ -3,6 +3,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 
 #include <vulkan/vulkan.h>
 
@@ -17,9 +18,13 @@ class Fence;
 class SemaphorePool;
 class FencePool;
 
+struct DeviceCreateInfo {
+  std::vector<const char*> instance_extensions;
+};
+
 class VKGS_GPU_API Device {
  public:
-  Device();
+  Device(const DeviceCreateInfo& create_info);
   ~Device();
 
   operator VkDevice() const noexcept { return device_; }
@@ -29,6 +34,7 @@ class VKGS_GPU_API Device {
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
+  auto instance() const noexcept { return instance_; }
   auto allocator() const noexcept { return allocator_; }
   auto physical_device() const noexcept { return physical_device_; }
   auto device() const noexcept { return device_; }

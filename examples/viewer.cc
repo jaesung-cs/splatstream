@@ -1,14 +1,13 @@
-#include <iostream>
-
-#include "vkgs/vkgs.h"
 #include "vkgs/viewer/viewer.h"
 
 int main() {
-  vkgs::Init();
+  vkgs::viewer::Init();
+
   {
     vkgs::viewer::Viewer viewer;
     viewer.Run();
   }
-  vkgs::Terminate();
+
+  vkgs::viewer::Terminate();
   return 0;
 }

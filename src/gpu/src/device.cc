@@ -58,7 +58,7 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 namespace vkgs {
 namespace gpu {
 
-Device::Device() {
+Device::Device(const DeviceCreateInfo& create_info) {
   // Instance
   VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   app_info.pApplicationName = "vkgs";
@@ -78,12 +78,11 @@ Device::Device() {
       "VK_LAYER_KHRONOS_validation",
   };
 
-  std::vector<const char*> extensions = {
-      VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+  std::vector<const char*> extensions = create_info.instance_extensions;
+  extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #ifdef __APPLE__
-      VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+  extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 #endif
-  };
 
   VkInstanceCreateInfo instance_info = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
 #ifdef __APPLE__
