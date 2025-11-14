@@ -6,6 +6,13 @@ find_package(Vulkan REQUIRED)
 include(FetchContent)
 
 FetchContent_Declare(
+  volk
+  GIT_REPOSITORY https://github.com/zeux/volk.git
+  GIT_TAG        f30088b3f4160810b53e19258dd2f7395e5f0ba3  # vulkan-sdk-1.4.328.1
+)
+FetchContent_MakeAvailable(volk)
+
+FetchContent_Declare(
   vma
   GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
   GIT_TAG        1d8f600fd424278486eade7ed3e877c99f0846b1  # v3.3.0
@@ -24,6 +31,7 @@ add_library(vkgs_gpu SHARED
   src/device.cc
   src/fence_pool.cc
   src/fence.cc
+  src/gpu.cc
   src/graphics_pipeline.cc
   src/image.cc
   src/pipeline_layout.cc
@@ -34,6 +42,7 @@ add_library(vkgs_gpu SHARED
   src/task.cc
   src/timer.cc
   src/vma_impl.cc
+  src/volk_impl.cc
 )
 add_library(vkgs::gpu ALIAS vkgs_gpu)
 
@@ -45,12 +54,18 @@ target_include_directories(vkgs_gpu
 )
 
 target_link_libraries(vkgs_gpu
-  PRIVATE
+  PUBLIC
     Vulkan::Vulkan
+  PRIVATE
+    volk::volk_headers
     GPUOpen::VulkanMemoryAllocator
 )
 
-target_compile_definitions(vkgs_gpu PRIVATE VKGS_GPU_EXPORTS)
+target_compile_definitions(vkgs_gpu
+  PRIVATE
+    VKGS_GPU_EXPORTS
+    VK_NO_PROTOTYPES  # to use volk internally, to expose vulkan header only
+)
 
 # TODO: Disables too many warnings from vma (MacOS only)
 #target_compile_options(vkgs_gpu PRIVATE -Wno-nullability-completeness)

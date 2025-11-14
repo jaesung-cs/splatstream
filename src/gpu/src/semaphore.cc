@@ -1,5 +1,7 @@
 #include "vkgs/gpu/semaphore.h"
 
+#include <volk.h>
+
 #include "semaphore_pool.h"
 
 namespace vkgs {

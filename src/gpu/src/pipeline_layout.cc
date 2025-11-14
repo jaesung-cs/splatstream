@@ -1,5 +1,7 @@
 #include "vkgs/gpu/pipeline_layout.h"
 
+#include <volk.h>
+
 namespace vkgs {
 namespace gpu {
 

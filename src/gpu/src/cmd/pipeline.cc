@@ -2,6 +2,8 @@
 
 #include <list>
 
+#include <volk.h>
+
 namespace vkgs {
 namespace gpu {
 namespace cmd {

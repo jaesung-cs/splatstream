@@ -1,5 +1,6 @@
 #include "vkgs/gpu/image.h"
 
+#include <volk.h>
 #include <vk_mem_alloc.h>
 
 #include "vkgs/gpu/device.h"

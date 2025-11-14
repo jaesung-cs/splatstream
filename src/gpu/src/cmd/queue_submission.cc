@@ -1,5 +1,7 @@
 #include "vkgs/gpu/cmd/queue_submission.h"
 
+#include <volk.h>
+
 namespace vkgs {
 namespace gpu {
 namespace cmd {

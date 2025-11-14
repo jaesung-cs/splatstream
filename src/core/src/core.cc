@@ -1,13 +1,13 @@
 #include "vkgs/core/core.h"
 
-#include <volk.h>
+#include "vkgs/gpu/gpu.h"
 
 namespace vkgs {
 namespace core {
 
-void Init() { volkInitialize(); }
+void Init() { gpu::Init(); }
 
-void Terminate() { volkFinalize(); }
+void Terminate() { gpu::Terminate(); }
 
 }  // namespace core
 }  // namespace vkgs

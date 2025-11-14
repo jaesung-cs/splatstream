@@ -26,7 +26,6 @@ class Semaphore;
 
 namespace core {
 
-class Device;
 class GaussianSplats;
 class RenderingTask;
 class Sorter;
@@ -52,8 +51,6 @@ class VKGS_CORE_API Renderer {
                                       uint8_t* dst);
 
  private:
-  std::shared_ptr<Device> core_device_;
-
   std::shared_ptr<gpu::Device> device_;
   std::shared_ptr<gpu::TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;

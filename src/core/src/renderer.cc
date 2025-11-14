@@ -9,7 +9,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "volk.h"
+#include <vulkan/vulkan.h>
 
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/cmd/pipeline.h"
@@ -38,7 +38,6 @@
 #include "generated/splat_frag.h"
 #include "generated/splat_background_vert.h"
 #include "generated/splat_background_frag.h"
-#include "device.h"
 #include "sorter.h"
 #include "compute_storage.h"
 #include "graphics_storage.h"
@@ -69,19 +68,7 @@ namespace vkgs {
 namespace core {
 
 Renderer::Renderer() {
-  core_device_ = std::make_shared<Device>();
-
-  gpu::DeviceCreateInfo device_create_info = {};
-  device_create_info.instance = core_device_->instance();
-  device_create_info.physical_device = core_device_->physical_device();
-  device_create_info.device = core_device_->device();
-  device_create_info.graphics_queue_index = core_device_->graphics_queue_index();
-  device_create_info.compute_queue_index = core_device_->compute_queue_index();
-  device_create_info.transfer_queue_index = core_device_->transfer_queue_index();
-  device_create_info.graphics_queue = core_device_->graphics_queue();
-  device_create_info.compute_queue = core_device_->compute_queue();
-  device_create_info.transfer_queue = core_device_->transfer_queue();
-  device_ = std::make_shared<gpu::Device>(device_create_info);
+  device_ = std::make_shared<gpu::Device>();
 
   task_monitor_ = std::make_shared<gpu::TaskMonitor>();
   sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());

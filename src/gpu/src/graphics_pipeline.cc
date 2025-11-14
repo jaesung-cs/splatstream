@@ -1,5 +1,7 @@
 #include "vkgs/gpu/graphics_pipeline.h"
 
+#include <volk.h>
+
 #include <array>
 
 namespace vkgs {

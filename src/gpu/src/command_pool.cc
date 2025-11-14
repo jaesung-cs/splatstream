@@ -1,5 +1,7 @@
 #include "command_pool.h"
 
+#include <volk.h>
+
 #include "vkgs/gpu/command.h"
 
 namespace vkgs {
