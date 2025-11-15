@@ -134,8 +134,6 @@ void Viewer::Run() {
     }
   }
 
-  device->WaitIdle();
-
   swapchain = nullptr;
 
   ImGui_ImplVulkan_Shutdown();
