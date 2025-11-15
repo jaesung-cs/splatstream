@@ -29,17 +29,14 @@ Swapchain::Swapchain(std::shared_ptr<Device> device, VkSurfaceKHR surface) : dev
     vkCreateImageView(*device_, &view_info, NULL, &image_views_[i]);
   }
 
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < kFrameCount; ++i) {
     VkSemaphoreCreateInfo semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     vkCreateSemaphore(*device_, &semaphore_info, NULL, &render_finished_semaphores_[i]);
+    vkCreateSemaphore(*device_, &semaphore_info, NULL, &image_available_semaphores_[i]);
 
     VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     vkCreateFence(*device_, &fence_info, NULL, &render_finished_fences_[i]);
-  }
-  for (int i = 0; i < 4; ++i) {
-    VkSemaphoreCreateInfo semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    vkCreateSemaphore(*device_, &semaphore_info, NULL, &image_available_semaphores_[i]);
   }
 }
 
@@ -48,11 +45,12 @@ Swapchain::~Swapchain() {
 
   for (int i = 0; i < 3; ++i) {
     vkDestroyImageView(*device_, image_views_[i], NULL);
+  }
+
+  for (int i = 0; i < kFrameCount; ++i) {
+    vkDestroySemaphore(*device_, image_available_semaphores_[i], NULL);
     vkDestroySemaphore(*device_, render_finished_semaphores_[i], NULL);
     vkDestroyFence(*device_, render_finished_fences_[i], NULL);
-  }
-  for (int i = 0; i < 4; ++i) {
-    vkDestroySemaphore(*device_, image_available_semaphores_[i], NULL);
   }
 
   if (swapchain_) vkDestroySwapchainKHR(*device_, swapchain_, NULL);
@@ -61,7 +59,11 @@ Swapchain::~Swapchain() {
 
 PresentImageInfo Swapchain::AcquireNextImage() {
   uint32_t image_index = 0;
+  VkFence render_finished_fence = render_finished_fences_[frame_index_];
+  vkWaitForFences(*device_, 1, &render_finished_fence, VK_TRUE, UINT64_MAX);
+
   VkSemaphore image_available_semaphore = image_available_semaphores_[frame_index_];
+  VkSemaphore render_finished_semaphore = render_finished_semaphores_[frame_index_];
 
   while (true) {
     VkResult result = vkAcquireNextImageKHR(*device_, swapchain_, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE,
@@ -76,11 +78,6 @@ PresentImageInfo Swapchain::AcquireNextImage() {
 
   image_index_ = image_index;
 
-  VkFence render_finished_fence = render_finished_fences_[image_index_];
-  vkWaitForFences(*device_, 1, &render_finished_fence, VK_TRUE, UINT64_MAX);
-
-  VkSemaphore render_finished_semaphore = render_finished_semaphores_[image_index_];
-
   PresentImageInfo present_image_info;
   present_image_info.image_index = image_index;
   present_image_info.image = images_[image_index];
@@ -92,8 +89,8 @@ PresentImageInfo Swapchain::AcquireNextImage() {
 }
 
 void Swapchain::Present() {
-  VkSemaphore render_finished_semaphore = render_finished_semaphores_[image_index_];
-  VkFence render_finished_fence = render_finished_fences_[image_index_];
+  VkSemaphore render_finished_semaphore = render_finished_semaphores_[frame_index_];
+  VkFence render_finished_fence = render_finished_fences_[frame_index_];
 
   vkResetFences(*device_, 1, &render_finished_fence);
 
@@ -110,10 +107,12 @@ void Swapchain::Present() {
   present_info.pImageIndices = &image_index_;
   vkQueuePresentKHR(*device_->graphics_queue(), &present_info);
 
-  frame_index_ = (frame_index_ + 1) % 4;
+  frame_index_ = (frame_index_ + 1) % kFrameCount;
 }
 
-void Swapchain::Wait() const { vkWaitForFences(*device_, 3, render_finished_fences_.data(), VK_TRUE, UINT64_MAX); }
+void Swapchain::Wait() const {
+  vkWaitForFences(*device_, kFrameCount, render_finished_fences_.data(), VK_TRUE, UINT64_MAX);
+}
 
 void Swapchain::Recreate() {
   Wait();

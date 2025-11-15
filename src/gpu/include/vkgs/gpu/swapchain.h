@@ -45,14 +45,14 @@ class VKGS_GPU_API Swapchain {
   VkExtent2D extent_ = {0, 0};
 
   // Present
+  static constexpr uint32_t kFrameCount = 2;
   uint32_t image_index_ = 0;
   uint32_t frame_index_ = 0;
   std::array<VkImage, 3> images_;
   std::array<VkImageView, 3> image_views_;
-  // TODO: max images in flight
-  std::array<VkSemaphore, 4> image_available_semaphores_;
-  std::array<VkSemaphore, 3> render_finished_semaphores_;
-  std::array<VkFence, 3> render_finished_fences_;
+  std::array<VkSemaphore, kFrameCount> image_available_semaphores_;
+  std::array<VkSemaphore, kFrameCount> render_finished_semaphores_;
+  std::array<VkFence, kFrameCount> render_finished_fences_;
 };
 
 }  // namespace gpu
