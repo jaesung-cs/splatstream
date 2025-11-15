@@ -26,6 +26,7 @@ void Init() {
   const char** instance_extensions = glfwGetRequiredInstanceExtensions(&count);
 
   gpu::DeviceCreateInfo device_info;
+  device_info.enable_viewer = true;
   device_info.instance_extensions.assign(instance_extensions, instance_extensions + count);
   gpu::Init(device_info);
 }

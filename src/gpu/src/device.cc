@@ -159,11 +159,11 @@ Device::Device(const DeviceCreateInfo& create_info) {
   queue_create_infos[2].pQueuePriorities = &queue_priority;
 
   std::vector<const char*> device_extensions = {
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 #ifdef __APPLE__
       "VK_KHR_portability_subset",
 #endif
   };
+  if (create_info.enable_viewer) device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
   // VkPhysicalDeviceVulkan13Features
   VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features = {

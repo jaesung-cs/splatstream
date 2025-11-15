@@ -24,6 +24,7 @@ class TaskMonitor;
 class Command;
 
 struct DeviceCreateInfo {
+  bool enable_viewer;
   std::vector<const char*> instance_extensions;
 };
 
