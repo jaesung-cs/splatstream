@@ -10,6 +10,14 @@ QueueSubmission::QueueSubmission() = default;
 
 QueueSubmission::~QueueSubmission() = default;
 
+QueueSubmission& QueueSubmission::Wait(VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
+  VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+  wait_semaphore_info.semaphore = semaphore;
+  wait_semaphore_info.stageMask = stage;
+  wait_semaphore_infos_.push_back(wait_semaphore_info);
+  return *this;
+}
+
 QueueSubmission& QueueSubmission::Wait(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage) {
   VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
   wait_semaphore_info.semaphore = semaphore;
@@ -23,6 +31,14 @@ QueueSubmission& QueueSubmission::Command(VkCommandBuffer cb) {
   VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
   command_buffer_info.commandBuffer = cb;
   command_buffer_infos_.push_back(command_buffer_info);
+  return *this;
+}
+
+QueueSubmission& QueueSubmission::Signal(VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
+  VkSemaphoreSubmitInfo signal_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+  signal_semaphore_info.semaphore = semaphore;
+  signal_semaphore_info.stageMask = stage;
+  signal_semaphore_infos_.push_back(signal_semaphore_info);
   return *this;
 }
 

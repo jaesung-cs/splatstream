@@ -1,0 +1,159 @@
+#include "vkgs/gpu/swapchain.h"
+
+#include <volk.h>
+
+#include "vkgs/gpu/device.h"
+#include "vkgs/gpu/queue.h"
+#include "vulkan/vulkan_core.h"
+
+namespace vkgs {
+namespace gpu {
+
+Swapchain::Swapchain(std::shared_ptr<Device> device, VkSurfaceKHR surface) : device_(device), surface_(surface) {
+  format_ = VK_FORMAT_B8G8R8A8_UNORM;
+
+  VkSwapchainCreateInfoKHR swapchain_info;
+  GetDefaultSwapchainCreateInfo(&swapchain_info);
+  vkCreateSwapchainKHR(*device, &swapchain_info, NULL, &swapchain_);
+  extent_ = swapchain_info.imageExtent;
+
+  uint32_t image_count = 3;
+  vkGetSwapchainImagesKHR(*device_, swapchain_, &image_count, images_.data());
+
+  for (int i = 0; i < 3; ++i) {
+    VkImageViewCreateInfo view_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    view_info.image = images_[i];
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = format_;
+    view_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCreateImageView(*device_, &view_info, NULL, &image_views_[i]);
+  }
+
+  for (int i = 0; i < 3; ++i) {
+    VkSemaphoreCreateInfo semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    vkCreateSemaphore(*device_, &semaphore_info, NULL, &image_available_semaphores_[i]);
+    vkCreateSemaphore(*device_, &semaphore_info, NULL, &render_finished_semaphores_[i]);
+
+    VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    vkCreateFence(*device_, &fence_info, NULL, &render_finished_fences_[i]);
+  }
+}
+
+Swapchain::~Swapchain() {
+  Wait();
+
+  for (int i = 0; i < 3; ++i) {
+    vkDestroyImageView(*device_, image_views_[i], NULL);
+    vkDestroySemaphore(*device_, image_available_semaphores_[i], NULL);
+    vkDestroySemaphore(*device_, render_finished_semaphores_[i], NULL);
+    vkDestroyFence(*device_, render_finished_fences_[i], NULL);
+  }
+
+  if (swapchain_) vkDestroySwapchainKHR(*device_, swapchain_, NULL);
+  vkDestroySurfaceKHR(device_->instance(), surface_, NULL);
+}
+
+PresentImageInfo Swapchain::AcquireNextImage() {
+  uint32_t image_index = 0;
+  VkSemaphore image_available_semaphore = image_available_semaphores_[frame_index_];
+
+  while (true) {
+    VkResult result = vkAcquireNextImageKHR(*device_, swapchain_, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE,
+                                            &image_index);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+      Recreate();
+    } else {
+      break;
+    }
+  }
+
+  image_index_ = image_index;
+  VkSemaphore render_finished_semaphore = render_finished_semaphores_[image_index_];
+
+  PresentImageInfo present_image_info;
+  present_image_info.image_index = image_index;
+  present_image_info.image = images_[image_index];
+  present_image_info.image_view = image_views_[image_index];
+  present_image_info.extent = extent_;
+  present_image_info.image_available_semaphore = image_available_semaphore;
+  present_image_info.render_finished_semaphore = render_finished_semaphore;
+  return present_image_info;
+}
+
+void Swapchain::Present() {
+  VkSemaphore render_finished_semaphore = render_finished_semaphores_[image_index_];
+  VkFence render_finished_fence = render_finished_fences_[image_index_];
+
+  vkWaitForFences(*device_, 1, &render_finished_fence, VK_TRUE, UINT64_MAX);
+  vkResetFences(*device_, 1, &render_finished_fence);
+
+  VkSwapchainPresentFenceInfoKHR fence_info = {VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_KHR};
+  fence_info.swapchainCount = 1;
+  fence_info.pFences = &render_finished_fence;
+
+  VkPresentInfoKHR present_info = {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+  present_info.pNext = &fence_info;
+  present_info.waitSemaphoreCount = 1;
+  present_info.pWaitSemaphores = &render_finished_semaphore;
+  present_info.swapchainCount = 1;
+  present_info.pSwapchains = &swapchain_;
+  present_info.pImageIndices = &image_index_;
+  vkQueuePresentKHR(*device_->graphics_queue(), &present_info);
+
+  frame_index_ = (frame_index_ + 1) % 3;
+}
+
+void Swapchain::Wait() const { vkWaitForFences(*device_, 3, render_finished_fences_.data(), VK_TRUE, UINT64_MAX); }
+
+void Swapchain::Recreate() {
+  Wait();
+
+  VkSwapchainCreateInfoKHR swapchain_info;
+  GetDefaultSwapchainCreateInfo(&swapchain_info);
+  swapchain_info.oldSwapchain = swapchain_;
+
+  VkSwapchainKHR swapchain;
+  vkCreateSwapchainKHR(*device_, &swapchain_info, NULL, &swapchain);
+  vkDestroySwapchainKHR(*device_, swapchain_, NULL);
+  swapchain_ = swapchain;
+  extent_ = swapchain_info.imageExtent;
+
+  uint32_t image_count = 3;
+  vkGetSwapchainImagesKHR(*device_, swapchain_, &image_count, images_.data());
+
+  for (int i = 0; i < 3; ++i) {
+    vkDestroyImageView(*device_, image_views_[i], NULL);
+
+    VkImageViewCreateInfo view_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    view_info.image = images_[i];
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = format_;
+    view_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCreateImageView(*device_, &view_info, NULL, &image_views_[i]);
+  }
+}
+
+void Swapchain::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchain_info) {
+  auto physical_device = device_->physical_device();
+
+  VkSurfaceCapabilitiesKHR surface_capabilities;
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface_, &surface_capabilities);
+
+  *swapchain_info = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+  swapchain_info->surface = surface_;
+  swapchain_info->minImageCount = 3;
+  swapchain_info->imageFormat = format_;
+  swapchain_info->imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+  swapchain_info->imageExtent = surface_capabilities.currentExtent;
+  swapchain_info->imageArrayLayers = 1;
+  swapchain_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  swapchain_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+  swapchain_info->preTransform = surface_capabilities.currentTransform;
+  swapchain_info->presentMode = VK_PRESENT_MODE_FIFO_KHR;
+  swapchain_info->clipped = VK_TRUE;
+}
+
+}  // namespace gpu
+}  // namespace vkgs

@@ -17,10 +17,12 @@ class VKGS_GPU_API QueueSubmission {
   QueueSubmission();
   ~QueueSubmission();
 
+  QueueSubmission& Wait(VkSemaphore semaphore, VkPipelineStageFlags2 stage);
   QueueSubmission& Wait(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage);
 
   QueueSubmission& Command(VkCommandBuffer cb);
 
+  QueueSubmission& Signal(VkSemaphore semaphore, VkPipelineStageFlags2 stage);
   QueueSubmission& Signal(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage);
 
   VkResult Submit(VkQueue queue, VkFence fence);

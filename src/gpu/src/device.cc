@@ -49,7 +49,8 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
       break;
   }
 
-  std::cerr << "Vulkan Validation [" << level << "] [" << type << "] " << callback_data->pMessage << std::endl;
+  std::cerr << "Vulkan Validation [" << level << "] [" << type << "] " << callback_data->pMessage << std::endl
+            << std::endl;
   return VK_FALSE;
 }
 
@@ -156,6 +157,7 @@ Device::Device(const DeviceCreateInfo& create_info) {
   queue_create_infos[2].pQueuePriorities = &queue_priority;
 
   std::vector<const char*> device_extensions = {
+      VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 #ifdef __APPLE__
       "VK_KHR_portability_subset",
 #endif
@@ -188,8 +190,13 @@ Device::Device(const DeviceCreateInfo& create_info) {
   k16bit_storage_features.pNext = &host_query_reset_features;
   k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
 
+  VkPhysicalDeviceSwapchainMaintenance1FeaturesKHR swapchain_maintenance_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_KHR};
+  swapchain_maintenance_features.pNext = &k16bit_storage_features;
+  swapchain_maintenance_features.swapchainMaintenance1 = VK_TRUE;
+
   VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-  device_info.pNext = &k16bit_storage_features;
+  device_info.pNext = &swapchain_maintenance_features;
   device_info.queueCreateInfoCount = queue_create_infos.size();
   device_info.pQueueCreateInfos = queue_create_infos.data();
   device_info.enabledExtensionCount = device_extensions.size();

@@ -16,3 +16,5 @@ generated/
 result/
 test_sh/
 test_random/
+
+imgui.ini

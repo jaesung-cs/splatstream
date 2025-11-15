@@ -38,6 +38,7 @@ add_library(vkgs_gpu SHARED
   src/queue.cc
   src/semaphore_pool.cc
   src/semaphore.cc
+  src/swapchain.cc
   src/task_monitor.cc
   src/task.cc
   src/timer.cc
