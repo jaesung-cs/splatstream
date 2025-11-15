@@ -16,7 +16,6 @@ namespace vkgs {
 namespace gpu {
 
 class Device;
-class TaskMonitor;
 class PipelineLayout;
 class ComputePipeline;
 class GraphicsPipeline;
@@ -52,7 +51,6 @@ class VKGS_CORE_API Renderer {
 
  private:
   std::shared_ptr<gpu::Device> device_;
-  std::shared_ptr<gpu::TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
 
   std::shared_ptr<gpu::PipelineLayout> parse_pipeline_layout_;

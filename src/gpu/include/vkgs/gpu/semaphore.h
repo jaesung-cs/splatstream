@@ -1,8 +1,6 @@
 #ifndef VKGS_GPU_SEMAPHORE_H
 #define VKGS_GPU_SEMAPHORE_H
 
-#include "object.h"
-
 #include <memory>
 
 #include <vulkan/vulkan.h>
@@ -14,10 +12,10 @@ namespace gpu {
 
 class SemaphorePool;
 
-class VKGS_GPU_API Semaphore : public Object {
+class VKGS_GPU_API Semaphore {
  public:
   Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
-  ~Semaphore() override;
+  ~Semaphore();
 
   operator VkSemaphore() const noexcept { return semaphore_; }
   auto value() const noexcept { return value_; }

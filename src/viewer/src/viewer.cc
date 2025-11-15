@@ -14,10 +14,6 @@
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/swapchain.h"
 #include "vkgs/gpu/queue.h"
-#include "vkgs/gpu/command.h"
-#include "vkgs/gpu/fence.h"
-#include "vkgs/gpu/cmd/pipeline.h"
-#include "vkgs/gpu/cmd/queue_submission.h"
 
 namespace vkgs {
 namespace viewer {
@@ -98,49 +94,41 @@ void Viewer::Run() {
       if (!is_minimized) {
         auto present_image_info = swapchain.AcquireNextImage();
 
-        auto fence = device->AllocateFence();
-        auto cb = device->graphics_queue()->AllocateCommandBuffer();
+        device
+            ->GraphicsTask([=](VkCommandBuffer cb) {
+              gpu::cmd::Barrier()
+                  .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
+                  .Commit(cb);
 
-        VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(*cb, &begin_info);
+              // Rendering
+              VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+              color_attachment.imageView = present_image_info.image_view;
+              color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+              color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+              color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+              color_attachment.clearValue.color = {0.f, 0.f, 0.f, 1.f};
+              VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+              rendering_info.renderArea.offset = {0, 0};
+              rendering_info.renderArea.extent = present_image_info.extent;
+              rendering_info.layerCount = 1;
+              rendering_info.colorAttachmentCount = 1;
+              rendering_info.pColorAttachments = &color_attachment;
+              vkCmdBeginRendering(cb, &rendering_info);
 
-        gpu::cmd::Barrier()
-            .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
-            .Commit(*cb);
+              ImGui_ImplVulkan_RenderDrawData(draw_data, cb);
 
-        // Rendering
-        VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-        color_attachment.imageView = present_image_info.image_view;
-        color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        color_attachment.clearValue.color = {0.f, 0.f, 0.f, 1.f};
-        VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-        rendering_info.renderArea.offset = {0, 0};
-        rendering_info.renderArea.extent = present_image_info.extent;
-        rendering_info.layerCount = 1;
-        rendering_info.colorAttachmentCount = 1;
-        rendering_info.pColorAttachments = &color_attachment;
-        vkCmdBeginRendering(*cb, &rendering_info);
+              vkCmdEndRendering(cb);
 
-        ImGui_ImplVulkan_RenderDrawData(draw_data, *cb);
-
-        vkCmdEndRendering(*cb);
-
-        gpu::cmd::Barrier()
-            .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, 0, 0,
-                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, present_image_info.image)
-            .Commit(*cb);
-
-        vkEndCommandBuffer(*cb);
-
-        gpu::cmd::QueueSubmission()
+              gpu::cmd::Barrier()
+                  .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, 0, 0,
+                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                         present_image_info.image)
+                  .Commit(cb);
+            })
             .Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-            .Command(*cb)
             .Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-            .Submit(*device->graphics_queue(), *fence);
+            .Submit();
 
         swapchain.Present();
       }

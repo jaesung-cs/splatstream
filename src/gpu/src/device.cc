@@ -11,6 +11,8 @@
 
 #include "semaphore_pool.h"
 #include "fence_pool.h"
+#include "command.h"
+#include "task_monitor.h"
 
 namespace {
 
@@ -236,6 +238,9 @@ Device::Device(const DeviceCreateInfo& create_info) {
   VmaAllocator allocator;
   vmaCreateAllocator(&allocator_info, &allocator);
   allocator_ = allocator;
+
+  // Task monitor
+  task_monitor_ = std::make_shared<gpu::TaskMonitor>();
 }
 
 Device::~Device() {
@@ -246,6 +251,7 @@ Device::~Device() {
   transfer_queue_ = nullptr;
   semaphore_pool_ = nullptr;
   fence_pool_ = nullptr;
+  task_monitor_ = nullptr;
 
   VmaAllocator allocator = static_cast<VmaAllocator>(allocator_);
   vmaDestroyAllocator(allocator);
@@ -263,5 +269,26 @@ std::shared_ptr<Fence> Device::AllocateFence() { return fence_pool_->Allocate();
 
 void Device::WaitIdle() { vkDeviceWaitIdle(device_); }
 
+QueueSubmission Device::ComputeTask(TaskCallback task_callback, std::function<void()> host_callback) {
+  return PrepareTask(compute_queue_, task_callback, host_callback);
+}
+QueueSubmission Device::GraphicsTask(TaskCallback task_callback, std::function<void()> host_callback) {
+  return PrepareTask(graphics_queue_, task_callback, host_callback);
+}
+QueueSubmission Device::TransferTask(TaskCallback task_callback, std::function<void()> host_callback) {
+  return PrepareTask(transfer_queue_, task_callback, host_callback);
+}
+
+QueueSubmission Device::PrepareTask(std::shared_ptr<Queue> queue, TaskCallback task_callback,
+                                    std::function<void()> host_callback) {
+  // Keep the lifetime of references in task_callback
+  return QueueSubmission(shared_from_this(), queue, std::move(task_callback), std::move(host_callback));
+}
+
+std::shared_ptr<Task> Device::AddTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+                                      std::function<void(VkCommandBuffer)> task_callback,
+                                      std::function<void()> host_callback) {
+  return task_monitor_->Add(fence, command, std::move(task_callback), std::move(host_callback));
+}
 }  // namespace gpu
 }  // namespace vkgs

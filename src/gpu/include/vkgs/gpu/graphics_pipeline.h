@@ -1,8 +1,6 @@
 #ifndef VKGS_GPU_GRAPHICS_PIPELINE_H
 #define VKGS_GPU_GRAPHICS_PIPELINE_H
 
-#include "object.h"
-
 #include <memory>
 #include <vector>
 
@@ -13,7 +11,7 @@
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API GraphicsPipeline : public Object {
+class VKGS_GPU_API GraphicsPipeline {
  public:
   template <size_t N, size_t M>
   static std::shared_ptr<GraphicsPipeline> Create(VkDevice device, VkPipelineLayout pipeline_layout,
@@ -26,7 +24,7 @@ class VKGS_GPU_API GraphicsPipeline : public Object {
                    size_t vertex_shader_size, const uint32_t* fragment_shader, size_t fragment_shader_size,
                    VkFormat format);
 
-  ~GraphicsPipeline() override;
+  ~GraphicsPipeline();
 
   operator VkPipeline() const noexcept { return pipeline_; }
 

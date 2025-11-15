@@ -5,13 +5,16 @@
 namespace vkgs {
 namespace gpu {
 
-Task::Task(std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback)
-    : fence_(std::move(fence)), objects_(std::move(objects)), callback_(std::move(callback)) {}
+Task::Task(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+           std::function<void(VkCommandBuffer)> task_callback, std::function<void()> callback)
+    : fence_(fence), command_(command), task_callback_(task_callback), callback_(callback) {}
 
 Task::~Task() { Wait(); }
 
 bool Task::IsDone() {
   if (fence_->IsSignaled()) {
+    task_callback_ = {};
+
     if (callback_) {
       callback_();
       callback_ = {};
@@ -23,6 +26,7 @@ bool Task::IsDone() {
 
 void Task::Wait() {
   fence_->Wait();
+  task_callback_ = {};
 
   if (callback_) {
     callback_();

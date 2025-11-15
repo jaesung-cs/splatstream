@@ -49,7 +49,8 @@ class VKGS_GPU_API Swapchain {
   uint32_t frame_index_ = 0;
   std::array<VkImage, 3> images_;
   std::array<VkImageView, 3> image_views_;
-  std::array<VkSemaphore, 3> image_available_semaphores_;
+  // TODO: max images in flight
+  std::array<VkSemaphore, 4> image_available_semaphores_;
   std::array<VkSemaphore, 3> render_finished_semaphores_;
   std::array<VkFence, 3> render_finished_fences_;
 };

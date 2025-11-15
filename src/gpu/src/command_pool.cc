@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/command.h"
+#include "command.h"
 
 namespace vkgs {
 namespace gpu {

@@ -23,7 +23,6 @@ FetchContent_MakeAvailable(vma)
 add_library(vkgs_gpu SHARED
   src/cmd/barrier.cc
   src/cmd/pipeline.cc
-  src/cmd/queue_submission.cc
   src/buffer.cc
   src/command_pool.cc
   src/command.cc
@@ -35,6 +34,7 @@ add_library(vkgs_gpu SHARED
   src/graphics_pipeline.cc
   src/image.cc
   src/pipeline_layout.cc
+  src/queue_submission.cc
   src/queue.cc
   src/semaphore_pool.cc
   src/semaphore.cc

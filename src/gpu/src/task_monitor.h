@@ -5,22 +5,22 @@
 #include <vector>
 #include <functional>
 
-#include "export_api.h"
+#include <vulkan/vulkan.h>
 
 namespace vkgs {
 namespace gpu {
 
 class Task;
 class Fence;
-class Object;
+class Command;
 
-class VKGS_GPU_API TaskMonitor {
+class TaskMonitor {
  public:
   TaskMonitor();
   ~TaskMonitor();
 
-  std::shared_ptr<Task> Add(std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Object>> objects,
-                            std::function<void()> callback = {});
+  std::shared_ptr<Task> Add(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+                            std::function<void(VkCommandBuffer)> task_callback, std::function<void()> callback = {});
 
  private:
   void gc();
