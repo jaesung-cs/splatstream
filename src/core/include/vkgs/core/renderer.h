@@ -7,6 +7,7 @@
 #include <string>
 
 #include <glm/glm.hpp>
+#include <vulkan/vulkan.h>
 
 #include "export_api.h"
 
@@ -20,6 +21,7 @@ class PipelineLayout;
 class ComputePipeline;
 class GraphicsPipeline;
 class Semaphore;
+class Timer;
 
 }  // namespace gpu
 
@@ -48,6 +50,30 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
   std::shared_ptr<RenderingTask> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                       uint8_t* dst);
+
+  // Low-level API
+  /**
+   * @brief Update compute storage. Keep the previous storage if storage size is large enough.
+   */
+  void UpdateComputeStorage(std::shared_ptr<ComputeStorage> compute_storage, uint32_t point_count);
+
+  /**
+   * @brief Compute screen splats in compute queue, and release to graphics queue.
+   */
+  void ComputeScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
+                           const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
+                           std::shared_ptr<gpu::Timer> timer = nullptr);
+
+  /**
+   * @brief Acquire screen splats in graphics queue.
+   */
+  void AcquireScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<ComputeStorage> compute_storage);
+
+  /**
+   * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
+   */
+  void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
+                          const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage);
 
  private:
   std::shared_ptr<gpu::Device> device_;

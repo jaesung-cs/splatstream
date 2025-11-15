@@ -14,6 +14,10 @@
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/swapchain.h"
 #include "vkgs/gpu/queue.h"
+#include "vkgs/gpu/semaphore.h"
+#include "vkgs/core/renderer.h"
+#include "vkgs/core/compute_storage.h"
+#include "vkgs/core/gaussian_splats.h"
 
 namespace vkgs {
 namespace viewer {
@@ -76,6 +80,10 @@ void Viewer::Run() {
   init_info.CheckVkResultFn = nullptr;
   ImGui_ImplVulkan_Init(&init_info);
 
+  // TODO: load model
+  auto renderer = std::make_shared<core::Renderer>();
+  auto splats = renderer->LoadFromPly("./test_random/gsplat.ply");
+
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
 
@@ -94,8 +102,35 @@ void Viewer::Run() {
     if (!is_minimized) {
       auto present_image_info = swapchain->AcquireNextImage();
 
+      // TODO: camera
+      core::DrawOptions draw_options = {};
+      draw_options.view = glm::mat4(0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, -10, 1);
+      draw_options.projection =
+          glm::mat4(0.57735027, 0, 0, 0, 0, -0.57735027, 0, 0, 0, 0, -1.0000001, -1, 0, 0, -0.01, 0);
+      draw_options.width = present_image_info.extent.width;
+      draw_options.height = present_image_info.extent.height;
+      draw_options.background = {0.f, 0.f, 0.f};
+      draw_options.eps2d = 0.01f;
+      draw_options.sh_degree = splats->sh_degree();
+
+      // TODO: ring buffer
+      auto compute_storage = std::make_shared<core::ComputeStorage>(device);
+      renderer->UpdateComputeStorage(compute_storage, splats->size());
+      auto csem = device->AllocateSemaphore();
+      auto cval = csem->value();
+      auto gsem = device->AllocateSemaphore();
+      auto gval = gsem->value();
+
+      device
+          ->ComputeTask(
+              [=](VkCommandBuffer cb) { renderer->ComputeScreenSplats(cb, splats, draw_options, compute_storage); })
+          .Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+          .Submit();
+
       device
           ->GraphicsTask([=](VkCommandBuffer cb) {
+            renderer->AcquireScreenSplats(cb, compute_storage);
+
             gpu::cmd::Barrier()
                 .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
@@ -107,7 +142,8 @@ void Viewer::Run() {
             color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            color_attachment.clearValue.color = {0.f, 0.f, 0.f, 1.f};
+            // TODO: background color
+            color_attachment.clearValue.color = {0.f, 0.f, 0.f, 0.f};
             VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
             rendering_info.renderArea.offset = {0, 0};
             rendering_info.renderArea.extent = present_image_info.extent;
@@ -115,6 +151,8 @@ void Viewer::Run() {
             rendering_info.colorAttachmentCount = 1;
             rendering_info.pColorAttachments = &color_attachment;
             vkCmdBeginRendering(cb, &rendering_info);
+
+            renderer->RenderScreenSplats(cb, splats, draw_options, compute_storage);
 
             ImGui_ImplVulkan_RenderDrawData(draw_data, cb);
 
@@ -127,8 +165,15 @@ void Viewer::Run() {
                 .Commit(cb);
           })
           .Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+          .Wait(*csem, cval + 1,
+                VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
+          .Signal(*gsem, gval + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
           .Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
           .Submit();
+
+      csem->Increment();
+      gsem->Increment();
 
       swapchain->Present();
     }

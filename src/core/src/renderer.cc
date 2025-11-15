@@ -26,6 +26,7 @@
 
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendering_task.h"
+#include "vkgs/core/compute_storage.h"
 #include "generated/parse_ply.h"
 #include "generated/parse_data.h"
 #include "generated/rank.h"
@@ -36,7 +37,6 @@
 #include "generated/splat_background_vert.h"
 #include "generated/splat_background_frag.h"
 #include "sorter.h"
-#include "compute_storage.h"
 #include "graphics_storage.h"
 #include "transfer_storage.h"
 #include "struct.h"
@@ -478,21 +478,8 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto opacity = splats->opacity();
   auto index_buffer = splats->index_buffer();
 
-  ComputePushConstants compute_push_constants;
-  compute_push_constants.model = glm::mat4(1.f);
-  compute_push_constants.point_count = N;
-  compute_push_constants.eps2d = draw_options.eps2d;
-  compute_push_constants.sh_degree_data = splats->sh_degree();
-  compute_push_constants.sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree;
-
   GraphicsPushConstants graphics_push_constants;
   graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
-
-  Camera camera_data;
-  camera_data.projection = draw_options.projection;
-  camera_data.view = draw_options.view;
-  camera_data.camera_position = glm::inverse(draw_options.view)[3];
-  camera_data.screen_size = glm::uvec2(width, height);
 
   // Update storages
   const auto& ring_buffer = ring_buffer_[frame_index_ % ring_buffer_.size()];
@@ -506,99 +493,15 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto tsem = ring_buffer.transfer_semaphore;
   auto tval = tsem->value();
 
-  compute_storage->Update(N, sorter_->GetStorageRequirements(N));
+  UpdateComputeStorage(compute_storage, N);
   graphics_storage->Update(width, height);
   transfer_storage->Update(width, height);
-
-  auto visible_point_count = compute_storage->visible_point_count();
-  auto key = compute_storage->key();
-  auto index = compute_storage->index();
-  auto sort_storage = compute_storage->sort_storage();
-  auto inverse_index = compute_storage->inverse_index();
-  auto camera = compute_storage->camera();
-  auto draw_indirect = compute_storage->draw_indirect();
-  auto instances = compute_storage->instances();
-  auto camera_stage = compute_storage->camera_stage();
-
-  std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
 
   auto timer = gpu::Timer::Create(*device_, 3);
 
   // Compute queue
   device_
-      ->ComputeTask([=](VkCommandBuffer cb) {
-        VkBufferCopy region = {0, 0, sizeof(Camera)};
-        vkCmdCopyBuffer(cb, *camera_stage, *camera, 1, &region);
-        vkCmdFillBuffer(cb, *visible_point_count, 0, sizeof(uint32_t), 0);
-        vkCmdFillBuffer(cb, *inverse_index, 0, N * sizeof(uint32_t), -1);
-
-        gpu::cmd::Barrier()
-            .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-            .Commit(cb);
-
-        // Rank
-        gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_);
-        pipeline.Storage(0, *camera)
-            .Storage(1, *position)
-            .Storage(2, *visible_point_count)
-            .Storage(3, *key)
-            .Storage(4, *index)
-            .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
-            .Bind(*rank_pipeline_)
-            .Commit(cb);
-        vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
-
-        // Sort
-        gpu::cmd::Barrier()
-            .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                    VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT)
-            .Commit(cb);
-
-        sorter_->SortKeyValueIndirect(cb, N, *visible_point_count, *key, *index, *sort_storage);
-
-        // Inverse index
-        gpu::cmd::Barrier()
-            .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-            .Commit(cb);
-
-        pipeline.Storage(0, *visible_point_count)
-            .Storage(1, *index)
-            .Storage(2, *inverse_index)
-            .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
-            .Bind(*inverse_index_pipeline_)
-            .Commit(cb);
-        vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
-
-        // Projection
-        gpu::cmd::Barrier()
-            .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-            .Commit(cb);
-
-        pipeline.Storage(0, *camera)
-            .Storage(1, *position)
-            .Storage(2, *cov3d)
-            .Storage(3, *opacity)
-            .Storage(4, *sh)
-            .Storage(5, *visible_point_count)
-            .Storage(6, *inverse_index)
-            .Storage(7, *draw_indirect)
-            .Storage(8, *instances)
-            .Bind(*projection_pipeline_)
-            .Commit(cb);
-        vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
-
-        timer->Record(cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-
-        // Release
-        gpu::cmd::Barrier()
-            .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *instances)
-            .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq, *draw_indirect)
-            .Commit(cb);
-      })
+      ->ComputeTask([=](VkCommandBuffer cb) { ComputeScreenSplats(cb, splats, draw_options, compute_storage, timer); })
       // G[i-2].read before C[i].comp
       .WaitIf(gval >= 2, *gsem, gval - 2 + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT)
       // C[i].comp
@@ -611,12 +514,11 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   // Graphics queue
   device_
       ->GraphicsTask([=](VkCommandBuffer cb) {
+        // Acquire
+        AcquireScreenSplats(cb, compute_storage);
+
+        // Layout transition to color attachment
         gpu::cmd::Barrier()
-            // Acquire
-            .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq, *instances)
-            .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
-                     *draw_indirect)
-            // Layout transition to color attachment
             .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                    VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, *image)
             .Commit(cb);
@@ -636,21 +538,12 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         rendering_info.pColorAttachments = &color_attachment;
         vkCmdBeginRendering(cb, &rendering_info);
 
-        gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_);
-        pipeline.Storage(0, *instances)
+        RenderScreenSplats(cb, splats, draw_options, compute_storage);
+
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
             .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
-            .Bind(*splat_pipeline_)
+            .Bind(*splat_background_pipeline_)
             .Commit(cb);
-
-        VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
-        vkCmdSetViewport(cb, 0, 1, &viewport);
-        VkRect2D scissor = {0, 0, width, height};
-        vkCmdSetScissor(cb, 0, 1, &scissor);
-
-        vkCmdBindIndexBuffer(cb, *index_buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cb, *draw_indirect, 0, 1, 0);
-
-        pipeline.Bind(*splat_background_pipeline_).Commit(cb);
         vkCmdDraw(cb, 3, 1, 0, 0);
 
         vkCmdEndRendering(cb);
@@ -743,6 +636,149 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   frame_index_++;
 
   return rendering_task;
+}
+
+void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
+                                   const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
+                                   std::shared_ptr<gpu::Timer> timer) {
+  auto N = splats->size();
+  auto position = splats->position();
+  auto cov3d = splats->cov3d();
+  auto sh = splats->sh();
+  auto opacity = splats->opacity();
+
+  auto visible_point_count = compute_storage->visible_point_count();
+  auto key = compute_storage->key();
+  auto index = compute_storage->index();
+  auto sort_storage = compute_storage->sort_storage();
+  auto inverse_index = compute_storage->inverse_index();
+  auto camera = compute_storage->camera();
+  auto draw_indirect = compute_storage->draw_indirect();
+  auto instances = compute_storage->instances();
+  auto camera_stage = compute_storage->camera_stage();
+
+  ComputePushConstants compute_push_constants;
+  compute_push_constants.model = glm::mat4(1.f);
+  compute_push_constants.point_count = N;
+  compute_push_constants.eps2d = draw_options.eps2d;
+  compute_push_constants.sh_degree_data = splats->sh_degree();
+  compute_push_constants.sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree;
+
+  Camera camera_data;
+  camera_data.projection = draw_options.projection;
+  camera_data.view = draw_options.view;
+  camera_data.camera_position = glm::inverse(draw_options.view)[3];
+  camera_data.screen_size = glm::uvec2(draw_options.width, draw_options.height);
+  std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
+
+  VkBufferCopy region = {0, 0, sizeof(Camera)};
+  vkCmdCopyBuffer(cb, *camera_stage, *camera, 1, &region);
+  vkCmdFillBuffer(cb, *visible_point_count, 0, sizeof(uint32_t), 0);
+  vkCmdFillBuffer(cb, *inverse_index, 0, N * sizeof(uint32_t), -1);
+
+  gpu::cmd::Barrier()
+      .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+              VK_ACCESS_2_SHADER_READ_BIT)
+      .Commit(cb);
+
+  // Rank
+  gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *compute_pipeline_layout_);
+  pipeline.Storage(0, *camera)
+      .Storage(1, *position)
+      .Storage(2, *visible_point_count)
+      .Storage(3, *key)
+      .Storage(4, *index)
+      .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+      .Bind(*rank_pipeline_)
+      .Commit(cb);
+  vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
+
+  // Sort
+  gpu::cmd::Barrier()
+      .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+              VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+              VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT)
+      .Commit(cb);
+
+  sorter_->SortKeyValueIndirect(cb, N, *visible_point_count, *key, *index, *sort_storage);
+
+  // Inverse index
+  gpu::cmd::Barrier()
+      .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+              VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+      .Commit(cb);
+
+  pipeline.Storage(0, *visible_point_count)
+      .Storage(1, *index)
+      .Storage(2, *inverse_index)
+      .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+      .Bind(*inverse_index_pipeline_)
+      .Commit(cb);
+  vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
+
+  // Projection
+  gpu::cmd::Barrier()
+      .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+              VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
+      .Commit(cb);
+
+  pipeline.Storage(0, *camera)
+      .Storage(1, *position)
+      .Storage(2, *cov3d)
+      .Storage(3, *opacity)
+      .Storage(4, *sh)
+      .Storage(5, *visible_point_count)
+      .Storage(6, *inverse_index)
+      .Storage(7, *draw_indirect)
+      .Storage(8, *instances)
+      .Bind(*projection_pipeline_)
+      .Commit(cb);
+  vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
+
+  if (timer) {
+    timer->Record(cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+  }
+
+  // Release
+  gpu::cmd::Barrier()
+      .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
+               graphics_queue_index(), *instances)
+      .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
+               graphics_queue_index(), *draw_indirect)
+      .Commit(cb);
+}
+
+void Renderer::UpdateComputeStorage(std::shared_ptr<ComputeStorage> compute_storage, uint32_t point_count) {
+  auto requirements = sorter_->GetStorageRequirements(point_count);
+  compute_storage->Update(point_count, requirements.usage, requirements.size);
+}
+
+void Renderer::AcquireScreenSplats(VkCommandBuffer cb, std::shared_ptr<ComputeStorage> compute_storage) {
+  gpu::cmd::Barrier()
+      .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, compute_queue_index(),
+               graphics_queue_index(), *compute_storage->instances())
+      .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, compute_queue_index(),
+               graphics_queue_index(), *compute_storage->draw_indirect())
+      .Commit(cb);
+}
+
+void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
+                                  const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage) {
+  uint32_t width = draw_options.width;
+  uint32_t height = draw_options.height;
+
+  gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
+      .Storage(0, *compute_storage->instances())
+      .Bind(*splat_pipeline_)
+      .Commit(cb);
+
+  VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
+  vkCmdSetViewport(cb, 0, 1, &viewport);
+  VkRect2D scissor = {0, 0, width, height};
+  vkCmdSetScissor(cb, 0, 1, &scissor);
+
+  vkCmdBindIndexBuffer(cb, *splats->index_buffer(), 0, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexedIndirect(cb, *compute_storage->draw_indirect(), 0, 1, 0);
 }
 
 }  // namespace core

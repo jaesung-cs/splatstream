@@ -1,6 +1,8 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+find_package(Vulkan REQUIRED)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -39,6 +41,7 @@ target_include_directories(vkgs_core
 
 target_link_libraries(vkgs_core
   PUBLIC
+    Vulkan::Vulkan
     glm::glm
   PRIVATE
     vkgs::gpu

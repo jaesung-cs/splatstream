@@ -4,7 +4,9 @@
 #include <memory>
 #include <cstdint>
 
-#include "vk_radix_sort.h"
+#include <vulkan/vulkan.h>
+
+#include "export_api.h"
 
 namespace vkgs {
 namespace gpu {
@@ -16,7 +18,7 @@ class Buffer;
 
 namespace core {
 
-class ComputeStorage {
+class VKGS_CORE_API ComputeStorage {
  public:
   ComputeStorage(std::shared_ptr<gpu::Device> device);
   ~ComputeStorage();
@@ -31,7 +33,7 @@ class ComputeStorage {
   auto inverse_index() const noexcept { return inverse_index_; }
   auto instances() const noexcept { return instances_; }
 
-  void Update(uint32_t point_count, const VrdxSorterStorageRequirements& storage_requirements);
+  void Update(uint32_t point_count, VkBufferUsageFlags usage, VkDeviceSize size);
 
  private:
   std::shared_ptr<gpu::Device> device_;
