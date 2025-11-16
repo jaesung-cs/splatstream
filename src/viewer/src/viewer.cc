@@ -281,10 +281,17 @@ void Viewer::Run() {
             // subpass 2: blend
             {
               VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
-              std::array<uint32_t, 3> locations = {0, 1, 2};
+              std::array<uint32_t, 3> locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
               location_info.colorAttachmentCount = locations.size();
               location_info.pColorAttachmentLocations = locations.data();
               vkCmdSetRenderingAttachmentLocations(cb, &location_info);
+
+              VkRenderingInputAttachmentIndexInfo input_attachment_index_info = {
+                  VK_STRUCTURE_TYPE_RENDERING_INPUT_ATTACHMENT_INDEX_INFO};
+              std::array<uint32_t, 3> input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
+              input_attachment_index_info.colorAttachmentCount = input_indices.size();
+              input_attachment_index_info.pColorAttachmentInputIndices = input_indices.data();
+              vkCmdSetRenderingInputAttachmentIndices(cb, &input_attachment_index_info);
             }
 
             gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)

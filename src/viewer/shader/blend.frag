@@ -1,7 +1,7 @@
 #version 460 core
 
-layout (input_attachment_index = 1, binding = 0) uniform subpassInput image_scene;
-layout (input_attachment_index = 2, binding = 1) uniform subpassInput image_splat;
+layout (input_attachment_index = 0, binding = 0) uniform subpassInput image_scene;
+layout (input_attachment_index = 1, binding = 1) uniform subpassInput image_splat;
 
 layout (location = 0) out vec4 out_color;
 
