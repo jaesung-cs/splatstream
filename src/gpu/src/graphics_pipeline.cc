@@ -1,11 +1,44 @@
 #include "vkgs/gpu/graphics_pipeline.h"
 
+#include <map>
 #include <array>
 
 #include <volk.h>
 
 namespace vkgs {
 namespace gpu {
+namespace {
+
+bool operator!=(const ShaderCode& lhs, const ShaderCode& rhs) { return lhs.size != rhs.size || lhs.data != rhs.data; }
+bool operator<(const ShaderCode& lhs, const ShaderCode& rhs) {
+  return lhs.size != rhs.size ? lhs.size < rhs.size : lhs.data < rhs.data;
+}
+
+struct GraphicsPipelineCreateInfoLess {
+  bool operator()(const GraphicsPipelineCreateInfo& lhs, const GraphicsPipelineCreateInfo& rhs) const {
+    if (lhs.pipeline_layout != rhs.pipeline_layout) return lhs.pipeline_layout < rhs.pipeline_layout;
+    if (lhs.vertex_shader != rhs.vertex_shader) return lhs.vertex_shader < rhs.vertex_shader;
+    if (lhs.fragment_shader != rhs.fragment_shader) return lhs.fragment_shader < rhs.fragment_shader;
+    if (lhs.formats.size() != rhs.formats.size()) return lhs.formats.size() < rhs.formats.size();
+    for (size_t i = 0; i < lhs.formats.size(); ++i) {
+      if (lhs.formats[i] != rhs.formats[i]) return lhs.formats[i] < rhs.formats[i];
+    }
+    return false;
+  }
+};
+
+std::map<GraphicsPipelineCreateInfo, std::shared_ptr<GraphicsPipeline>, GraphicsPipelineCreateInfoLess> pipelines;
+
+}  // namespace
+
+std::shared_ptr<GraphicsPipeline> GraphicsPipeline::Create(VkDevice device,
+                                                           const GraphicsPipelineCreateInfo& create_info) {
+  auto it = pipelines.find(create_info);
+  if (it != pipelines.end()) return it->second;
+  return pipelines[create_info] = std::make_shared<GraphicsPipeline>(device, create_info);
+}
+
+void GraphicsPipeline::Terminate() { pipelines.clear(); }
 
 GraphicsPipeline::GraphicsPipeline(VkDevice device, const GraphicsPipelineCreateInfo& create_info) : device_(device) {
   // TODO: pipeline cache.
@@ -57,19 +90,20 @@ GraphicsPipeline::GraphicsPipeline(VkDevice device, const GraphicsPipelineCreate
   VkPipelineMultisampleStateCreateInfo multisample_state = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
   multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-  std::array<VkPipelineColorBlendAttachmentState, 3> color_attachments;
-  color_attachments[0] = {};
-  color_attachments[0].blendEnable = VK_TRUE;
-  color_attachments[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-  color_attachments[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-  color_attachments[0].colorBlendOp = VK_BLEND_OP_ADD;
-  color_attachments[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-  color_attachments[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-  color_attachments[0].alphaBlendOp = VK_BLEND_OP_ADD;
-  color_attachments[0].colorWriteMask =
-      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-  color_attachments[1] = color_attachments[0];
-  color_attachments[2] = color_attachments[0];
+  // TODO: blend equation
+  std::vector<VkPipelineColorBlendAttachmentState> color_attachments(create_info.formats.size());
+  for (auto& color_attachment : color_attachments) {
+    color_attachment = {};
+    color_attachment.blendEnable = VK_TRUE;
+    color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+    color_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+    color_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    color_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    color_attachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  }
 
   VkPipelineColorBlendStateCreateInfo color_blend_state = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
   color_blend_state.attachmentCount = color_attachments.size();

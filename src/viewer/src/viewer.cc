@@ -72,6 +72,7 @@ void Viewer::Run() {
   VkFormat swapchain_format = swapchain->format();
   VkFormat low_format = VK_FORMAT_B8G8R8A8_UNORM;
   VkFormat high_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+  std::vector<VkFormat> formats = {swapchain_format, low_format, high_format};
 
   // Blend pipeline
   graphics_pipeline_layout_ =
@@ -82,7 +83,7 @@ void Viewer::Run() {
   blend_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
   blend_pipeline_info.vertex_shader = gpu::ShaderCode(blend_vert);
   blend_pipeline_info.fragment_shader = gpu::ShaderCode(blend_frag);
-  blend_pipeline_info.formats = {swapchain_format, low_format, high_format};
+  blend_pipeline_info.formats = formats;
   blend_pipeline_ = gpu::GraphicsPipeline::Create(*device, blend_pipeline_info);
 
   // ImGui rendering
@@ -276,7 +277,7 @@ void Viewer::Run() {
               location_info.pColorAttachmentLocations = locations.data();
               vkCmdSetRenderingAttachmentLocations(cb, &location_info);
             }
-            renderer->RenderScreenSplats(cb, splats, draw_options, compute_storage);
+            renderer->RenderScreenSplats(cb, splats, draw_options, compute_storage, formats);
 
             // subpass 2: blend
             {

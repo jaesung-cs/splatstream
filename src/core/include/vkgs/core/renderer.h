@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
@@ -73,7 +74,8 @@ class VKGS_CORE_API Renderer {
    * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
    */
   void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
-                          const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage);
+                          const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
+                          std::vector<VkFormat> formats);
 
  private:
   std::shared_ptr<gpu::Device> device_;
@@ -89,7 +91,6 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<gpu::ComputePipeline> projection_pipeline_;
 
   std::shared_ptr<gpu::PipelineLayout> graphics_pipeline_layout_;
-  std::shared_ptr<gpu::GraphicsPipeline> splat_pipeline_;
   std::shared_ptr<gpu::GraphicsPipeline> splat_background_pipeline_;
 
   struct RingBuffer {

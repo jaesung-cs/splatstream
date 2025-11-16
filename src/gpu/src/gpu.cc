@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include "vkgs/gpu/device.h"
+#include "vkgs/gpu/graphics_pipeline.h"
 
 namespace vkgs {
 namespace gpu {
@@ -20,7 +21,8 @@ void Init(const DeviceCreateInfo& device_info) {
 }
 
 void Terminate() {
-  device = {};
+  GraphicsPipeline::Terminate();
+  device = nullptr;
   volkFinalize();
 }
 

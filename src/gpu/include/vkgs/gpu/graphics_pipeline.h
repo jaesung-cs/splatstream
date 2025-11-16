@@ -10,6 +10,7 @@
 
 namespace vkgs {
 namespace gpu {
+
 struct VKGS_GPU_API ShaderCode {
   ShaderCode() {}
 
@@ -26,11 +27,11 @@ struct GraphicsPipelineCreateInfo {
   ShaderCode fragment_shader;
   std::vector<VkFormat> formats;
 };
+
 class VKGS_GPU_API GraphicsPipeline {
  public:
-  static std::shared_ptr<GraphicsPipeline> Create(VkDevice device, const GraphicsPipelineCreateInfo& create_info) {
-    return std::make_shared<GraphicsPipeline>(device, create_info);
-  }
+  static std::shared_ptr<GraphicsPipeline> Create(VkDevice device, const GraphicsPipelineCreateInfo& create_info);
+  static void Terminate();
 
   GraphicsPipeline(VkDevice device, const GraphicsPipelineCreateInfo& create_info);
 
