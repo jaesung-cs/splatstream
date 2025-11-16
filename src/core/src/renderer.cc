@@ -192,9 +192,9 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   parse_data_push_constants.sh_degree = sh_degree;
 
   auto sem = device_->AllocateSemaphore();
-  auto tq = device_->transfer_queue();
-  auto cq = device_->compute_queue();
-  auto gq = device_->graphics_queue();
+  auto tq = device_->transfer_queue_index();
+  auto cq = device_->compute_queue_index();
+  auto gq = device_->graphics_queue_index();
 
   std::shared_ptr<gpu::Task> task;
 
@@ -215,12 +215,12 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
         vkCmdCopyBuffer(cb, *index_stage, *index_buffer, 1, &region);
 
         gpu::cmd::Barrier()
-            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *position)
-            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *quats)
-            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *scales)
-            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *colors)
-            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *opacity)
-            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *gq, *index_buffer)
+            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *position)
+            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *quats)
+            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *scales)
+            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *colors)
+            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *opacity)
+            .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, *index_buffer)
             .Commit(cb);
       })
       .Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -230,11 +230,11 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   device_
       ->ComputeTask([=](VkCommandBuffer cb) {
         gpu::cmd::Barrier()
-            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *position)
-            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *quats)
-            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *scales)
-            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *colors)
-            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *tq, *cq, *opacity)
+            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *position)
+            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *quats)
+            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *scales)
+            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *colors)
+            .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *opacity)
             .Commit(cb);
 
         gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_)
@@ -260,7 +260,7 @@ std::shared_ptr<GaussianSplats> Renderer::CreateGaussianSplats(size_t size, cons
   device_
       ->GraphicsTask([=](VkCommandBuffer cb) {
         gpu::cmd::Barrier()
-            .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, *tq, *gq, *index_buffer)
+            .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, *index_buffer)
             .Commit(cb);
       })
       .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT)
@@ -395,10 +395,9 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
 
   auto sem = device_->AllocateSemaphore();
-
-  auto cq = device_->compute_queue();
-  auto gq = device_->graphics_queue();
-  auto tq = device_->transfer_queue();
+  auto tq = device_->transfer_queue_index();
+  auto cq = device_->compute_queue_index();
+  auto gq = device_->graphics_queue_index();
 
   // Transfer queue: stage to buffers
   auto task =
@@ -411,8 +410,8 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
             vkCmdCopyBuffer(cb, *index_stage, *index_buffer, 1, &region);
 
             gpu::cmd::Barrier()
-                .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *ply_buffer)
-                .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *gq, *index_buffer)
+                .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *ply_buffer)
+                .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, *index_buffer)
                 .Commit(cb);
           })
           .Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -422,7 +421,7 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   device_
       ->ComputeTask([=](VkCommandBuffer cb) {
         gpu::cmd::Barrier()
-            .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, *tq, *cq, *ply_buffer)
+            .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *ply_buffer)
             .Commit(cb);
 
         // ply_buffer -> gaussian_splats
@@ -449,7 +448,7 @@ std::shared_ptr<GaussianSplats> Renderer::LoadFromPly(const std::string& path, i
   device_
       ->GraphicsTask([=](VkCommandBuffer cb) {
         gpu::cmd::Barrier()
-            .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, *tq, *gq, *index_buffer)
+            .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, *index_buffer)
             .Commit(cb);
       })
       .Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -467,19 +466,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   uint32_t width = draw_options.width;
   uint32_t height = draw_options.height;
 
-  auto cq = device_->compute_queue();
-  auto gq = device_->graphics_queue();
-  auto tq = device_->transfer_queue();
-
   auto N = splats->size();
-  auto position = splats->position();
-  auto cov3d = splats->cov3d();
-  auto sh = splats->sh();
-  auto opacity = splats->opacity();
-  auto index_buffer = splats->index_buffer();
-
-  GraphicsPushConstants graphics_push_constants;
-  graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
 
   // Update storages
   const auto& ring_buffer = ring_buffer_[frame_index_ % ring_buffer_.size()];
@@ -492,6 +479,10 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto gval = gsem->value();
   auto tsem = ring_buffer.transfer_semaphore;
   auto tval = tsem->value();
+
+  auto cq = device_->compute_queue_index();
+  auto gq = device_->graphics_queue_index();
+  auto tq = device_->transfer_queue_index();
 
   UpdateComputeStorage(compute_storage, N);
   graphics_storage->Update(width, height);
@@ -514,6 +505,9 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   // Graphics queue
   device_
       ->GraphicsTask([=](VkCommandBuffer cb) {
+        GraphicsPushConstants graphics_push_constants;
+        graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
+
         // Acquire
         AcquireScreenSplats(cb, compute_storage);
 
@@ -572,7 +566,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         // Layout transition to transfer src, and release
         gpu::cmd::Barrier()
             .Release(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq, *image_u8)
+                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq, *image_u8)
             .Commit(cb);
       })
       // C[i].comp before G[i].read
@@ -596,7 +590,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
               [=](VkCommandBuffer cb) {
                 gpu::cmd::Barrier()
                     .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
-                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *gq, *tq,
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq,
                              *image_u8)
                     .Commit(cb);
 
