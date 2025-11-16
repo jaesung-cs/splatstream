@@ -202,7 +202,7 @@ void main() {
   // translation and clip
   color = max(color + 0.5f, 0.f);
 
-  const float confidence_radius = 3.33f;
+  const float confidence_radius = 3.5f;
   float radius = sqrt(max(confidence_radius * confidence_radius + 2.f * log(opacity * compensation), 0.f));
 
   instances[inverse_id * 3 + 0] = vec4(pos.xyz, radius);
