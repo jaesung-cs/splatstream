@@ -19,6 +19,7 @@ FetchContent_MakeAvailable(glfw)
 
 add_library(vkgs_viewer SHARED
   src/viewer.cc
+  src/camera.cc
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp
   ${imgui_SOURCE_DIR}/imgui_tables.cpp

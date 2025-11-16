@@ -1,6 +1,5 @@
 #include "vkgs/viewer/viewer.h"
 
-#include <iostream>
 #include <stdexcept>
 
 #include <vulkan/vulkan.h>
@@ -18,6 +17,8 @@
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/compute_storage.h"
 #include "vkgs/core/gaussian_splats.h"
+
+#include "camera.h"
 
 namespace vkgs {
 namespace viewer {
@@ -82,10 +83,64 @@ void Viewer::Run() {
 
   // TODO: load model
   auto renderer = std::make_shared<core::Renderer>();
-  auto splats = renderer->LoadFromPly("./test_random/gsplat.ply");
+  auto splats = renderer->LoadFromPly("./models/bonsai_30000.ply");
+
+  auto camera = std::make_shared<Camera>();
 
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
+
+    const auto& io = ImGui::GetIO();
+
+    // handle events
+    if (!io.WantCaptureMouse) {
+      bool left = io.MouseDown[ImGuiMouseButton_Left];
+      bool right = io.MouseDown[ImGuiMouseButton_Right];
+      bool ctrl = ImGui::IsKeyDown(ImGuiKey::ImGuiMod_Ctrl);
+      float dx = io.MouseDelta.x;
+      float dy = io.MouseDelta.y;
+
+      if (left && !right) {
+        // ctrl + drag for translation, otherwise rotate
+        if (ctrl) {
+          camera->Translate(dx, dy);
+        } else {
+          camera->Rotate(dx, dy);
+        }
+      } else if (!left && right) {
+        camera->Translate(dx, dy);
+      } else if (left && right) {
+        camera->Zoom(dy);
+      }
+
+      if (io.MouseWheel != 0.f) {
+        if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+          camera->DollyZoom(io.MouseWheel);
+        } else {
+          camera->Zoom(io.MouseWheel * 10.f);
+        }
+      }
+    }
+
+    if (!io.WantCaptureKeyboard) {
+      constexpr float speed = 1000.f;
+      float dt = io.DeltaTime;
+      if (ImGui::IsKeyDown(ImGuiKey_W)) {
+        camera->Translate(0.f, 0.f, speed * dt);
+      }
+      if (ImGui::IsKeyDown(ImGuiKey_S)) {
+        camera->Translate(0.f, 0.f, -speed * dt);
+      }
+      if (ImGui::IsKeyDown(ImGuiKey_A)) {
+        camera->Translate(speed * dt, 0.f);
+      }
+      if (ImGui::IsKeyDown(ImGuiKey_D)) {
+        camera->Translate(-speed * dt, 0.f);
+      }
+      if (ImGui::IsKeyDown(ImGuiKey_Space)) {
+        camera->Translate(0.f, speed * dt);
+      }
+    }
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -102,11 +157,11 @@ void Viewer::Run() {
     if (!is_minimized) {
       auto present_image_info = swapchain->AcquireNextImage();
 
-      // TODO: camera
+      camera->SetWindowSize(present_image_info.extent.width, present_image_info.extent.height);
+
       core::DrawOptions draw_options = {};
-      draw_options.view = glm::mat4(0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, -10, 1);
-      draw_options.projection =
-          glm::mat4(0.57735027, 0, 0, 0, 0, -0.57735027, 0, 0, 0, 0, -1.0000001, -1, 0, 0, -0.01, 0);
+      draw_options.view = camera->ViewMatrix();
+      draw_options.projection = camera->ProjectionMatrix();
       draw_options.width = present_image_info.extent.width;
       draw_options.height = present_image_info.extent.height;
       draw_options.background = {0.f, 0.f, 0.f};
