@@ -154,3 +154,20 @@ All together, here shows a diagram demonstrating dependency chains for i, i+N, i
 Each queue submission is represented within `[]`. The semaphores are depicted with arrows, representing 3 different timeline semaphores C, G, T and its their stages 0 for C, T and 0, 1 for G.
 
 In a random splat scene, double buffering (N=2) is 10% faster than single buffer (N=1). Triple buffering (N=3) is just the same as double buffering in throughput.
+
+## Dynamic Rendering
+Dynamic rendering (`VK_KHR_dynamic_rendering` and `VK_KHR_dynamic_rendering_local_read`) is a recent feature that was promoted to 1.4 and makes the rendering process and management of objects much easier.
+
+Like drawing general scenes where opaque objects are rendered first then transparent objects, we want to draw the opaque scene first to update color and depth buffer, and then Gaussian splattings over the scene. So, the opaque scene is drawn in subpass 0, and gaussian splattings are drawn in subpass 1.
+
+One crucial point is that we need at least float16 image for the image quality of Gaussian splatting. So, rendering Gaussian splattings over the color image of 8-bit precision `B8G8R8A8_UNORM` isn't what we want. Instead, the splats are rendered on a transient image of `R16G16B16A16_SFLOAT` and then blended in subpass 2.
+- Attachment 0: swapchain image (`B8G8R8A8_UNORM`)
+- Attachment 1: opaque image (`B8G8R8A8_UNORM`, transient)
+- Attachment 2: Gaussian splat image (`R16G16B16A16_SFLOAT`, transient)
+- Depth attachment (WIP)
+- Subpass 0: draw opaque scene to Attachment 1, with depth attachment read/write.
+- Subpass 1: draw Gaussian splats to Attachment 2, with depth attachment read (depth test only).
+- Subpass 2: blend pixel colors of input Attachment 1 and 2 to Attachment 0.
+
+ImGui's dynamic rendering is partially supported, in that multiple attachments are not available for now.
+So, UI is rendered to the swapchain image in a separate render pass.
