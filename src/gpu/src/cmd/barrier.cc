@@ -6,7 +6,7 @@ namespace vkgs {
 namespace gpu {
 namespace cmd {
 
-Barrier::Barrier() = default;
+Barrier::Barrier(VkDependencyFlags dependency_flags) : dependency_flags_(dependency_flags) {}
 
 Barrier::~Barrier() = default;
 
@@ -98,6 +98,7 @@ Barrier& Barrier::Image(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_acce
 
 void Barrier::Commit(VkCommandBuffer cb) {
   VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+  dependency_info.dependencyFlags = dependency_flags_;
   dependency_info.memoryBarrierCount = memory_barriers_.size();
   dependency_info.pMemoryBarriers = memory_barriers_.data();
   dependency_info.bufferMemoryBarrierCount = buffer_barriers_.size();

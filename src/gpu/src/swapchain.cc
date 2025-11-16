@@ -10,8 +10,7 @@ namespace vkgs {
 namespace gpu {
 
 Swapchain::Swapchain(std::shared_ptr<Device> device, VkSurfaceKHR surface) : device_(device), surface_(surface) {
-  // TODO: swapchain format
-  format_ = VK_FORMAT_R16G16B16A16_SFLOAT;
+  format_ = VK_FORMAT_B8G8R8A8_UNORM;
 
   VkSwapchainCreateInfoKHR swapchain_info;
   GetDefaultSwapchainCreateInfo(&swapchain_info);

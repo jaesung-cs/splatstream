@@ -111,11 +111,22 @@ Renderer::Renderer() {
   graphics_pipeline_layout_ =
       gpu::PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
                                   {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(GraphicsPushConstants)}});
-  splat_pipeline_ = gpu::GraphicsPipeline::Create(*device_, *graphics_pipeline_layout_, splat_vert, splat_frag,
-                                                  VK_FORMAT_R16G16B16A16_SFLOAT);
-  splat_background_pipeline_ =
-      gpu::GraphicsPipeline::Create(*device_, *graphics_pipeline_layout_, splat_background_vert, splat_background_frag,
-                                    VK_FORMAT_R16G16B16A16_SFLOAT);
+
+  // TODO: switch between viewer mode and transfer mode
+  gpu::GraphicsPipelineCreateInfo splat_pipeline_info = {};
+  splat_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
+  splat_pipeline_info.vertex_shader = gpu::ShaderCode(splat_vert);
+  splat_pipeline_info.fragment_shader = gpu::ShaderCode(splat_frag);
+  splat_pipeline_info.formats = {VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT};
+  splat_pipeline_ = gpu::GraphicsPipeline::Create(*device_, splat_pipeline_info);
+
+  gpu::GraphicsPipelineCreateInfo splat_background_pipeline_info = {};
+  splat_background_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
+  splat_background_pipeline_info.vertex_shader = gpu::ShaderCode(splat_background_vert);
+  splat_background_pipeline_info.fragment_shader = gpu::ShaderCode(splat_background_frag);
+  splat_background_pipeline_info.formats = {VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_UNORM,
+                                            VK_FORMAT_R16G16B16A16_SFLOAT};
+  splat_background_pipeline_ = gpu::GraphicsPipeline::Create(*device_, splat_background_pipeline_info);
 }
 
 Renderer::~Renderer() = default;
@@ -758,18 +769,10 @@ void Renderer::AcquireScreenSplats(VkCommandBuffer cb, std::shared_ptr<ComputeSt
 
 void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
                                   const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage) {
-  uint32_t width = draw_options.width;
-  uint32_t height = draw_options.height;
-
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
       .Storage(0, *compute_storage->instances())
       .Bind(*splat_pipeline_)
       .Commit(cb);
-
-  VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
-  vkCmdSetViewport(cb, 0, 1, &viewport);
-  VkRect2D scissor = {0, 0, width, height};
-  vkCmdSetScissor(cb, 0, 1, &scissor);
 
   vkCmdBindIndexBuffer(cb, *splats->index_buffer(), 0, VK_INDEX_TYPE_UINT32);
   vkCmdDrawIndexedIndirect(cb, *compute_storage->draw_indirect(), 0, 1, 0);

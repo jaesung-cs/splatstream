@@ -50,6 +50,9 @@ target_compile_definitions(vkgs_viewer
     VKGS_VIEWER_EXPORTS
 )
 
+add_shader(vkgs_viewer shader/blend.frag blend_frag)
+add_shader(vkgs_viewer shader/blend.vert blend_vert)
+
 set_target_properties(vkgs_viewer PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
   LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib

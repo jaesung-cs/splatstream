@@ -22,6 +22,8 @@ class VKGS_GPU_API Pipeline {
 
   Pipeline& Uniform(int binding, VkBuffer buffer);
 
+  Pipeline& Input(int binding, VkImageView image_view, VkImageLayout layout);
+
   Pipeline& PushConstant(VkShaderStageFlags stage, uint32_t offset, uint32_t size, const void* values);
 
   Pipeline& Bind(VkPipeline pipeline);
@@ -32,11 +34,18 @@ class VKGS_GPU_API Pipeline {
   VkPipelineBindPoint bind_point_;
   VkPipelineLayout layout_;
 
-  struct DescriptorInfo {
+  struct BufferDescriptorInfo {
     VkDescriptorType type;
     VkBuffer buffer;
   };
-  std::map<int, DescriptorInfo> descriptors_;
+  std::map<int, BufferDescriptorInfo> buffer_descriptors_;
+
+  struct ImageDescriptorInfo {
+    VkDescriptorType type;
+    VkImageView image_view;
+    VkImageLayout layout;
+  };
+  std::map<int, ImageDescriptorInfo> image_descriptors_;
 
   struct PushConstantData {
     VkShaderStageFlags stage;

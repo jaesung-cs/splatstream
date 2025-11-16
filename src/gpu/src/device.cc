@@ -165,9 +165,15 @@ Device::Device(const DeviceCreateInfo& create_info) {
   };
   if (create_info.enable_viewer) device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+  // VkPhysicalDeviceVulkan14Features
+  VkPhysicalDeviceDynamicRenderingLocalReadFeatures dynamic_rendering_local_read_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES};
+  dynamic_rendering_local_read_features.dynamicRenderingLocalRead = VK_TRUE;
+
   // VkPhysicalDeviceVulkan13Features
   VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+  dynamic_rendering_features.pNext = &dynamic_rendering_local_read_features;
   dynamic_rendering_features.dynamicRendering = VK_TRUE;
 
   VkPhysicalDeviceSynchronization2Features synchronization_features = {

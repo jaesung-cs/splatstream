@@ -14,12 +14,17 @@ Pipeline::Pipeline(VkPipelineBindPoint bind_point, VkPipelineLayout layout)
 Pipeline::~Pipeline() = default;
 
 Pipeline& Pipeline::Storage(int binding, VkBuffer buffer) {
-  descriptors_[binding] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer};
+  buffer_descriptors_[binding] = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, buffer};
   return *this;
 }
 
 Pipeline& Pipeline::Uniform(int binding, VkBuffer buffer) {
-  descriptors_[binding] = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, buffer};
+  buffer_descriptors_[binding] = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, buffer};
+  return *this;
+}
+
+Pipeline& Pipeline::Input(int binding, VkImageView image_view, VkImageLayout layout) {
+  image_descriptors_[binding] = {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, image_view, layout};
   return *this;
 }
 
@@ -34,11 +39,13 @@ Pipeline& Pipeline::Bind(VkPipeline pipeline) {
 }
 
 void Pipeline::Commit(VkCommandBuffer cb) {
-  if (descriptors_.size() > 0) {
+  if (buffer_descriptors_.size() > 0 || image_descriptors_.size() > 0) {
     // List so that addresses of previous inserts never be invalidated.
     std::list<VkDescriptorBufferInfo> buffer_infos;
+    std::list<VkDescriptorImageInfo> image_infos;
     std::vector<VkWriteDescriptorSet> writes;
-    for (const auto& [binding, descriptor] : descriptors_) {
+
+    for (const auto& [binding, descriptor] : buffer_descriptors_) {
       auto& buffer_info = buffer_infos.emplace_back();
       buffer_info = {descriptor.buffer, 0, VK_WHOLE_SIZE};
 
@@ -49,6 +56,19 @@ void Pipeline::Commit(VkCommandBuffer cb) {
       write.descriptorCount = 1;
       write.pBufferInfo = &buffer_info;
     }
+
+    for (const auto& [binding, descriptor] : image_descriptors_) {
+      auto& image_info = image_infos.emplace_back();
+      image_info = {VK_NULL_HANDLE, descriptor.image_view, descriptor.layout};
+
+      auto& write = writes.emplace_back();
+      write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+      write.dstBinding = binding;
+      write.descriptorType = descriptor.type;
+      write.descriptorCount = 1;
+      write.pImageInfo = &image_info;
+    }
+
     vkCmdPushDescriptorSet(cb, bind_point_, layout_, 0, writes.size(), writes.data());
   }
 
@@ -60,7 +80,8 @@ void Pipeline::Commit(VkCommandBuffer cb) {
     vkCmdBindPipeline(cb, bind_point_, pipeline_);
   }
 
-  descriptors_.clear();
+  buffer_descriptors_.clear();
+  image_descriptors_.clear();
   push_constants_.clear();
   pipeline_ = VK_NULL_HANDLE;
 }
