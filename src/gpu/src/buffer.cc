@@ -14,7 +14,7 @@ std::shared_ptr<Buffer> Buffer::Create(std::shared_ptr<Device> device, VkBufferU
 }
 
 Buffer::Buffer(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size, bool host)
-    : device_(device), size_(size) {
+    : Object(device), size_(size) {
   VkBufferCreateInfo buffer_info = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
   buffer_info.size = size;
   buffer_info.usage = usage;

@@ -9,7 +9,7 @@ namespace vkgs {
 namespace gpu {
 
 class Buffer;
-class Task;
+class QueueTask;
 
 }  // namespace gpu
 
@@ -20,7 +20,7 @@ class VKGS_CORE_API GaussianSplats {
   GaussianSplats(size_t size, uint32_t sh_degree, std::shared_ptr<gpu::Buffer> position,
                  std::shared_ptr<gpu::Buffer> cov3d, std::shared_ptr<gpu::Buffer> sh,
                  std::shared_ptr<gpu::Buffer> opacity, std::shared_ptr<gpu::Buffer> index,
-                 std::shared_ptr<gpu::Task> task);
+                 std::shared_ptr<gpu::QueueTask> task);
 
   ~GaussianSplats();
 
@@ -42,7 +42,7 @@ class VKGS_CORE_API GaussianSplats {
   std::shared_ptr<gpu::Buffer> sh_;            // (N, K) float16
   std::shared_ptr<gpu::Buffer> opacity_;       // (N)
   std::shared_ptr<gpu::Buffer> index_buffer_;  // (N, 6)
-  std::shared_ptr<gpu::Task> task_;
+  std::shared_ptr<gpu::QueueTask> task_;
 };
 
 }  // namespace core

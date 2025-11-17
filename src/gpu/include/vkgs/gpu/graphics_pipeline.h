@@ -8,8 +8,12 @@
 
 #include "export_api.h"
 
+#include "object.h"
+
 namespace vkgs {
 namespace gpu {
+
+class Device;
 
 struct VKGS_GPU_API ShaderCode {
   ShaderCode() {}
@@ -30,19 +34,19 @@ struct GraphicsPipelineCreateInfo {
   std::vector<uint32_t> input_indices;
 };
 
-class VKGS_GPU_API GraphicsPipeline {
+class VKGS_GPU_API GraphicsPipeline : public Object {
  public:
-  static std::shared_ptr<GraphicsPipeline> Create(VkDevice device, const GraphicsPipelineCreateInfo& create_info);
+  static std::shared_ptr<GraphicsPipeline> Create(std::shared_ptr<Device> device,
+                                                  const GraphicsPipelineCreateInfo& create_info);
   static void Terminate();
 
-  GraphicsPipeline(VkDevice device, const GraphicsPipelineCreateInfo& create_info);
+  GraphicsPipeline(std::shared_ptr<Device> device, const GraphicsPipelineCreateInfo& create_info);
 
-  ~GraphicsPipeline();
+  ~GraphicsPipeline() override;
 
   operator VkPipeline() const noexcept { return pipeline_; }
 
  private:
-  VkDevice device_;
   VkPipeline pipeline_ = VK_NULL_HANDLE;
 };
 

@@ -7,19 +7,21 @@
 
 #include "export_api.h"
 
+#include "object.h"
+
 namespace vkgs {
 namespace gpu {
 
 class Device;
 
-class VKGS_GPU_API Buffer {
+class VKGS_GPU_API Buffer : public Object {
  public:
   static std::shared_ptr<Buffer> Create(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size,
                                         bool host = false);
 
  public:
   Buffer(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
-  ~Buffer();
+  ~Buffer() override;
 
   operator VkBuffer() const noexcept { return buffer_; }
 
@@ -38,8 +40,6 @@ class VKGS_GPU_API Buffer {
   }
 
  private:
-  std::shared_ptr<Device> device_;
-
   VkDeviceSize size_ = 0;
   VkBuffer buffer_ = VK_NULL_HANDLE;
   void* allocation_ = VK_NULL_HANDLE;

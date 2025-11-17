@@ -14,6 +14,7 @@
 #include "vkgs/gpu/swapchain.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
+#include "vkgs/gpu/task.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/cmd/pipeline.h"
@@ -87,7 +88,7 @@ void Viewer::Run() {
   blend_pipeline_info.formats = formats;
   blend_pipeline_info.locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
   blend_pipeline_info.input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
-  blend_pipeline_ = gpu::GraphicsPipeline::Create(*device, blend_pipeline_info);
+  blend_pipeline_ = gpu::GraphicsPipeline::Create(device, blend_pipeline_info);
 
   auto cq = device->compute_queue();
   auto gq = device->graphics_queue();
@@ -214,157 +215,165 @@ void Viewer::Run() {
                                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
                                             VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
 
-      device
-          ->ComputeTask([=](VkCommandBuffer cb) {
-            // Compute
-            renderer->ComputeScreenSplats(cb, splats, draw_options, screen_splats);
+      // Compute queue
+      {
+        gpu::ComputeTask task(device);
+        auto cb = task.command_buffer();
 
-            // Release
-            gpu::cmd::Barrier()
-                .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
-                         *screen_splats->instances())
-                .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
-                         *screen_splats->draw_indirect())
-                .Commit(cb);
-          })
-          .Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
-          .Submit();
+        // Compute
+        renderer->ComputeScreenSplats(cb, splats, draw_options, screen_splats);
 
-      device
-          ->GraphicsTask([=](VkCommandBuffer cb) {
-            gpu::cmd::Barrier()
-                // Acquire
-                .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq,
-                         *screen_splats->instances())
-                .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
-                         *screen_splats->draw_indirect())
-                // Image layout transition
-                .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
-                .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image8)
-                .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image16)
-                .Commit(cb);
+        // Release
+        gpu::cmd::Barrier()
+            .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
+                     *screen_splats->instances())
+            .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
+                     *screen_splats->draw_indirect())
+            .Commit(cb);
 
-            // Rendering
-            std::array<VkRenderingAttachmentInfo, 3> color_attachments;
+        task.Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+      }
 
-            // Present image
-            color_attachments[0] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            color_attachments[0].imageView = present_image_info.image_view;
-            color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            color_attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-            color_attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            color_attachments[0].clearValue.color = {0.f, 0.f, 0.f, 0.f};
-            // Scene image
-            color_attachments[1] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            color_attachments[1].imageView = image8->image_view();
-            color_attachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            color_attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-            color_attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            color_attachments[1].clearValue.color = {0.5f, 0.5f, 0.5f, 1.f};  // TODO: background color
-            // Splats image
-            color_attachments[2] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            color_attachments[2].imageView = image16->image_view();
-            color_attachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            color_attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-            color_attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            color_attachments[2].clearValue.color = {0.f, 0.f, 0.f, 0.f};
-            VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-            rendering_info.renderArea.offset = {0, 0};
-            rendering_info.renderArea.extent = present_image_info.extent;
-            rendering_info.layerCount = 1;
-            rendering_info.colorAttachmentCount = color_attachments.size();
-            rendering_info.pColorAttachments = color_attachments.data();
-            vkCmdBeginRendering(cb, &rendering_info);
+      // Graphics queue
+      {
+        gpu::GraphicsTask task(device);
+        auto cb = task.command_buffer();
 
-            VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
-            vkCmdSetViewport(cb, 0, 1, &viewport);
-            VkRect2D scissor = {0, 0, width, height};
-            vkCmdSetScissor(cb, 0, 1, &scissor);
+        gpu::cmd::Barrier()
+            // Acquire
+            .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq,
+                     *screen_splats->instances())
+            .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
+                     *screen_splats->draw_indirect())
+            // Image layout transition
+            .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
+            .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image8)
+            .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image16)
+            .Commit(cb);
 
-            // subpass 0: render scene
-            // TODO
+        // Rendering
+        std::array<VkRenderingAttachmentInfo, 3> color_attachments;
 
-            // subpass 1: render splats
-            // TODO: wait for depth attachment
-            {
-              // location 0: image16
-              VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
-              std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED, 0};
-              location_info.colorAttachmentCount = locations.size();
-              location_info.pColorAttachmentLocations = locations.data();
-              vkCmdSetRenderingAttachmentLocations(cb, &location_info);
-              renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, locations);
-            }
+        // Present image
+        color_attachments[0] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+        color_attachments[0].imageView = present_image_info.image_view;
+        color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        color_attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachments[0].clearValue.color = {0.f, 0.f, 0.f, 0.f};
+        // Scene image
+        color_attachments[1] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+        color_attachments[1].imageView = image8->image_view();
+        color_attachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        color_attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        color_attachments[1].clearValue.color = {0.5f, 0.5f, 0.5f, 1.f};  // TODO: background color
+        // Splats image
+        color_attachments[2] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+        color_attachments[2].imageView = image16->image_view();
+        color_attachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        color_attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        color_attachments[2].clearValue.color = {0.f, 0.f, 0.f, 0.f};
+        VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+        rendering_info.renderArea.offset = {0, 0};
+        rendering_info.renderArea.extent = present_image_info.extent;
+        rendering_info.layerCount = 1;
+        rendering_info.colorAttachmentCount = color_attachments.size();
+        rendering_info.pColorAttachments = color_attachments.data();
+        vkCmdBeginRendering(cb, &rendering_info);
 
-            // subpass 2: blend
-            gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
-                .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
-                .Commit(cb);
+        VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
+        vkCmdSetViewport(cb, 0, 1, &viewport);
+        VkRect2D scissor = {0, 0, width, height};
+        vkCmdSetScissor(cb, 0, 1, &scissor);
 
-            gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
-                .Input(0, image8->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-                .Input(1, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-                .Bind(*blend_pipeline_)
-                .Commit(cb);
+        // subpass 0: render scene
+        // TODO
 
-            {
-              VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
-              std::array<uint32_t, 3> locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
-              location_info.colorAttachmentCount = locations.size();
-              location_info.pColorAttachmentLocations = locations.data();
-              vkCmdSetRenderingAttachmentLocations(cb, &location_info);
+        // subpass 1: render splats
+        // TODO: wait for depth attachment
+        {
+          // location 0: image16
+          VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
+          std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED, 0};
+          location_info.colorAttachmentCount = locations.size();
+          location_info.pColorAttachmentLocations = locations.data();
+          vkCmdSetRenderingAttachmentLocations(cb, &location_info);
+          renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, locations);
+        }
 
-              VkRenderingInputAttachmentIndexInfo input_attachment_index_info = {
-                  VK_STRUCTURE_TYPE_RENDERING_INPUT_ATTACHMENT_INDEX_INFO};
-              std::array<uint32_t, 3> input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
-              input_attachment_index_info.colorAttachmentCount = input_indices.size();
-              input_attachment_index_info.pColorAttachmentInputIndices = input_indices.data();
-              vkCmdSetRenderingInputAttachmentIndices(cb, &input_attachment_index_info);
-            }
+        // subpass 2: blend
+        gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
+            .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
+            .Commit(cb);
 
-            vkCmdDraw(cb, 3, 1, 0, 0);
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
+            .Input(0, image8->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
+            .Input(1, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
+            .Bind(*blend_pipeline_)
+            .Commit(cb);
 
-            vkCmdEndRendering(cb);
+        {
+          VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
+          std::array<uint32_t, 3> locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
+          location_info.colorAttachmentCount = locations.size();
+          location_info.pColorAttachmentLocations = locations.data();
+          vkCmdSetRenderingAttachmentLocations(cb, &location_info);
 
-            // Wait for color attachment write to complete, before rendering UI.
-            gpu::cmd::Barrier()
-                .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT)
-                .Commit(cb);
+          VkRenderingInputAttachmentIndexInfo input_attachment_index_info = {
+              VK_STRUCTURE_TYPE_RENDERING_INPUT_ATTACHMENT_INDEX_INFO};
+          std::array<uint32_t, 3> input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
+          input_attachment_index_info.colorAttachmentCount = input_indices.size();
+          input_attachment_index_info.pColorAttachmentInputIndices = input_indices.data();
+          vkCmdSetRenderingInputAttachmentIndices(cb, &input_attachment_index_info);
+        }
 
-            // Rendering
-            VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            color_attachment.imageView = present_image_info.image_view;
-            color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-            color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-            rendering_info.renderArea.offset = {0, 0};
-            rendering_info.renderArea.extent = present_image_info.extent;
-            rendering_info.layerCount = 1;
-            rendering_info.colorAttachmentCount = 1;
-            rendering_info.pColorAttachments = &color_attachment;
-            vkCmdBeginRendering(cb, &rendering_info);
-            ImGui_ImplVulkan_RenderDrawData(draw_data, cb);
-            vkCmdEndRendering(cb);
+        vkCmdDraw(cb, 3, 1, 0, 0);
 
-            gpu::cmd::Barrier()
-                .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, 0, 0,
-                       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                       present_image_info.image)
-                .Commit(cb);
-          })
-          .Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-          .Wait(*csem, cval + 1,
-                VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
-          .Signal(*gsem, gval + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-          .Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-          .Submit();
+        vkCmdEndRendering(cb);
+
+        // Wait for color attachment write to complete, before rendering UI.
+        gpu::cmd::Barrier()
+            .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT)
+            .Commit(cb);
+
+        // Rendering
+        VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+        color_attachment.imageView = present_image_info.image_view;
+        color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+        rendering_info.renderArea.offset = {0, 0};
+        rendering_info.renderArea.extent = present_image_info.extent;
+        rendering_info.layerCount = 1;
+        rendering_info.colorAttachmentCount = 1;
+        rendering_info.pColorAttachments = &color_attachment;
+        vkCmdBeginRendering(cb, &rendering_info);
+        ImGui_ImplVulkan_RenderDrawData(draw_data, cb);
+        vkCmdEndRendering(cb);
+
+        gpu::cmd::Barrier()
+            .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, 0, 0,
+                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, present_image_info.image)
+            .Commit(cb);
+
+        image8->Keep();
+        image16->Keep();
+
+        task.Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        task.Wait(*csem, cval + 1,
+                  VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                      VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
+        task.Signal(*gsem, gval + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        task.Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      }
 
       csem->Increment();
       gsem->Increment();

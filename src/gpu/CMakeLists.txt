@@ -33,8 +33,9 @@ add_library(vkgs_gpu SHARED
   src/gpu.cc
   src/graphics_pipeline.cc
   src/image.cc
+  src/object.cc
   src/pipeline_layout.cc
-  src/queue_submission.cc
+  src/queue_task.cc
   src/queue.cc
   src/semaphore_pool.cc
   src/semaphore.cc

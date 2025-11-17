@@ -5,6 +5,8 @@
 
 #include <volk.h>
 
+#include "vkgs/gpu/device.h"
+
 namespace vkgs {
 namespace gpu {
 namespace {
@@ -35,7 +37,7 @@ std::map<GraphicsPipelineCreateInfo, std::shared_ptr<GraphicsPipeline>, Graphics
 
 }  // namespace
 
-std::shared_ptr<GraphicsPipeline> GraphicsPipeline::Create(VkDevice device,
+std::shared_ptr<GraphicsPipeline> GraphicsPipeline::Create(std::shared_ptr<Device> device,
                                                            const GraphicsPipelineCreateInfo& create_info) {
   auto it = pipelines.find(create_info);
   if (it != pipelines.end()) return it->second;
@@ -44,7 +46,8 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipeline::Create(VkDevice device,
 
 void GraphicsPipeline::Terminate() { pipelines.clear(); }
 
-GraphicsPipeline::GraphicsPipeline(VkDevice device, const GraphicsPipelineCreateInfo& create_info) : device_(device) {
+GraphicsPipeline::GraphicsPipeline(std::shared_ptr<Device> device, const GraphicsPipelineCreateInfo& create_info)
+    : Object(device) {
   // TODO: pipeline cache.
   VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
 
@@ -52,13 +55,13 @@ GraphicsPipeline::GraphicsPipeline(VkDevice device, const GraphicsPipelineCreate
   vertex_shader_module_info.codeSize = create_info.vertex_shader.size;
   vertex_shader_module_info.pCode = create_info.vertex_shader.data;
   VkShaderModule vertex_shader_module;
-  vkCreateShaderModule(device_, &vertex_shader_module_info, NULL, &vertex_shader_module);
+  vkCreateShaderModule(*device_, &vertex_shader_module_info, NULL, &vertex_shader_module);
 
   VkShaderModuleCreateInfo fragment_shader_module_info = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
   fragment_shader_module_info.codeSize = create_info.fragment_shader.size;
   fragment_shader_module_info.pCode = create_info.fragment_shader.data;
   VkShaderModule fragment_shader_module;
-  vkCreateShaderModule(device_, &fragment_shader_module_info, NULL, &fragment_shader_module);
+  vkCreateShaderModule(*device_, &fragment_shader_module_info, NULL, &fragment_shader_module);
 
   std::array<VkPipelineShaderStageCreateInfo, 2> stages;
   stages[0] = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -148,13 +151,13 @@ GraphicsPipeline::GraphicsPipeline(VkDevice device, const GraphicsPipelineCreate
   pipeline_info.pColorBlendState = &color_blend_state;
   pipeline_info.pDynamicState = &dynamic_state;
   pipeline_info.layout = create_info.pipeline_layout;
-  vkCreateGraphicsPipelines(device_, pipeline_cache, 1, &pipeline_info, NULL, &pipeline_);
+  vkCreateGraphicsPipelines(*device_, pipeline_cache, 1, &pipeline_info, NULL, &pipeline_);
 
-  vkDestroyShaderModule(device_, vertex_shader_module, NULL);
-  vkDestroyShaderModule(device_, fragment_shader_module, NULL);
+  vkDestroyShaderModule(*device_, vertex_shader_module, NULL);
+  vkDestroyShaderModule(*device_, fragment_shader_module, NULL);
 }
 
-GraphicsPipeline::~GraphicsPipeline() { vkDestroyPipeline(device_, pipeline_, NULL); }
+GraphicsPipeline::~GraphicsPipeline() { vkDestroyPipeline(*device_, pipeline_, NULL); }
 
 }  // namespace gpu
 }  // namespace vkgs

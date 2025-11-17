@@ -10,11 +10,10 @@
 
 #include "export_api.h"
 
-#include "queue_submission.h"
-
 namespace vkgs {
 namespace gpu {
 
+class Object;
 class Queue;
 class Semaphore;
 class Fence;
@@ -22,16 +21,15 @@ class SemaphorePool;
 class FencePool;
 class TaskMonitor;
 class Command;
+class QueueTask;
+class Task;
 
 struct DeviceCreateInfo {
   bool enable_viewer;
   std::vector<const char*> instance_extensions;
 };
 
-class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
- private:
-  using TaskCallback = std::function<void(VkCommandBuffer)>;
-
+class VKGS_GPU_API Device {
  public:
   Device(const DeviceCreateInfo& create_info);
   ~Device();
@@ -55,21 +53,17 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
   std::shared_ptr<Semaphore> AllocateSemaphore();
   std::shared_ptr<Fence> AllocateFence();
 
-  QueueSubmission ComputeTask(TaskCallback task_callback, std::function<void()> host_callback = {});
-  QueueSubmission GraphicsTask(TaskCallback task_callback, std::function<void()> host_callback = {});
-  QueueSubmission TransferTask(TaskCallback task_callback, std::function<void()> host_callback = {});
-
   void WaitIdle();
 
   // Internal
-  std::shared_ptr<Task> AddTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
-                                std::function<void(VkCommandBuffer)> task_callback,
-                                std::function<void()> host_callback);
+  void SetCurrentTask(Task* task) { current_task_ = task; }
+  void ClearCurrentTask() { current_task_ = nullptr; }
+  Task* CurrentTask() const { return current_task_; }
+
+  std::shared_ptr<QueueTask> AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+                                          std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback);
 
  private:
-  QueueSubmission PrepareTask(std::shared_ptr<Queue> queue, TaskCallback task_callback,
-                              std::function<void()> host_callback);
-
   std::string device_name_;
 
   VkInstance instance_ = VK_NULL_HANDLE;
@@ -85,6 +79,8 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
   std::shared_ptr<SemaphorePool> semaphore_pool_;
   std::shared_ptr<FencePool> fence_pool_;
   std::shared_ptr<TaskMonitor> task_monitor_;
+
+  Task* current_task_ = nullptr;
 };
 
 }  // namespace gpu

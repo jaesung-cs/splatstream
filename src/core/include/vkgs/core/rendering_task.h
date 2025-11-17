@@ -10,7 +10,7 @@
 namespace vkgs {
 namespace gpu {
 
-class Task;
+class QueueTask;
 
 }  // namespace gpu
 
@@ -21,7 +21,7 @@ class VKGS_CORE_API RenderingTask {
   RenderingTask();
   ~RenderingTask();
 
-  void SetTask(std::shared_ptr<gpu::Task> task);
+  void SetTask(std::shared_ptr<gpu::QueueTask> task);
   void SetDrawResult(const DrawResult& result);
 
   const auto& draw_result() const noexcept { return result_; }
@@ -29,7 +29,7 @@ class VKGS_CORE_API RenderingTask {
   void Wait();
 
  private:
-  std::shared_ptr<gpu::Task> task_;
+  std::shared_ptr<gpu::QueueTask> task_;
   DrawResult result_ = {};
 };
 

@@ -97,9 +97,6 @@ class VKGS_CORE_API Renderer {
   std::array<RingBuffer, 2> ring_buffer_;
 
   uint64_t frame_index_ = 0;
-
-  // TODO: remove this
-  std::vector<std::shared_ptr<gpu::Buffer>> keep_;
 };
 
 }  // namespace core

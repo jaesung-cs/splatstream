@@ -1,6 +1,6 @@
 #include "task_monitor.h"
 
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
 namespace gpu {
@@ -9,14 +9,14 @@ TaskMonitor::TaskMonitor() = default;
 
 TaskMonitor::~TaskMonitor() = default;
 
-std::shared_ptr<Task> TaskMonitor::Add(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
-                                       std::function<void(VkCommandBuffer)> task_callback,
-                                       std::function<void()> callback) {
+std::shared_ptr<QueueTask> TaskMonitor::Add(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+                                            std::vector<std::shared_ptr<Object>> objects,
+                                            std::function<void()> callback) {
   gc();
 
-  auto task = std::make_shared<Task>(fence, command, std::move(task_callback), std::move(callback));
-  tasks_.push_back(task);
-  return task;
+  auto queue_task = std::make_shared<QueueTask>(fence, command, std::move(objects), callback);
+  tasks_.push_back(queue_task);
+  return queue_task;
 }
 
 void TaskMonitor::gc() {

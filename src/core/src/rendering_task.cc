@@ -1,6 +1,6 @@
 #include "vkgs/core/rendering_task.h"
 
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
 namespace core {
@@ -9,7 +9,7 @@ RenderingTask::RenderingTask() = default;
 
 RenderingTask::~RenderingTask() = default;
 
-void RenderingTask::SetTask(std::shared_ptr<gpu::Task> task) { task_ = task; }
+void RenderingTask::SetTask(std::shared_ptr<gpu::QueueTask> task) { task_ = task; }
 
 void RenderingTask::SetDrawResult(const DrawResult& result) { result_ = result; }
 
