@@ -1,5 +1,7 @@
 #include "fence_pool.h"
 
+#include <volk.h>
+
 #include "vkgs/gpu/fence.h"
 
 namespace vkgs {

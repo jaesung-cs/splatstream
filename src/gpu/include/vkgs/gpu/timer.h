@@ -4,12 +4,14 @@
 #include <vector>
 #include <memory>
 
-#include "volk.h"
+#include <vulkan/vulkan.h>
+
+#include "vkgs/gpu/export_api.h"
 
 namespace vkgs {
 namespace gpu {
 
-class Timer {
+class VKGS_GPU_API Timer {
  public:
   static std::shared_ptr<Timer> Create(VkDevice device, uint32_t size);
 

@@ -1,23 +1,19 @@
 #ifndef VKGS_GPU_COMMAND_H
 #define VKGS_GPU_COMMAND_H
 
-#include "object.h"
-
 #include <memory>
 
-#include "volk.h"
-
-#include "export_api.h"
+#include <vulkan/vulkan.h>
 
 namespace vkgs {
 namespace gpu {
 
 class CommandPool;
 
-class VKGS_GPU_API Command : public Object {
+class Command {
  public:
   Command(std::shared_ptr<CommandPool> command_pool, VkCommandBuffer cb);
-  ~Command() override;
+  ~Command();
 
   operator VkCommandBuffer() const noexcept { return cb_; }
 

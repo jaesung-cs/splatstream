@@ -5,8 +5,10 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <glm/glm.hpp>
+#include <vulkan/vulkan.h>
 
 #include "export_api.h"
 
@@ -16,11 +18,12 @@ namespace vkgs {
 namespace gpu {
 
 class Device;
-class TaskMonitor;
 class PipelineLayout;
 class ComputePipeline;
 class GraphicsPipeline;
 class Semaphore;
+class Timer;
+class Buffer;
 
 }  // namespace gpu
 
@@ -30,6 +33,7 @@ class GaussianSplats;
 class RenderingTask;
 class Sorter;
 class ComputeStorage;
+class ScreenSplats;
 class GraphicsStorage;
 class TransferStorage;
 
@@ -50,9 +54,23 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<RenderingTask> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                       uint8_t* dst);
 
+  // Low-level API
+  /**
+   * @brief Compute screen splats in compute queue, and release to graphics queue.
+   */
+  void ComputeScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
+                           const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
+                           std::shared_ptr<gpu::Timer> timer = nullptr);
+
+  /**
+   * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
+   */
+  void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
+                          const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
+                          std::vector<VkFormat> formats, std::vector<uint32_t> locations);
+
  private:
   std::shared_ptr<gpu::Device> device_;
-  std::shared_ptr<gpu::TaskMonitor> task_monitor_;
   std::shared_ptr<Sorter> sorter_;
 
   std::shared_ptr<gpu::PipelineLayout> parse_pipeline_layout_;
@@ -65,11 +83,11 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<gpu::ComputePipeline> projection_pipeline_;
 
   std::shared_ptr<gpu::PipelineLayout> graphics_pipeline_layout_;
-  std::shared_ptr<gpu::GraphicsPipeline> splat_pipeline_;
   std::shared_ptr<gpu::GraphicsPipeline> splat_background_pipeline_;
 
   struct RingBuffer {
     std::shared_ptr<ComputeStorage> compute_storage;
+    std::shared_ptr<ScreenSplats> screen_splats;
     std::shared_ptr<GraphicsStorage> graphics_storage;
     std::shared_ptr<TransferStorage> transfer_storage;
     std::shared_ptr<gpu::Semaphore> compute_semaphore;
@@ -79,6 +97,9 @@ class VKGS_CORE_API Renderer {
   std::array<RingBuffer, 2> ring_buffer_;
 
   uint64_t frame_index_ = 0;
+
+  // TODO: remove this
+  std::vector<std::shared_ptr<gpu::Buffer>> keep_;
 };
 
 }  // namespace core

@@ -7,15 +7,18 @@
 
 #include "export_api.h"
 
+#include <vulkan/vulkan.h>
+
 namespace vkgs {
 namespace gpu {
 
 class Fence;
-class Object;
+class Command;
 
 class VKGS_GPU_API Task {
  public:
-  Task(std::shared_ptr<Fence> fence, std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback);
+  Task(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+       std::function<void(VkCommandBuffer)> task_callback, std::function<void()> callback);
 
   ~Task();
 
@@ -24,7 +27,8 @@ class VKGS_GPU_API Task {
 
  private:
   std::shared_ptr<Fence> fence_;
-  std::vector<std::shared_ptr<Object>> objects_;
+  std::shared_ptr<Command> command_;
+  std::function<void(VkCommandBuffer)> task_callback_;
   std::function<void()> callback_;
 };
 

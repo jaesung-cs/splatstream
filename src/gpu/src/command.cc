@@ -1,4 +1,4 @@
-#include "vkgs/gpu/command.h"
+#include "command.h"
 
 #include "command_pool.h"
 

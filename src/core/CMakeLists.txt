@@ -1,6 +1,8 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+find_package(Vulkan REQUIRED)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -13,18 +15,21 @@ FetchContent_MakeAvailable(glm)
 FetchContent_Declare(
   vk_radix_sort
   GIT_REPOSITORY https://github.com/jaesung-cs/vulkan_radix_sort.git
-  GIT_TAG        66f61f559d1ffd9937f56c6ebdf1dc8aa6810aa7  # v0.1.4
+  GIT_TAG        dd6e1f3930b1ed633f327c0736d44cd562588493  # v0.2.1
 )
 FetchContent_MakeAvailable(vk_radix_sort)
 
-add_library(vkgs_core STATIC
+add_library(vkgs_core SHARED
   src/compute_storage.cc
+  src/core.cc
   src/gaussian_splats.cc
   src/graphics_storage.cc
-  src/rendering_task.cc
   src/renderer.cc
+  src/rendering_task.cc
+  src/screen_splats.cc
   src/sorter.cc
   src/transfer_storage.cc
+  src/vrdx_impl.cc
 )
 add_library(vkgs::core ALIAS vkgs_core)
 
@@ -37,13 +42,14 @@ target_include_directories(vkgs_core
 
 target_link_libraries(vkgs_core
   PUBLIC
+    Vulkan::Vulkan
     glm::glm
   PRIVATE
     vkgs::gpu
     vk_radix_sort
 )
 
-target_compile_definitions(vkgs_core PUBLIC VKGS_CORE_STATIC)
+target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
 
 add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)
