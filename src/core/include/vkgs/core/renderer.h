@@ -66,11 +66,6 @@ class VKGS_CORE_API Renderer {
                            std::shared_ptr<gpu::Timer> timer = nullptr);
 
   /**
-   * @brief Acquire screen splats in graphics queue.
-   */
-  void AcquireScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<ComputeStorage> compute_storage);
-
-  /**
    * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
    */
   void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,

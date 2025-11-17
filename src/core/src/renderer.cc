@@ -495,7 +495,18 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
   // Compute queue
   device_
-      ->ComputeTask([=](VkCommandBuffer cb) { ComputeScreenSplats(cb, splats, draw_options, compute_storage, timer); })
+      ->ComputeTask([=](VkCommandBuffer cb) {
+        // Compute
+        ComputeScreenSplats(cb, splats, draw_options, compute_storage, timer);
+
+        // Release
+        gpu::cmd::Barrier()
+            .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
+                     graphics_queue_index(), *compute_storage->instances())
+            .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
+                     graphics_queue_index(), *compute_storage->draw_indirect())
+            .Commit(cb);
+      })
       // G[i-2].read before C[i].comp
       .WaitIf(gval >= 2, *gsem, gval - 2 + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT)
       // C[i].comp
@@ -512,7 +523,12 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
 
         // Acquire
-        AcquireScreenSplats(cb, compute_storage);
+        gpu::cmd::Barrier()
+            .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, compute_queue_index(),
+                     graphics_queue_index(), *compute_storage->instances())
+            .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT,
+                     compute_queue_index(), graphics_queue_index(), *compute_storage->draw_indirect())
+            .Commit(cb);
 
         // Layout transition to color attachment
         gpu::cmd::Barrier()
@@ -740,28 +756,11 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
   if (timer) {
     timer->Record(cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
   }
-
-  // Release
-  gpu::cmd::Barrier()
-      .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
-               graphics_queue_index(), *instances)
-      .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
-               graphics_queue_index(), *draw_indirect)
-      .Commit(cb);
 }
 
 void Renderer::UpdateComputeStorage(std::shared_ptr<ComputeStorage> compute_storage, uint32_t point_count) {
   auto requirements = sorter_->GetStorageRequirements(point_count);
   compute_storage->Update(point_count, requirements.usage, requirements.size);
-}
-
-void Renderer::AcquireScreenSplats(VkCommandBuffer cb, std::shared_ptr<ComputeStorage> compute_storage) {
-  gpu::cmd::Barrier()
-      .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, compute_queue_index(),
-               graphics_queue_index(), *compute_storage->instances())
-      .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, compute_queue_index(),
-               graphics_queue_index(), *compute_storage->draw_indirect())
-      .Commit(cb);
 }
 
 void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,

@@ -14,6 +14,7 @@
 #include "vkgs/gpu/swapchain.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
+#include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/gpu/pipeline_layout.h"
@@ -88,14 +89,17 @@ void Viewer::Run() {
   blend_pipeline_info.input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
   blend_pipeline_ = gpu::GraphicsPipeline::Create(*device, blend_pipeline_info);
 
+  auto cq = device->compute_queue();
+  auto gq = device->graphics_queue();
+
   // ImGui rendering
   ImGui_ImplGlfw_InitForVulkan(window_, true);
   ImGui_ImplVulkan_InitInfo init_info = {};
   init_info.Instance = instance;
   init_info.PhysicalDevice = device->physical_device();
   init_info.Device = *device;
-  init_info.QueueFamily = device->graphics_queue_index();
-  init_info.Queue = *device->graphics_queue();
+  init_info.QueueFamily = *gq;
+  init_info.Queue = *gq;
   init_info.DescriptorPoolSize = 1024;
   init_info.MinImageCount = 3;
   init_info.ImageCount = 3;
@@ -108,7 +112,7 @@ void Viewer::Run() {
 
   // TODO: load model
   auto renderer = std::make_shared<core::Renderer>();
-  auto splats = renderer->LoadFromPly("./models/bonsai_30000.ply");
+  auto splats = renderer->LoadFromPly("./test_random/gsplat.ply");
 
   auto camera = std::make_shared<Camera>();
 
@@ -211,16 +215,30 @@ void Viewer::Run() {
                                             VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
 
       device
-          ->ComputeTask(
-              [=](VkCommandBuffer cb) { renderer->ComputeScreenSplats(cb, splats, draw_options, compute_storage); })
+          ->ComputeTask([=](VkCommandBuffer cb) {
+            // Compute
+            renderer->ComputeScreenSplats(cb, splats, draw_options, compute_storage);
+
+            // Release
+            gpu::cmd::Barrier()
+                .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
+                         *compute_storage->instances())
+                .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
+                         *compute_storage->draw_indirect())
+                .Commit(cb);
+          })
           .Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
           .Submit();
 
       device
           ->GraphicsTask([=](VkCommandBuffer cb) {
-            renderer->AcquireScreenSplats(cb, compute_storage);
-
             gpu::cmd::Barrier()
+                // Acquire
+                .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq,
+                         *compute_storage->instances())
+                .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
+                         *compute_storage->draw_indirect())
+                // Image layout transition
                 .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
                 .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
