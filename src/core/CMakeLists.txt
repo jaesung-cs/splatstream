@@ -24,8 +24,9 @@ add_library(vkgs_core SHARED
   src/core.cc
   src/gaussian_splats.cc
   src/graphics_storage.cc
-  src/rendering_task.cc
   src/renderer.cc
+  src/rendering_task.cc
+  src/screen_splats.cc
   src/sorter.cc
   src/transfer_storage.cc
   src/vrdx_impl.cc

@@ -20,7 +20,7 @@
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/core/renderer.h"
-#include "vkgs/core/compute_storage.h"
+#include "vkgs/core/screen_splats.h"
 #include "vkgs/core/gaussian_splats.h"
 
 #include "generated/blend_vert.h"
@@ -200,8 +200,8 @@ void Viewer::Run() {
       draw_options.sh_degree = splats->sh_degree();
 
       // TODO: ring buffer
-      auto compute_storage = std::make_shared<core::ComputeStorage>(device);
-      renderer->UpdateComputeStorage(compute_storage, splats->size());
+      auto screen_splats = std::make_shared<core::ScreenSplats>(device);
+      screen_splats->Update(splats->size());
       auto csem = device->AllocateSemaphore();
       auto cval = csem->value();
       auto gsem = device->AllocateSemaphore();
@@ -217,14 +217,14 @@ void Viewer::Run() {
       device
           ->ComputeTask([=](VkCommandBuffer cb) {
             // Compute
-            renderer->ComputeScreenSplats(cb, splats, draw_options, compute_storage);
+            renderer->ComputeScreenSplats(cb, splats, draw_options, screen_splats);
 
             // Release
             gpu::cmd::Barrier()
                 .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
-                         *compute_storage->instances())
+                         *screen_splats->instances())
                 .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
-                         *compute_storage->draw_indirect())
+                         *screen_splats->draw_indirect())
                 .Commit(cb);
           })
           .Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
@@ -235,9 +235,9 @@ void Viewer::Run() {
             gpu::cmd::Barrier()
                 // Acquire
                 .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq,
-                         *compute_storage->instances())
+                         *screen_splats->instances())
                 .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
-                         *compute_storage->draw_indirect())
+                         *screen_splats->draw_indirect())
                 // Image layout transition
                 .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
@@ -296,7 +296,7 @@ void Viewer::Run() {
               location_info.colorAttachmentCount = locations.size();
               location_info.pColorAttachmentLocations = locations.data();
               vkCmdSetRenderingAttachmentLocations(cb, &location_info);
-              renderer->RenderScreenSplats(cb, splats, draw_options, compute_storage, formats, locations);
+              renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, locations);
             }
 
             // subpass 2: blend

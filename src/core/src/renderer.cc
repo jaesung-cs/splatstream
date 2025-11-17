@@ -25,7 +25,7 @@
 
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendering_task.h"
-#include "vkgs/core/compute_storage.h"
+#include "vkgs/core/screen_splats.h"
 #include "generated/parse_ply.h"
 #include "generated/parse_data.h"
 #include "generated/rank.h"
@@ -36,10 +36,10 @@
 #include "generated/splat_background_vert.h"
 #include "generated/splat_background_frag.h"
 #include "sorter.h"
+#include "compute_storage.h"
 #include "graphics_storage.h"
 #include "transfer_storage.h"
 #include "struct.h"
-#include "vulkan/vulkan_core.h"
 
 namespace {
 
@@ -70,6 +70,7 @@ Renderer::Renderer() {
 
   for (auto& buffer : ring_buffer_) {
     buffer.compute_storage = std::make_shared<ComputeStorage>(device_);
+    buffer.screen_splats = std::make_shared<ScreenSplats>(device_);
     buffer.graphics_storage = std::make_shared<GraphicsStorage>(device_);
     buffer.transfer_storage = std::make_shared<TransferStorage>(device_);
     buffer.compute_semaphore = device_->AllocateSemaphore();
@@ -474,6 +475,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   // Update storages
   const auto& ring_buffer = ring_buffer_[frame_index_ % ring_buffer_.size()];
   auto compute_storage = ring_buffer.compute_storage;
+  auto screen_splats = ring_buffer.screen_splats;
   auto graphics_storage = ring_buffer.graphics_storage;
   auto transfer_storage = ring_buffer.transfer_storage;
   auto csem = ring_buffer.compute_semaphore;
@@ -487,7 +489,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto gq = device_->graphics_queue_index();
   auto tq = device_->transfer_queue_index();
 
-  UpdateComputeStorage(compute_storage, N);
+  screen_splats->Update(N);
   graphics_storage->Update(width, height);
   transfer_storage->Update(width, height);
 
@@ -497,14 +499,14 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   device_
       ->ComputeTask([=](VkCommandBuffer cb) {
         // Compute
-        ComputeScreenSplats(cb, splats, draw_options, compute_storage, timer);
+        ComputeScreenSplats(cb, splats, draw_options, screen_splats, timer);
 
         // Release
         gpu::cmd::Barrier()
             .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
-                     graphics_queue_index(), *compute_storage->instances())
+                     graphics_queue_index(), *screen_splats->instances())
             .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, compute_queue_index(),
-                     graphics_queue_index(), *compute_storage->draw_indirect())
+                     graphics_queue_index(), *screen_splats->draw_indirect())
             .Commit(cb);
       })
       // G[i-2].read before C[i].comp
@@ -525,9 +527,9 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         // Acquire
         gpu::cmd::Barrier()
             .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, compute_queue_index(),
-                     graphics_queue_index(), *compute_storage->instances())
+                     graphics_queue_index(), *screen_splats->instances())
             .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT,
-                     compute_queue_index(), graphics_queue_index(), *compute_storage->draw_indirect())
+                     compute_queue_index(), graphics_queue_index(), *screen_splats->draw_indirect())
             .Commit(cb);
 
         // Layout transition to color attachment
@@ -556,7 +558,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         VkRect2D scissor = {0, 0, width, height};
         vkCmdSetScissor(cb, 0, 1, &scissor);
 
-        RenderScreenSplats(cb, splats, draw_options, compute_storage, {VK_FORMAT_R16G16B16A16_SFLOAT}, {0});
+        RenderScreenSplats(cb, splats, draw_options, screen_splats, {VK_FORMAT_R16G16B16A16_SFLOAT}, {0});
 
         gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
             .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
@@ -657,7 +659,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 }
 
 void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
-                                   const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
+                                   const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
                                    std::shared_ptr<gpu::Timer> timer) {
   auto N = splats->size();
   auto position = splats->position();
@@ -665,15 +667,21 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
   auto sh = splats->sh();
   auto opacity = splats->opacity();
 
+  const auto& ring_buffer = ring_buffer_[frame_index_ % ring_buffer_.size()];
+  auto compute_storage = ring_buffer.compute_storage;
+  auto requirements = sorter_->GetStorageRequirements(N);
+  compute_storage->Update(N, requirements.usage, requirements.size);
+
   auto visible_point_count = compute_storage->visible_point_count();
   auto key = compute_storage->key();
   auto index = compute_storage->index();
   auto sort_storage = compute_storage->sort_storage();
   auto inverse_index = compute_storage->inverse_index();
   auto camera = compute_storage->camera();
-  auto draw_indirect = compute_storage->draw_indirect();
-  auto instances = compute_storage->instances();
   auto camera_stage = compute_storage->camera_stage();
+
+  auto draw_indirect = screen_splats->draw_indirect();
+  auto instances = screen_splats->instances();
 
   ComputePushConstants compute_push_constants;
   compute_push_constants.model = glm::mat4(1.f);
@@ -756,15 +764,13 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
   if (timer) {
     timer->Record(cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
   }
-}
 
-void Renderer::UpdateComputeStorage(std::shared_ptr<ComputeStorage> compute_storage, uint32_t point_count) {
-  auto requirements = sorter_->GetStorageRequirements(point_count);
-  compute_storage->Update(point_count, requirements.usage, requirements.size);
+  // TODO: hold buffer for now
+  keep_.push_back(camera_stage);
 }
 
 void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
-                                  const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
+                                  const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
                                   std::vector<VkFormat> formats, std::vector<uint32_t> locations) {
   gpu::GraphicsPipelineCreateInfo splat_pipeline_info = {};
   splat_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
@@ -775,12 +781,12 @@ void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSp
   auto splat_pipeline = gpu::GraphicsPipeline::Create(*device_, splat_pipeline_info);
 
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
-      .Storage(0, *compute_storage->instances())
+      .Storage(0, *screen_splats->instances())
       .Bind(*splat_pipeline)
       .Commit(cb);
 
   vkCmdBindIndexBuffer(cb, *splats->index_buffer(), 0, VK_INDEX_TYPE_UINT32);
-  vkCmdDrawIndexedIndirect(cb, *compute_storage->draw_indirect(), 0, 1, 0);
+  vkCmdDrawIndexedIndirect(cb, *screen_splats->draw_indirect(), 0, 1, 0);
 }
 
 }  // namespace core

@@ -23,6 +23,7 @@ class ComputePipeline;
 class GraphicsPipeline;
 class Semaphore;
 class Timer;
+class Buffer;
 
 }  // namespace gpu
 
@@ -32,6 +33,7 @@ class GaussianSplats;
 class RenderingTask;
 class Sorter;
 class ComputeStorage;
+class ScreenSplats;
 class GraphicsStorage;
 class TransferStorage;
 
@@ -54,22 +56,17 @@ class VKGS_CORE_API Renderer {
 
   // Low-level API
   /**
-   * @brief Update compute storage. Keep the previous storage if storage size is large enough.
-   */
-  void UpdateComputeStorage(std::shared_ptr<ComputeStorage> compute_storage, uint32_t point_count);
-
-  /**
    * @brief Compute screen splats in compute queue, and release to graphics queue.
    */
   void ComputeScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
-                           const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
+                           const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
                            std::shared_ptr<gpu::Timer> timer = nullptr);
 
   /**
    * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
    */
   void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
-                          const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
+                          const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
                           std::vector<VkFormat> formats, std::vector<uint32_t> locations);
 
  private:
@@ -90,6 +87,7 @@ class VKGS_CORE_API Renderer {
 
   struct RingBuffer {
     std::shared_ptr<ComputeStorage> compute_storage;
+    std::shared_ptr<ScreenSplats> screen_splats;
     std::shared_ptr<GraphicsStorage> graphics_storage;
     std::shared_ptr<TransferStorage> transfer_storage;
     std::shared_ptr<gpu::Semaphore> compute_semaphore;
@@ -99,6 +97,9 @@ class VKGS_CORE_API Renderer {
   std::array<RingBuffer, 2> ring_buffer_;
 
   uint64_t frame_index_ = 0;
+
+  // TODO: remove this
+  std::vector<std::shared_ptr<gpu::Buffer>> keep_;
 };
 
 }  // namespace core
