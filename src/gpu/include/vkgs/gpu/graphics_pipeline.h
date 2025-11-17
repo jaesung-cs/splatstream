@@ -26,6 +26,8 @@ struct GraphicsPipelineCreateInfo {
   ShaderCode vertex_shader;
   ShaderCode fragment_shader;
   std::vector<VkFormat> formats;
+  std::vector<uint32_t> locations;
+  std::vector<uint32_t> input_indices;
 };
 
 class VKGS_GPU_API GraphicsPipeline {

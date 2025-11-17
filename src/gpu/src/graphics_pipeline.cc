@@ -23,6 +23,10 @@ struct GraphicsPipelineCreateInfoLess {
     for (size_t i = 0; i < lhs.formats.size(); ++i) {
       if (lhs.formats[i] != rhs.formats[i]) return lhs.formats[i] < rhs.formats[i];
     }
+    if (lhs.locations.size() != rhs.locations.size()) return lhs.locations.size() < rhs.locations.size();
+    for (size_t i = 0; i < lhs.locations.size(); ++i) {
+      if (lhs.locations[i] != rhs.locations[i]) return lhs.locations[i] < rhs.locations[i];
+    }
     return false;
   }
 };
@@ -66,7 +70,21 @@ GraphicsPipeline::GraphicsPipeline(VkDevice device, const GraphicsPipelineCreate
   stages[1].module = fragment_shader_module;
   stages[1].pName = "main";
 
+  void* next = nullptr;
+  VkRenderingInputAttachmentIndexInfo input_attachment_index_info = {
+      VK_STRUCTURE_TYPE_RENDERING_INPUT_ATTACHMENT_INDEX_INFO};
+  input_attachment_index_info.colorAttachmentCount = create_info.input_indices.size();
+  input_attachment_index_info.pColorAttachmentInputIndices = create_info.input_indices.data();
+  if (!create_info.input_indices.empty()) next = &input_attachment_index_info;
+
+  VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
+  location_info.pNext = next;
+  location_info.colorAttachmentCount = create_info.locations.size();
+  location_info.pColorAttachmentLocations = create_info.locations.empty() ? NULL : create_info.locations.data();
+  if (!create_info.locations.empty()) next = &location_info;
+
   VkPipelineRenderingCreateInfo rendering_info = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+  rendering_info.pNext = next;
   rendering_info.colorAttachmentCount = create_info.formats.size();
   rendering_info.pColorAttachmentFormats = create_info.formats.data();
 

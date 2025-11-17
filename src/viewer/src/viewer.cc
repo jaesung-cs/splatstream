@@ -84,6 +84,8 @@ void Viewer::Run() {
   blend_pipeline_info.vertex_shader = gpu::ShaderCode(blend_vert);
   blend_pipeline_info.fragment_shader = gpu::ShaderCode(blend_frag);
   blend_pipeline_info.formats = formats;
+  blend_pipeline_info.locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
+  blend_pipeline_info.input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
   blend_pipeline_ = gpu::GraphicsPipeline::Create(*device, blend_pipeline_info);
 
   // ImGui rendering
@@ -243,7 +245,7 @@ void Viewer::Run() {
             color_attachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             color_attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             color_attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            color_attachments[1].clearValue.color = {1.f, 0.f, 0.f, 1.f};  // TODO: background color
+            color_attachments[1].clearValue.color = {0.5f, 0.5f, 0.5f, 1.f};  // TODO: background color
             // Splats image
             color_attachments[2] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
             color_attachments[2].imageView = image16->image_view();
@@ -272,14 +274,25 @@ void Viewer::Run() {
             {
               // location 0: image16
               VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
-              std::array<uint32_t, 3> locations = {VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED, 0};
+              std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED, 0};
               location_info.colorAttachmentCount = locations.size();
               location_info.pColorAttachmentLocations = locations.data();
               vkCmdSetRenderingAttachmentLocations(cb, &location_info);
+              renderer->RenderScreenSplats(cb, splats, draw_options, compute_storage, formats, locations);
             }
-            renderer->RenderScreenSplats(cb, splats, draw_options, compute_storage, formats);
 
             // subpass 2: blend
+            gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
+                .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
+                .Commit(cb);
+
+            gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
+                .Input(0, image8->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
+                .Input(1, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
+                .Bind(*blend_pipeline_)
+                .Commit(cb);
+
             {
               VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
               std::array<uint32_t, 3> locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
@@ -295,16 +308,6 @@ void Viewer::Run() {
               vkCmdSetRenderingInputAttachmentIndices(cb, &input_attachment_index_info);
             }
 
-            gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
-                .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
-                .Commit(cb);
-
-            gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
-                .Input(0, image8->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-                .Input(1, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-                .Bind(*blend_pipeline_)
-                .Commit(cb);
             vkCmdDraw(cb, 3, 1, 0, 0);
 
             vkCmdEndRendering(cb);

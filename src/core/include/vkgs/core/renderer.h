@@ -75,7 +75,7 @@ class VKGS_CORE_API Renderer {
    */
   void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
                           const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
-                          std::vector<VkFormat> formats);
+                          std::vector<VkFormat> formats, std::vector<uint32_t> locations);
 
  private:
   std::shared_ptr<gpu::Device> device_;

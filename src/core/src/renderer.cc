@@ -540,7 +540,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         VkRect2D scissor = {0, 0, width, height};
         vkCmdSetScissor(cb, 0, 1, &scissor);
 
-        RenderScreenSplats(cb, splats, draw_options, compute_storage, {VK_FORMAT_R16G16B16A16_SFLOAT});
+        RenderScreenSplats(cb, splats, draw_options, compute_storage, {VK_FORMAT_R16G16B16A16_SFLOAT}, {0});
 
         gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
             .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
@@ -766,12 +766,13 @@ void Renderer::AcquireScreenSplats(VkCommandBuffer cb, std::shared_ptr<ComputeSt
 
 void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
                                   const DrawOptions& draw_options, std::shared_ptr<ComputeStorage> compute_storage,
-                                  std::vector<VkFormat> formats) {
+                                  std::vector<VkFormat> formats, std::vector<uint32_t> locations) {
   gpu::GraphicsPipelineCreateInfo splat_pipeline_info = {};
   splat_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
   splat_pipeline_info.vertex_shader = gpu::ShaderCode(splat_vert);
   splat_pipeline_info.fragment_shader = gpu::ShaderCode(splat_frag);
   splat_pipeline_info.formats = std::move(formats);
+  splat_pipeline_info.locations = std::move(locations);
   auto splat_pipeline = gpu::GraphicsPipeline::Create(*device_, splat_pipeline_info);
 
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
