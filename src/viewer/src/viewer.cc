@@ -20,6 +20,7 @@
 #include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/graphics_pipeline.h"
+#include "vkgs/core/parser.h"
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/gaussian_splats.h"
@@ -112,8 +113,9 @@ void Viewer::Run() {
   ImGui_ImplVulkan_Init(&init_info);
 
   // TODO: load model
+  auto parser = std::make_shared<core::Parser>();
   auto renderer = std::make_shared<core::Renderer>();
-  auto splats = renderer->LoadFromPly("./test_random/gsplat.ply");
+  auto splats = parser->LoadFromPly("./test_random/gsplat.ply");
 
   auto camera = std::make_shared<Camera>();
 

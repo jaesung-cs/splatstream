@@ -2,7 +2,7 @@ import numpy as np
 
 from . import _core
 from .rendered_image import RenderedImage
-from .singleton_renderer import singleton_renderer
+from .singleton_engine import singleton_engine
 
 
 def gaussian_splats(
@@ -51,13 +51,13 @@ def gaussian_splats(
     # float16 is not acceptable by pybind11, so pass the pointer instead.
     colors_ptr = colors.ctypes.data
 
-    return singleton_renderer.create_gaussian_splats(
+    return singleton_engine.create_gaussian_splats(
         means, quats, scales, opacities, colors_ptr, sh_degree
     )
 
 
 def load_from_ply(path: str, sh_degree: int = -1) -> _core.GaussianSplats:
-    return singleton_renderer.load_from_ply(path, sh_degree)
+    return singleton_engine.load_from_ply(path, sh_degree)
 
 
 def draw(
@@ -147,7 +147,7 @@ def draw(
     rendered_images = []
     for i in range(len(images)):
         rendered_images.append(
-            singleton_renderer.draw(
+            singleton_engine.draw(
                 splats,
                 viewmats[i],
                 projections[i],

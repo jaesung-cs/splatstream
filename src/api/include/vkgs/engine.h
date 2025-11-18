@@ -10,16 +10,19 @@
 
 namespace vkgs {
 namespace core {
+
+class Parser;
 class Renderer;
-}
+
+}  // namespace core
 
 class GaussianSplats;
 class RenderingTask;
 
-class VKGS_API Renderer {
+class VKGS_API Engine {
  public:
-  Renderer();
-  ~Renderer();
+  Engine();
+  ~Engine();
 
   const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;
@@ -32,6 +35,7 @@ class VKGS_API Renderer {
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
  private:
+  std::shared_ptr<core::Parser> parser_;
   std::shared_ptr<core::Renderer> renderer_;
 };
 
