@@ -12,6 +12,7 @@ class Object;
 class QueueTask;
 class Fence;
 class Command;
+
 class TaskMonitor {
  public:
   TaskMonitor();

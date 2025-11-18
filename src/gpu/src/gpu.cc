@@ -21,6 +21,7 @@ void Init(const DeviceCreateInfo& device_info) {
 }
 
 void Terminate() {
+  device->WaitIdle();
   GraphicsPipeline::Terminate();
   device = nullptr;
   volkFinalize();

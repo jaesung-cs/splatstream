@@ -2,7 +2,7 @@ import numpy as np
 
 from . import _core
 from .rendered_image import RenderedImage
-from .singleton_engine import singleton_engine
+from .engine import singleton_engine
 
 
 def gaussian_splats(
