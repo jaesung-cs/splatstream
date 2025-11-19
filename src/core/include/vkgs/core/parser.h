@@ -2,13 +2,14 @@
 #define VKGS_CORE_PARSER_H
 
 #include <memory>
+#include <string>
+#include <cstdint>
 
 #include "export_api.h"
 
 namespace vkgs {
 namespace gpu {
 
-class Device;
 class PipelineLayout;
 class ComputePipeline;
 
@@ -30,8 +31,6 @@ class VKGS_CORE_API Parser {
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
 
  private:
-  std::shared_ptr<gpu::Device> device_;
-
   std::shared_ptr<gpu::PipelineLayout> parse_pipeline_layout_;
   std::shared_ptr<gpu::ComputePipeline> parse_ply_pipeline_;
   std::shared_ptr<gpu::ComputePipeline> parse_data_pipeline_;

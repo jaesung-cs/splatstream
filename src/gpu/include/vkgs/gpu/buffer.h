@@ -6,7 +6,6 @@
 #include <vulkan/vulkan.h>
 
 #include "export_api.h"
-
 #include "object.h"
 
 namespace vkgs {
@@ -16,11 +15,10 @@ class Device;
 
 class VKGS_GPU_API Buffer : public Object {
  public:
-  static std::shared_ptr<Buffer> Create(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size,
-                                        bool host = false);
+  static std::shared_ptr<Buffer> Create(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
 
  public:
-  Buffer(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
+  Buffer(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
   ~Buffer() override;
 
   operator VkBuffer() const noexcept { return buffer_; }

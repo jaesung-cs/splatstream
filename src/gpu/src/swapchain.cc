@@ -4,17 +4,16 @@
 
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/queue.h"
-#include "vulkan/vulkan_core.h"
 
 namespace vkgs {
 namespace gpu {
 
-Swapchain::Swapchain(std::shared_ptr<Device> device, VkSurfaceKHR surface) : device_(device), surface_(surface) {
+Swapchain::Swapchain(VkSurfaceKHR surface) : surface_(surface) {
   format_ = VK_FORMAT_B8G8R8A8_UNORM;
 
   VkSwapchainCreateInfoKHR swapchain_info;
   GetDefaultSwapchainCreateInfo(&swapchain_info);
-  vkCreateSwapchainKHR(*device, &swapchain_info, NULL, &swapchain_);
+  vkCreateSwapchainKHR(*device_, &swapchain_info, NULL, &swapchain_);
   extent_ = swapchain_info.imageExtent;
 
   uint32_t image_count = 3;

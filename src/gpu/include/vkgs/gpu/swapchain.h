@@ -7,11 +7,10 @@
 #include <vulkan/vulkan.h>
 
 #include "export_api.h"
+#include "object.h"
 
 namespace vkgs {
 namespace gpu {
-
-class Device;
 
 struct PresentImageInfo {
   uint32_t image_index;
@@ -22,9 +21,9 @@ struct PresentImageInfo {
   VkSemaphore render_finished_semaphore;
 };
 
-class VKGS_GPU_API Swapchain {
+class VKGS_GPU_API Swapchain : public Object {
  public:
-  Swapchain(std::shared_ptr<Device> device, VkSurfaceKHR surface);
+  Swapchain(VkSurfaceKHR surface);
   ~Swapchain();
 
   VkFormat format() const noexcept { return format_; }
@@ -38,7 +37,6 @@ class VKGS_GPU_API Swapchain {
   void GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchain_info);
   void Recreate();
 
-  std::shared_ptr<Device> device_;
   VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
   VkFormat format_ = VK_FORMAT_UNDEFINED;

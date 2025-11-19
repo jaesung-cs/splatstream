@@ -8,13 +8,12 @@
 namespace vkgs {
 namespace gpu {
 
-std::shared_ptr<Image> Image::Create(std::shared_ptr<Device> device, VkFormat format, uint32_t width, uint32_t height,
-                                     VkImageUsageFlags usage) {
-  return std::make_shared<Image>(device, format, width, height, usage);
+std::shared_ptr<Image> Image::Create(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage) {
+  return std::make_shared<Image>(format, width, height, usage);
 }
 
-Image::Image(std::shared_ptr<Device> device, VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
-    : Object(device), format_(format), width_(width), height_(height) {
+Image::Image(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
+    : format_(format), width_(width), height_(height) {
   VmaAllocator allocator = static_cast<VmaAllocator>(device_->allocator());
   VmaAllocation allocation = VK_NULL_HANDLE;
 

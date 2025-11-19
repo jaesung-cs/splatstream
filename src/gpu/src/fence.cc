@@ -1,4 +1,4 @@
-#include "vkgs/gpu/fence.h"
+#include "fence.h"
 
 #include <volk.h>
 

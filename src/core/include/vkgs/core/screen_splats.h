@@ -9,7 +9,6 @@
 namespace vkgs {
 namespace gpu {
 
-class Device;
 class Buffer;
 
 }  // namespace gpu
@@ -18,7 +17,7 @@ namespace core {
 
 class VKGS_CORE_API ScreenSplats {
  public:
-  ScreenSplats(std::shared_ptr<gpu::Device> device);
+  ScreenSplats();
   ~ScreenSplats();
 
   auto draw_indirect() const noexcept { return draw_indirect_; }
@@ -27,7 +26,6 @@ class VKGS_CORE_API ScreenSplats {
   void Update(uint32_t point_count);
 
  private:
-  std::shared_ptr<gpu::Device> device_;
   uint32_t point_count_ = 0;
 
   // Fixed

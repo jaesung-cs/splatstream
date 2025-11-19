@@ -3,7 +3,7 @@
 namespace vkgs {
 namespace core {
 
-TransferStorage::TransferStorage(std::shared_ptr<gpu::Device> device) : device_(device) {}
+TransferStorage::TransferStorage() {}
 
 TransferStorage::~TransferStorage() {}
 

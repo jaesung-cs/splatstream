@@ -40,10 +40,10 @@ class VKGS_CORE_API Renderer {
   Renderer();
   ~Renderer();
 
-  const std::string& device_name() const noexcept;
-  uint32_t graphics_queue_index() const noexcept;
-  uint32_t compute_queue_index() const noexcept;
-  uint32_t transfer_queue_index() const noexcept;
+  const std::string& device_name() const noexcept { return device_name_; }
+  uint32_t graphics_queue_index() const noexcept { return graphics_queue_index_; }
+  uint32_t compute_queue_index() const noexcept { return compute_queue_index_; }
+  uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
 
   std::shared_ptr<RenderingTask> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                       uint8_t* dst);
@@ -64,7 +64,11 @@ class VKGS_CORE_API Renderer {
                           std::vector<VkFormat> formats, std::vector<uint32_t> locations);
 
  private:
-  std::shared_ptr<gpu::Device> device_;
+  std::string device_name_;
+  uint32_t graphics_queue_index_;
+  uint32_t compute_queue_index_;
+  uint32_t transfer_queue_index_;
+
   std::shared_ptr<Sorter> sorter_;
 
   std::shared_ptr<gpu::PipelineLayout> compute_pipeline_layout_;

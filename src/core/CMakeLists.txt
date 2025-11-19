@@ -21,7 +21,6 @@ FetchContent_MakeAvailable(vk_radix_sort)
 
 add_library(vkgs_core SHARED
   src/compute_storage.cc
-  src/core.cc
   src/gaussian_splats.cc
   src/graphics_storage.cc
   src/parser.cc

@@ -7,7 +7,7 @@ namespace gpu {
 
 TaskMonitor::TaskMonitor() = default;
 
-TaskMonitor::~TaskMonitor() {}
+TaskMonitor::~TaskMonitor() { FinishAllTasks(); }
 
 void TaskMonitor::FinishAllTasks() {
   for (auto task : tasks_) task->Wait();

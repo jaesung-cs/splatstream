@@ -5,7 +5,6 @@ add_library(vkgs_vkgs SHARED
   src/engine.cc
   src/gaussian_splats.cc
   src/rendering_task.cc
-  src/vkgs.cc
 )
 add_library(vkgs::vkgs ALIAS vkgs_vkgs)
 

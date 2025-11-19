@@ -31,6 +31,7 @@ add_library(vkgs_gpu SHARED
   src/fence_pool.cc
   src/fence.cc
   src/gpu.cc
+  src/graphics_pipeline_pool.cc
   src/graphics_pipeline.cc
   src/image.cc
   src/object.cc

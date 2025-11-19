@@ -3,15 +3,29 @@
 #include <volk.h>
 
 #include "vkgs/gpu/queue.h"
-#include "vkgs/gpu/fence.h"
+#include "vkgs/gpu/gpu.h"
 
+#include "fence.h"
 #include "command.h"
 
 namespace vkgs {
 namespace gpu {
 
-Task::Task(std::shared_ptr<Device> device, std::shared_ptr<Queue> queue) : device_(device), queue_(queue) {
+Task::Task(QueueType queue_type) {
+  device_ = gpu::GetDevice();
   device_->SetCurrentTask(this);
+
+  switch (queue_type) {
+    case QueueType::TRANSFER:
+      queue_ = device_->transfer_queue();
+      break;
+    case QueueType::COMPUTE:
+      queue_ = device_->compute_queue();
+      break;
+    case QueueType::GRAPHICS:
+      queue_ = device_->graphics_queue();
+      break;
+  }
 
   command_ = queue_->AllocateCommandBuffer();
   fence_ = device_->AllocateFence();

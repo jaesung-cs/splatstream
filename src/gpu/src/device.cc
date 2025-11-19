@@ -7,10 +7,11 @@
 
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
-#include "vkgs/gpu/fence.h"
 
 #include "semaphore_pool.h"
 #include "fence_pool.h"
+#include "graphics_pipeline_pool.h"
+#include "fence.h"
 #include "command.h"
 #include "task_monitor.h"
 
@@ -62,6 +63,8 @@ namespace vkgs {
 namespace gpu {
 
 Device::Device(const DeviceCreateInfo& create_info) {
+  volkInitialize();
+
   // Instance
   VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   app_info.pApplicationName = "vkgs";
@@ -225,6 +228,7 @@ Device::Device(const DeviceCreateInfo& create_info) {
 
   semaphore_pool_ = std::make_shared<SemaphorePool>(device_);
   fence_pool_ = std::make_shared<FencePool>(device_);
+  graphics_pipeline_pool_ = std::make_shared<GraphicsPipelinePool>(device_);
 
   graphics_queue_ = std::make_shared<Queue>(device_, graphics_queue, graphics_queue_index);
   compute_queue_ = std::make_shared<Queue>(device_, compute_queue, compute_queue_index);
@@ -257,6 +261,7 @@ Device::~Device() {
   transfer_queue_ = nullptr;
   semaphore_pool_ = nullptr;
   fence_pool_ = nullptr;
+  graphics_pipeline_pool_ = nullptr;
   task_monitor_ = nullptr;
 
   VmaAllocator allocator = static_cast<VmaAllocator>(allocator_);
@@ -265,7 +270,7 @@ Device::~Device() {
   vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
   vkDestroyInstance(instance_, NULL);
 
-  std::cout << "destroyed device" << std::endl;
+  volkFinalize();
 }
 
 uint32_t Device::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }

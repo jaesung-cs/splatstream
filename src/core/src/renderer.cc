@@ -44,39 +44,43 @@ namespace vkgs {
 namespace core {
 
 Renderer::Renderer() {
-  device_ = gpu::GetDevice();
-  sorter_ = std::make_shared<Sorter>(*device_, device_->physical_device());
+  auto device = gpu::GetDevice();
+  sorter_ = std::make_shared<Sorter>(*device, device->physical_device());
+
+  device_name_ = device->device_name();
+  graphics_queue_index_ = device->graphics_queue_index();
+  compute_queue_index_ = device->compute_queue_index();
+  transfer_queue_index_ = device->transfer_queue_index();
 
   for (auto& buffer : ring_buffer_) {
-    buffer.compute_storage = std::make_shared<ComputeStorage>(device_);
-    buffer.screen_splats = std::make_shared<ScreenSplats>(device_);
-    buffer.graphics_storage = std::make_shared<GraphicsStorage>(device_);
-    buffer.transfer_storage = std::make_shared<TransferStorage>(device_);
-    buffer.compute_semaphore = device_->AllocateSemaphore();
-    buffer.graphics_semaphore = device_->AllocateSemaphore();
-    buffer.transfer_semaphore = device_->AllocateSemaphore();
+    buffer.compute_storage = std::make_shared<ComputeStorage>();
+    buffer.screen_splats = std::make_shared<ScreenSplats>();
+    buffer.graphics_storage = std::make_shared<GraphicsStorage>();
+    buffer.transfer_storage = std::make_shared<TransferStorage>();
+    buffer.compute_semaphore = device->AllocateSemaphore();
+    buffer.graphics_semaphore = device->AllocateSemaphore();
+    buffer.transfer_semaphore = device->AllocateSemaphore();
   }
 
-  compute_pipeline_layout_ =
-      gpu::PipelineLayout::Create(*device_,
-                                  {
-                                      {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                  },
-                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants)}});
-  rank_pipeline_ = gpu::ComputePipeline::Create(device_, *compute_pipeline_layout_, rank);
-  inverse_index_pipeline_ = gpu::ComputePipeline::Create(device_, *compute_pipeline_layout_, inverse_index);
-  projection_pipeline_ = gpu::ComputePipeline::Create(device_, *compute_pipeline_layout_, projection);
+  compute_pipeline_layout_ = gpu::PipelineLayout::Create(
+      {
+          {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+      },
+      {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants)}});
+  rank_pipeline_ = gpu::ComputePipeline::Create(*compute_pipeline_layout_, rank);
+  inverse_index_pipeline_ = gpu::ComputePipeline::Create(*compute_pipeline_layout_, inverse_index);
+  projection_pipeline_ = gpu::ComputePipeline::Create(*compute_pipeline_layout_, projection);
 
   graphics_pipeline_layout_ =
-      gpu::PipelineLayout::Create(*device_, {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
+      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
                                   {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(GraphicsPushConstants)}});
 
   gpu::GraphicsPipelineCreateInfo splat_background_pipeline_info = {};
@@ -84,15 +88,10 @@ Renderer::Renderer() {
   splat_background_pipeline_info.vertex_shader = gpu::ShaderCode(splat_background_vert);
   splat_background_pipeline_info.fragment_shader = gpu::ShaderCode(splat_background_frag);
   splat_background_pipeline_info.formats = {VK_FORMAT_R16G16B16A16_SFLOAT};
-  splat_background_pipeline_ = gpu::GraphicsPipeline::Create(device_, splat_background_pipeline_info);
+  splat_background_pipeline_ = gpu::GraphicsPipeline::Create(splat_background_pipeline_info);
 }
 
 Renderer::~Renderer() = default;
-
-const std::string& Renderer::device_name() const noexcept { return device_->device_name(); }
-uint32_t Renderer::graphics_queue_index() const noexcept { return device_->graphics_queue_index(); }
-uint32_t Renderer::compute_queue_index() const noexcept { return device_->compute_queue_index(); }
-uint32_t Renderer::transfer_queue_index() const noexcept { return device_->transfer_queue_index(); }
 
 std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
                                               uint8_t* dst) {
@@ -116,19 +115,19 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   auto tsem = ring_buffer.transfer_semaphore;
   auto tval = tsem->value();
 
-  auto cq = device_->compute_queue_index();
-  auto gq = device_->graphics_queue_index();
-  auto tq = device_->transfer_queue_index();
+  auto cq = compute_queue_index_;
+  auto gq = graphics_queue_index_;
+  auto tq = transfer_queue_index_;
 
   screen_splats->Update(N);
   graphics_storage->Update(width, height);
   transfer_storage->Update(width, height);
 
-  auto timer = gpu::Timer::Create(*device_, 3);
+  auto timer = gpu::Timer::Create(3);
 
   // Compute queue
   {
-    gpu::ComputeTask task(device_);
+    gpu::ComputeTask task;
     auto cb = task.command_buffer();
 
     // Compute
@@ -154,7 +153,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
   // Graphics queue
   {
-    gpu::GraphicsTask task(device_);
+    gpu::GraphicsTask task;
     auto cb = task.command_buffer();
 
     GraphicsPushConstants graphics_push_constants;
@@ -245,10 +244,10 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     task.Signal(*gsem, gval + 2, VK_PIPELINE_STAGE_2_BLIT_BIT);
   }
 
-  auto image_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
+  auto image_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
   std::shared_ptr<gpu::QueueTask> queue_task;
   {
-    gpu::TransferTask task(device_);
+    gpu::TransferTask task;
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
@@ -424,7 +423,7 @@ void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSp
   splat_pipeline_info.fragment_shader = gpu::ShaderCode(splat_frag);
   splat_pipeline_info.formats = std::move(formats);
   splat_pipeline_info.locations = std::move(locations);
-  auto splat_pipeline = gpu::GraphicsPipeline::Create(device_, splat_pipeline_info);
+  auto splat_pipeline = gpu::GraphicsPipeline::Create(splat_pipeline_info);
 
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
       .Storage(0, *screen_splats->instances())

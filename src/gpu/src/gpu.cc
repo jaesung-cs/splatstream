@@ -1,33 +1,26 @@
 #include "vkgs/gpu/gpu.h"
 
-#include <volk.h>
-
 #include "vkgs/gpu/device.h"
-#include "vkgs/gpu/graphics_pipeline.h"
 
 namespace vkgs {
 namespace gpu {
 namespace {
 
-std::shared_ptr<Device> device;
+DeviceCreateInfo global_device_info = {};
+std::weak_ptr<Device> device;
 
+}  // namespace
+
+void Init(const DeviceCreateInfo& device_info) { global_device_info = device_info; }
+
+std::shared_ptr<Device> GetDevice() {
+  if (device.expired()) {
+    auto new_device = std::make_shared<Device>(global_device_info);
+    device = new_device;
+    return new_device;
+  }
+  return device.lock();
 }
-
-void Init() { Init({}); }
-
-void Init(const DeviceCreateInfo& device_info) {
-  volkInitialize();
-  device = std::make_shared<Device>(device_info);
-}
-
-void Terminate() {
-  device->WaitIdle();
-  GraphicsPipeline::Terminate();
-  device = nullptr;
-  volkFinalize();
-}
-
-std::shared_ptr<Device> GetDevice() { return device; }
 
 }  // namespace gpu
 }  // namespace vkgs

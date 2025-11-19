@@ -7,8 +7,7 @@
 #include <vulkan/vulkan.h>
 
 #include "export_api.h"
-
-#include "vkgs/gpu/device.h"
+#include "device.h"
 
 namespace vkgs {
 namespace gpu {
@@ -19,10 +18,19 @@ class Fence;
 class Command;
 
 class VKGS_GPU_API Task {
+ protected:
+  enum class QueueType {
+    TRANSFER,
+    COMPUTE,
+    GRAPHICS,
+  };
+
  public:
-  Task(std::shared_ptr<Device> device, std::shared_ptr<Queue> queue);
+  Task(QueueType queue_type);
 
   virtual ~Task();
+
+  auto device() const noexcept { return device_; }
 
   VkCommandBuffer command_buffer() const;
   auto fence() const noexcept { return fence_; }
@@ -58,20 +66,20 @@ class VKGS_GPU_API Task {
 
 class VKGS_GPU_API ComputeTask : public Task {
  public:
-  ComputeTask(std::shared_ptr<Device> device) : Task(device, device->compute_queue()) {}
-  virtual ~ComputeTask() override = default;
+  ComputeTask() : Task(QueueType::COMPUTE) {}
+  ~ComputeTask() override = default;
 };
 
 class VKGS_GPU_API GraphicsTask : public Task {
  public:
-  GraphicsTask(std::shared_ptr<Device> device) : Task(device, device->graphics_queue()) {}
-  virtual ~GraphicsTask() override = default;
+  GraphicsTask() : Task(QueueType::GRAPHICS) {}
+  ~GraphicsTask() override = default;
 };
 
 class VKGS_GPU_API TransferTask : public Task {
  public:
-  TransferTask(std::shared_ptr<Device> device) : Task(device, device->transfer_queue()) {}
-  virtual ~TransferTask() override = default;
+  TransferTask() : Task(QueueType::TRANSFER) {}
+  ~TransferTask() override = default;
 };
 
 }  // namespace gpu
