@@ -18,7 +18,7 @@ namespace core {
 
 class ComputeStorage {
  public:
-  ComputeStorage(std::shared_ptr<gpu::Device> device);
+  ComputeStorage();
   ~ComputeStorage();
 
   auto visible_point_count() const noexcept { return visible_point_count_; }
@@ -32,7 +32,6 @@ class ComputeStorage {
   void Update(uint32_t point_count, VkBufferUsageFlags usage, VkDeviceSize size);
 
  private:
-  std::shared_ptr<gpu::Device> device_;
   uint32_t point_count_ = 0;
 
   // Fixed

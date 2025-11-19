@@ -7,7 +7,6 @@
 #include <vulkan/vulkan.h>
 
 #include "export_api.h"
-
 #include "object.h"
 
 namespace vkgs {
@@ -34,19 +33,22 @@ struct GraphicsPipelineCreateInfo {
   std::vector<uint32_t> input_indices;
 };
 
+class GraphicsPipelinePool;
+
 class VKGS_GPU_API GraphicsPipeline : public Object {
  public:
-  static std::shared_ptr<GraphicsPipeline> Create(std::shared_ptr<Device> device,
-                                                  const GraphicsPipelineCreateInfo& create_info);
-  static void Terminate();
+  static std::shared_ptr<GraphicsPipeline> Create(const GraphicsPipelineCreateInfo& create_info);
 
-  GraphicsPipeline(std::shared_ptr<Device> device, const GraphicsPipelineCreateInfo& create_info);
+  GraphicsPipeline(std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool,
+                   const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline);
 
   ~GraphicsPipeline() override;
 
   operator VkPipeline() const noexcept { return pipeline_; }
 
  private:
+  std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool_;
+  GraphicsPipelineCreateInfo create_info_;
   VkPipeline pipeline_ = VK_NULL_HANDLE;
 };
 

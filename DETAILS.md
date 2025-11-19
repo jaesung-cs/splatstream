@@ -2,7 +2,7 @@
 
 ## C++ File Structure
 `src/` directory has three components:
-- `api`: c++ API wrapper, hiding all Vulkan dependency and exposes the conceptual containers and operations only.
+- `vkgs`: c++ API wrapper, hiding all Vulkan dependency and exposes the conceptual containers and operations only.
 - `core`: main algorithm for rendering Gaussian Splattings, where Vulkan commands for rendering are submitted.
 - `viewer`: viewer codes, managing window system and UI, managing GLFW and imgui contexts internally.
 - `gpu`: Vulkan backend, with helping features: object lifetime management, object creation, etc.

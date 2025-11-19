@@ -10,6 +10,8 @@ Queue::Queue(VkDevice device, VkQueue queue, uint32_t family_index)
   command_pool_ = std::make_shared<CommandPool>(device_, family_index_);
 }
 
+Queue::~Queue() = default;
+
 std::shared_ptr<Command> Queue::AllocateCommandBuffer() { return command_pool_->Allocate(); }
 
 }  // namespace gpu

@@ -46,20 +46,17 @@ namespace vkgs {
 namespace core {
 
 Parser::Parser() {
-  device_ = gpu::GetDevice();
-
-  parse_pipeline_layout_ =
-      gpu::PipelineLayout::Create(*device_,
-                                  {
-                                      {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                      {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-                                  },
-                                  {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePushConstants)}});
-  parse_ply_pipeline_ = gpu::ComputePipeline::Create(device_, *parse_pipeline_layout_, parse_ply);
-  parse_data_pipeline_ = gpu::ComputePipeline::Create(device_, *parse_pipeline_layout_, parse_data);
+  parse_pipeline_layout_ = gpu::PipelineLayout::Create(
+      {
+          {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+          {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+      },
+      {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePushConstants)}});
+  parse_ply_pipeline_ = gpu::ComputePipeline::Create(*parse_pipeline_layout_, parse_ply);
+  parse_data_pipeline_ = gpu::ComputePipeline::Create(*parse_pipeline_layout_, parse_data);
 }
 
 Parser::~Parser() = default;
@@ -93,30 +90,28 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
       throw std::runtime_error("Unsupported SH degree: " + std::to_string(sh_degree));
   }
 
-  auto position_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
-  auto quats_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float), true);
-  auto scales_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
+  auto position_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
+  auto quats_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float), true);
+  auto scales_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
   auto colors_stage =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t), true);
-  auto opacity_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * sizeof(float), true);
-  auto index_stage =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+      gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t), true);
+  auto opacity_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * sizeof(float), true);
+  auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
 
-  auto position = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+  auto position = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                       size * 3 * sizeof(float));
-  auto quats = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+  auto quats = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                    size * 4 * sizeof(float));
-  auto scales = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+  auto scales = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     size * 3 * sizeof(float));
-  auto colors = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+  auto colors = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     size * colors_size * 3 * sizeof(uint16_t));
-  auto opacity = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                     size * sizeof(float));
+  auto opacity =
+      gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, size * sizeof(float));
 
-  auto cov3d = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * 6 * sizeof(float));
-  auto sh =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * sh_packed_size * 4 * sizeof(uint16_t));
-  auto index_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+  auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * 6 * sizeof(float));
+  auto sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * sh_packed_size * 4 * sizeof(uint16_t));
+  auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                           index_data.size() * sizeof(uint32_t));
 
   std::memcpy(position_stage->data(), means_ptr, position_stage->size());
@@ -130,14 +125,15 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
   parse_data_push_constants.point_count = size;
   parse_data_push_constants.sh_degree = sh_degree;
 
-  auto sem = device_->AllocateSemaphore();
-  auto tq = device_->transfer_queue_index();
-  auto cq = device_->compute_queue_index();
-  auto gq = device_->graphics_queue_index();
+  auto device = gpu::GetDevice();
+  auto sem = device->AllocateSemaphore();
+  auto tq = device->transfer_queue_index();
+  auto cq = device->compute_queue_index();
+  auto gq = device->graphics_queue_index();
 
   // Transfer queue: stage to buffers
   {
-    gpu::TransferTask task(device_);
+    gpu::TransferTask task;
     auto cb = task.command_buffer();
 
     VkBufferCopy region = {0, 0, position_stage->size()};
@@ -175,7 +171,7 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
   // Compute queue: parse data
   std::shared_ptr<gpu::QueueTask> queue_task;
   {
-    gpu::ComputeTask task(device_);
+    gpu::ComputeTask task;
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
@@ -212,7 +208,7 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
 
   // Graphics queue: make visible
   {
-    gpu::GraphicsTask task(device_);
+    gpu::GraphicsTask task;
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
@@ -330,34 +326,34 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
 
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
-  auto ply_stage = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                       buffer_size, true);
+  auto ply_stage =
+      gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size, true);
   auto ply_buffer =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
+      gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
 
-  auto position = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
-  auto cov3d = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
-  auto sh = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                point_count * sh_packed_size * 4 * sizeof(uint16_t));
-  auto opacity = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
+  auto position = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
+  auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
+  auto sh =
+      gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sh_packed_size * 4 * sizeof(uint16_t));
+  auto opacity = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
-  auto index_stage =
-      gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
-  auto index_buffer = gpu::Buffer::Create(device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+  auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+  auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                           index_data.size() * sizeof(uint32_t));
 
   std::memcpy(ply_stage->data(), ply_offsets.data(), ply_offsets.size() * sizeof(uint32_t));
   std::memcpy(ply_stage->data<char>() + ply_offsets.size() * sizeof(uint32_t), buffer.data(), buffer.size());
   std::memcpy(index_stage->data(), index_data.data(), index_data.size() * sizeof(uint32_t));
 
-  auto sem = device_->AllocateSemaphore();
-  auto tq = device_->transfer_queue_index();
-  auto cq = device_->compute_queue_index();
-  auto gq = device_->graphics_queue_index();
+  auto device = gpu::GetDevice();
+  auto sem = device->AllocateSemaphore();
+  auto tq = device->transfer_queue_index();
+  auto cq = device->compute_queue_index();
+  auto gq = device->graphics_queue_index();
 
   // Transfer queue: stage to buffers
   {
-    gpu::TransferTask task(device_);
+    gpu::TransferTask task;
     auto cb = task.command_buffer();
 
     VkBufferCopy region = {0, 0, buffer_size};
@@ -380,7 +376,7 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
   // Compute queue: parse ply
   std::shared_ptr<gpu::QueueTask> queue_task;
   {
-    gpu::ComputeTask task(device_);
+    gpu::ComputeTask task;
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
@@ -412,7 +408,7 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
 
   // Graphics queue: acquire index buffer
   {
-    gpu::GraphicsTask task(device_);
+    gpu::GraphicsTask task;
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()

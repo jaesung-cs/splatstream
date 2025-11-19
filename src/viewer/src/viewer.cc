@@ -45,10 +45,7 @@ void Init() {
   gpu::Init(device_info);
 }
 
-void Terminate() {
-  gpu::Terminate();
-  glfwTerminate();
-}
+void Terminate() { glfwTerminate(); }
 
 Viewer::Viewer() = default;
 
@@ -70,7 +67,7 @@ void Viewer::Run() {
   VkSurfaceKHR surface = VK_NULL_HANDLE;
   glfwCreateWindowSurface(instance, window_, NULL, &surface);
 
-  auto swapchain = std::make_shared<gpu::Swapchain>(device, surface);
+  auto swapchain = std::make_shared<gpu::Swapchain>(surface);
 
   VkFormat swapchain_format = swapchain->format();
   VkFormat low_format = VK_FORMAT_B8G8R8A8_UNORM;
@@ -78,18 +75,18 @@ void Viewer::Run() {
   std::vector<VkFormat> formats = {swapchain_format, low_format, high_format};
 
   // Blend pipeline
-  graphics_pipeline_layout_ =
-      gpu::PipelineLayout::Create(*device, {{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
-                                            {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}});
+  auto graphics_pipeline_layout =
+      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+                                   {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}});
 
   gpu::GraphicsPipelineCreateInfo blend_pipeline_info = {};
-  blend_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
+  blend_pipeline_info.pipeline_layout = *graphics_pipeline_layout;
   blend_pipeline_info.vertex_shader = gpu::ShaderCode(blend_vert);
   blend_pipeline_info.fragment_shader = gpu::ShaderCode(blend_frag);
   blend_pipeline_info.formats = formats;
   blend_pipeline_info.locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
   blend_pipeline_info.input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
-  blend_pipeline_ = gpu::GraphicsPipeline::Create(device, blend_pipeline_info);
+  auto blend_pipeline = gpu::GraphicsPipeline::Create(blend_pipeline_info);
 
   auto cq = device->compute_queue();
   auto gq = device->graphics_queue();
@@ -203,23 +200,23 @@ void Viewer::Run() {
       draw_options.sh_degree = splats->sh_degree();
 
       // TODO: ring buffer
-      auto screen_splats = std::make_shared<core::ScreenSplats>(device);
+      auto screen_splats = std::make_shared<core::ScreenSplats>();
       screen_splats->Update(splats->size());
       auto csem = device->AllocateSemaphore();
       auto cval = csem->value();
       auto gsem = device->AllocateSemaphore();
       auto gval = gsem->value();
 
-      auto image8 = gpu::Image::Create(device, low_format, width, height,
+      auto image8 = gpu::Image::Create(low_format, width, height,
                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
                                            VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
-      auto image16 = gpu::Image::Create(device, high_format, width, height,
+      auto image16 = gpu::Image::Create(high_format, width, height,
                                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
                                             VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
 
       // Compute queue
       {
-        gpu::ComputeTask task(device);
+        gpu::ComputeTask task;
         auto cb = task.command_buffer();
 
         // Compute
@@ -238,7 +235,7 @@ void Viewer::Run() {
 
       // Graphics queue
       {
-        gpu::GraphicsTask task(device);
+        gpu::GraphicsTask task;
         auto cb = task.command_buffer();
 
         gpu::cmd::Barrier()
@@ -314,10 +311,10 @@ void Viewer::Run() {
                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
             .Commit(cb);
 
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
             .Input(0, image8->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
             .Input(1, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-            .Bind(*blend_pipeline_)
+            .Bind(*blend_pipeline)
             .Commit(cb);
 
         {
@@ -384,11 +381,21 @@ void Viewer::Run() {
     }
   }
 
-  swapchain = nullptr;
+  device->WaitIdle();
 
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
+
+  swapchain = nullptr;
+  cq = nullptr;
+  gq = nullptr;
+  graphics_pipeline_layout = nullptr;
+  blend_pipeline = nullptr;
+  parser = nullptr;
+  renderer = nullptr;
+  splats = nullptr;
+  device = nullptr;
 
   glfwDestroyWindow(window_);
 }

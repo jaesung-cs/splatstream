@@ -1,7 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
-#include "vkgs/vkgs.h"
 #include "vkgs/engine.h"
 #include "vkgs/gaussian_splats.h"
 #include "vkgs/rendering_task.h"
@@ -10,9 +9,6 @@
 namespace py = pybind11;
 
 PYBIND11_MODULE(_core, m) {
-  m.def("init", &vkgs::Init);
-  m.def("terminate", &vkgs::Terminate);
-
   py::class_<vkgs::Engine>(m, "Engine")
       .def(py::init<>())
       .def_property_readonly("device_name", &vkgs::Engine::device_name)

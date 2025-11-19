@@ -6,15 +6,16 @@
 #include <vulkan/vulkan.h>
 
 #include "export_api.h"
+#include "object.h"
 
 namespace vkgs {
 namespace gpu {
 
 class SemaphorePool;
 
-class VKGS_GPU_API Semaphore {
+class VKGS_GPU_API Semaphore : public Object {
  public:
-  Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
+  Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
   ~Semaphore();
 
   operator VkSemaphore() const noexcept { return semaphore_; }
@@ -26,7 +27,6 @@ class VKGS_GPU_API Semaphore {
   void Increment() { value_++; }
 
  private:
-  VkDevice device_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
 
   VkSemaphore semaphore_;

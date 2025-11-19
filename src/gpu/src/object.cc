@@ -2,13 +2,13 @@
 
 #include <stdexcept>
 
-#include "vkgs/gpu/device.h"
+#include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/task.h"
 
 namespace vkgs {
 namespace gpu {
 
-Object::Object(std::shared_ptr<Device> device) : device_(device) {}
+Object::Object() : device_(GetDevice()) {}
 
 Object::~Object() = default;
 

@@ -8,13 +8,11 @@
 namespace vkgs {
 namespace gpu {
 
-std::shared_ptr<Buffer> Buffer::Create(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size,
-                                       bool host) {
-  return std::make_shared<Buffer>(device, usage, size, host);
+std::shared_ptr<Buffer> Buffer::Create(VkBufferUsageFlags usage, VkDeviceSize size, bool host) {
+  return std::make_shared<Buffer>(usage, size, host);
 }
 
-Buffer::Buffer(std::shared_ptr<Device> device, VkBufferUsageFlags usage, VkDeviceSize size, bool host)
-    : Object(device), size_(size) {
+Buffer::Buffer(VkBufferUsageFlags usage, VkDeviceSize size, bool host) : size_(size) {
   VkBufferCreateInfo buffer_info = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
   buffer_info.size = size;
   buffer_info.usage = usage;

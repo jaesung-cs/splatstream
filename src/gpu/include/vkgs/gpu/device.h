@@ -23,13 +23,14 @@ class TaskMonitor;
 class Command;
 class QueueTask;
 class Task;
+class GraphicsPipelinePool;
 
 struct DeviceCreateInfo {
   bool enable_viewer;
   std::vector<const char*> instance_extensions;
 };
 
-class VKGS_GPU_API Device {
+class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
  public:
   Device(const DeviceCreateInfo& create_info);
   ~Device();
@@ -52,6 +53,7 @@ class VKGS_GPU_API Device {
 
   std::shared_ptr<Semaphore> AllocateSemaphore();
   std::shared_ptr<Fence> AllocateFence();
+  std::shared_ptr<GraphicsPipelinePool> GetGraphicsPipelinePool() { return graphics_pipeline_pool_; }
 
   void WaitIdle();
 
@@ -78,6 +80,7 @@ class VKGS_GPU_API Device {
   std::shared_ptr<Queue> transfer_queue_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
   std::shared_ptr<FencePool> fence_pool_;
+  std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool_;
   std::shared_ptr<TaskMonitor> task_monitor_;
 
   Task* current_task_ = nullptr;

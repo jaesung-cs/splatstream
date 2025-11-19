@@ -16,7 +16,7 @@ class CommandPool;
 class VKGS_GPU_API Queue {
  public:
   Queue(VkDevice device, VkQueue queue, uint32_t family_index);
-  ~Queue() = default;
+  ~Queue();
 
   operator VkQueue() const noexcept { return queue_; }
   operator uint32_t() const noexcept { return family_index_; }

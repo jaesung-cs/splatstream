@@ -20,7 +20,7 @@ set_target_properties(splatstream PROPERTIES OUTPUT_NAME _core)
 
 target_link_libraries(splatstream
   PRIVATE
-    vkgs::api
+    vkgs::vkgs
 )
 
 # Fix rpath for shared libraries
@@ -31,8 +31,8 @@ else()
   set(origin_token "$ORIGIN")
 endif()
 set_property(
-  TARGET splatstream vkgs_api vkgs_core vkgs_gpu
+  TARGET splatstream vkgs_vkgs vkgs_core vkgs_gpu
   PROPERTY INSTALL_RPATH "${origin_token}/"
 )
 
-install(TARGETS splatstream vkgs_api vkgs_core vkgs_gpu DESTINATION splatstream)
+install(TARGETS splatstream vkgs_vkgs vkgs_core vkgs_gpu DESTINATION splatstream)

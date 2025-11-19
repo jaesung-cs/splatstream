@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/fence.h"
+#include "fence.h"
 
 namespace vkgs {
 namespace gpu {

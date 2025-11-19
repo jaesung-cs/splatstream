@@ -1,6 +1,6 @@
 #include "vkgs/gpu/queue_task.h"
 
-#include "vkgs/gpu/fence.h"
+#include "fence.h"
 
 namespace vkgs {
 namespace gpu {

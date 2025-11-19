@@ -12,7 +12,7 @@ class Device;
 
 class VKGS_GPU_API Object : public std::enable_shared_from_this<Object> {
  public:
-  Object(std::shared_ptr<Device> device);
+  Object();
   virtual ~Object();
 
   /**
@@ -22,6 +22,7 @@ class VKGS_GPU_API Object : public std::enable_shared_from_this<Object> {
   void Keep();
 
  protected:
+  // Hold device so that device is not destroyed before objects are destroyed.
   std::shared_ptr<Device> device_;
 };
 
