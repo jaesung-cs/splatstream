@@ -14,7 +14,7 @@ add_executable(vkgs_exe
 
 target_link_libraries(vkgs_exe
   PRIVATE
-    vkgs::api
+    vkgs::vkgs
 )
 
 set_target_properties(vkgs_exe PROPERTIES
@@ -30,7 +30,7 @@ add_executable(viewer
 
 target_link_libraries(viewer
   PRIVATE
-    vkgs::api
+    vkgs::vkgs
     vkgs::viewer
 )
 

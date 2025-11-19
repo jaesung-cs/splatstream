@@ -1,29 +1,29 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_library(vkgs_api SHARED
+add_library(vkgs_vkgs SHARED
   src/engine.cc
   src/gaussian_splats.cc
   src/rendering_task.cc
   src/vkgs.cc
 )
-add_library(vkgs::api ALIAS vkgs_api)
+add_library(vkgs::vkgs ALIAS vkgs_vkgs)
 
-target_include_directories(vkgs_api
+target_include_directories(vkgs_vkgs
   PUBLIC
     include/
   PRIVATE
     src/
 )
 
-target_link_libraries(vkgs_api
+target_link_libraries(vkgs_vkgs
   PRIVATE
     vkgs::core
 )
 
-target_compile_definitions(vkgs_api PRIVATE VKGS_EXPORTS)
+target_compile_definitions(vkgs_vkgs PRIVATE VKGS_EXPORTS)
 
-set_target_properties(vkgs_api PROPERTIES
+set_target_properties(vkgs_vkgs PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
   LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib
