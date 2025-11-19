@@ -264,6 +264,8 @@ Device::~Device() {
   vkDestroyDevice(device_, NULL);
   vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
   vkDestroyInstance(instance_, NULL);
+
+  std::cout << "destroyed device" << std::endl;
 }
 
 uint32_t Device::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }
@@ -273,7 +275,10 @@ uint32_t Device::transfer_queue_index() const noexcept { return transfer_queue_-
 std::shared_ptr<Semaphore> Device::AllocateSemaphore() { return semaphore_pool_->Allocate(); }
 std::shared_ptr<Fence> Device::AllocateFence() { return fence_pool_->Allocate(); }
 
-void Device::WaitIdle() { vkDeviceWaitIdle(device_); }
+void Device::WaitIdle() {
+  task_monitor_->FinishAllTasks();
+  vkDeviceWaitIdle(device_);
+}
 
 std::shared_ptr<QueueTask> Device::AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
                                                 std::vector<std::shared_ptr<Object>> objects,

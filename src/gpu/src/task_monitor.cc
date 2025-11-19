@@ -7,8 +7,11 @@ namespace gpu {
 
 TaskMonitor::TaskMonitor() = default;
 
-TaskMonitor::~TaskMonitor() {
+TaskMonitor::~TaskMonitor() {}
+
+void TaskMonitor::FinishAllTasks() {
   for (auto task : tasks_) task->Wait();
+  tasks_.clear();
 }
 
 std::shared_ptr<QueueTask> TaskMonitor::Add(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
