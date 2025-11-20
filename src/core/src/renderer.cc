@@ -322,7 +322,7 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
   auto instances = screen_splats->instances();
 
   ComputePushConstants compute_push_constants;
-  compute_push_constants.model = glm::mat4(1.f);
+  compute_push_constants.model = draw_options.model;
   compute_push_constants.point_count = N;
   compute_push_constants.eps2d = draw_options.eps2d;
   compute_push_constants.sh_degree_data = splats->sh_degree();

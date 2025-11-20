@@ -7,6 +7,10 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "ImGuizmo.h"
+
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/device.h"
@@ -20,6 +24,7 @@
 #include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/graphics_pipeline.h"
+
 #include "vkgs/core/parser.h"
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/screen_splats.h"
@@ -106,6 +111,7 @@ void Viewer::Run() {
     glfwPollEvents();
 
     const auto& io = ImGui::GetIO();
+    bool is_minimized = io.DisplaySize.x <= 0.0f || io.DisplaySize.y <= 0.0f;
 
     // handle events
     if (!io.WantCaptureMouse) {
@@ -160,16 +166,49 @@ void Viewer::Run() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
 
-    ImGui::Begin("Hello, world!");
-    ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+    static glm::mat4 model(1.f);
+
+    // Gizmo
+    glm::mat4 vk_to_gl(1.f);
+    // y-axis flip
+    vk_to_gl[1][1] = -1.f;
+    // z: (0, 1) -> (-1, 1)
+    vk_to_gl[2][2] = 2.f;
+    vk_to_gl[3][2] = -1.f;
+    auto view = camera->ViewMatrix();
+    auto projection = vk_to_gl * camera->ProjectionMatrix();
+    if (!is_minimized) ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+    ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
+                         ImGuizmo::TRANSLATE | ImGuizmo::ROTATE | ImGuizmo::SCALE_X, ImGuizmo::LOCAL,
+                         glm::value_ptr(model));
+
+    if (ImGui::Begin("vkgs viewer")) {
+      ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+
+      // Apply X scale to Y and Z
+      glm::vec3 translation;
+      glm::vec3 rotation;
+      glm::vec3 scale;
+      ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), glm::value_ptr(translation),
+                                            glm::value_ptr(rotation), glm::value_ptr(scale));
+
+      ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.01f);
+      ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.1f);
+      ImGui::SliderFloat("Scale", &scale.x, 0.01f, 100.f, "%.3f", ImGuiSliderFlags_Logarithmic);
+      scale.y = scale.z = scale.x;
+      ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(translation), glm::value_ptr(rotation),
+                                              glm::value_ptr(scale), glm::value_ptr(model));
+    }
     ImGui::End();
 
-    ImGui::Render();
-    ImDrawData* draw_data = ImGui::GetDrawData();
+    if (is_minimized) {
+      ImGui::EndFrame();
+    } else {
+      ImGui::Render();
+      ImDrawData* draw_data = ImGui::GetDrawData();
 
-    const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-    if (!is_minimized) {
       auto present_image_info = swapchain->AcquireNextImage();
       auto width = present_image_info.extent.width;
       auto height = present_image_info.extent.height;
@@ -179,6 +218,7 @@ void Viewer::Run() {
       core::DrawOptions draw_options = {};
       draw_options.view = camera->ViewMatrix();
       draw_options.projection = camera->ProjectionMatrix();
+      draw_options.model = model;
       draw_options.width = width;
       draw_options.height = height;
       draw_options.background = {0.f, 0.f, 0.f};

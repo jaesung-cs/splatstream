@@ -34,6 +34,7 @@ RenderingTask Engine::Draw(GaussianSplats splats, const DrawOptions& draw_option
   core::DrawOptions core_draw_options = {};
   core_draw_options.view = glm::make_mat4(draw_options.view);
   core_draw_options.projection = glm::make_mat4(draw_options.projection);
+  core_draw_options.model = glm::make_mat4(draw_options.model);
   core_draw_options.width = draw_options.width;
   core_draw_options.height = draw_options.height;
   core_draw_options.background = glm::make_vec3(draw_options.background);

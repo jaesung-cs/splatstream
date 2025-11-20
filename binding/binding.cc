@@ -42,6 +42,7 @@ PYBIND11_MODULE(_core, m) {
           for (int c = 0; c < 4; ++c) {
             draw_options.view[c * 4 + r] = view_ptr[r * 4 + c];
             draw_options.projection[c * 4 + r] = projection_ptr[r * 4 + c];
+            draw_options.model[c * 4 + r] = r == c;  // Identity matrix
           }
         }
         draw_options.width = width;
