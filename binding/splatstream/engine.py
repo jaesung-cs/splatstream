@@ -5,9 +5,6 @@ class Engine:
     def __init__(self):
         self.engine = _core.Engine()
 
-    def __del__(self):
-        del self.engine
-
     def create_gaussian_splats(self, *args, **kwargs):
         return self.engine.create_gaussian_splats(*args, **kwargs)
 

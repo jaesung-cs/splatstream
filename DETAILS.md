@@ -7,6 +7,46 @@
 - `viewer`: viewer codes, managing window system and UI, managing GLFW and imgui contexts internally.
 - `gpu`: Vulkan backend, with helping features: object lifetime management, object creation, etc.
 
+## Vulkan Object Lifetime Management
+In `gpu` module, `std::shared_ptr` is meant to manage lifetime of Vulkan resources.
+A `std::shared_ptr` as a class member means "as long as this object is alive, objects that it depends must be alive as well."
+
+The seed of all other Vulkan objects is the Vulkan device.
+The `Device` class is defined normally, and a singleton Vulkan device is created and retrieved with `GetDevice()` function.
+It returns a `std::shared_ptr<Device>` type to be shared by requested objects, and also it is wanted to be destroyed when no objects are used.
+
+The trick is using `std::weak_ptr<Device>` to manage the device like a singleton object.
+In `vkgs/gpu/gpu.cc`, `GetDevice()` is defined as:
+```cpp
+namespace {
+std::weak_ptr<Device> device;
+}
+
+std::shared_ptr<Device> GetDevice() {
+  if (device.expired()) {
+    // Not just `return device = std::make_shared<Device>();`.
+    // Instead, create a shared ptr, let a weak ptr points to it while keeping the object's lifetime until returning.
+    auto new_device = std::make_shared<Device>();
+    device = new_device;
+    return new_device;
+  }
+  // If the weak_ptr still points to a valid object, return it.
+  return device.lock();
+}
+```
+
+Another crucial point is that all Vulkan objects needed by GPU commands submitted to queue must be alive until they are finished and signaled by fences.
+The objects include `VkPipeline`, `VkPipelineLayout`, `VkBuffer`, `VkImage`, `VkSwapchainKHR`, etc.
+To generalize this necessity, wrappers of all Vulkan object types that would be used in commands derive from `Object` class.
+Calling `Object::Keep()` while recording a command buffer guarantees that the `std::shared_ptr` of the object sustains until the fence is signaled.
+The `std::shared_ptr` of the object is kept in `Task` object.
+Tasks are monitored regularly and desteoyed when the attached fences are signaled.
+
+One of the biggest challenges of this design is that the object management system must be considered very carefully not to make dangling `std::shared_ptr` cycles.
+
+Other design patterns for managing lifetime of Vulkan objects could be a single context having `unique_ptr`s of dependent resources, where public interface for the resources are available via handles or wrapper classes.
+This design is not adopted because it seemingly makes the design more complex and requires more lines of codes.
+
 ## Front-to-Back Rendering
 The splats are sorted front-to-back, unlike how general renderers draw transparent objects back-to-front.
 This is intended in order to calculate the accumulated alpha.
