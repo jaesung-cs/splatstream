@@ -8,17 +8,10 @@
 struct GLFWwindow;
 
 namespace vkgs {
-namespace gpu {
-
-class PipelineLayout;
-class GraphicsPipeline;
-
-}  // namespace gpu
 
 namespace viewer {
 
-void VKGS_VIEWER_API Init();
-void VKGS_VIEWER_API Terminate();
+class Context;
 
 class VKGS_VIEWER_API Viewer {
  public:
@@ -28,6 +21,8 @@ class VKGS_VIEWER_API Viewer {
   void Run();
 
  private:
+  std::shared_ptr<Context> context_;
+
   GLFWwindow* window_ = nullptr;
 };
 
