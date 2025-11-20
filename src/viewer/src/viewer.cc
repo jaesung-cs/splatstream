@@ -5,8 +5,12 @@
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include "imgui.h"
+#include "ImGuizmo.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/device.h"
@@ -160,10 +164,20 @@ void Viewer::Run() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
 
     ImGui::Begin("Hello, world!");
     ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
     ImGui::End();
+
+    glm::mat4 y_flip(1.f);
+    y_flip[1][1] = -1.f;
+    auto view = camera->ViewMatrix();
+    auto projection = y_flip * camera->ProjectionMatrix();  // In ImGuizmo's OpenGL coordinate system
+    static glm::mat4 model(1.f);
+    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+    ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::UNIVERSAL, ImGuizmo::LOCAL,
+                         glm::value_ptr(model));
 
     ImGui::Render();
     ImDrawData* draw_data = ImGui::GetDrawData();
@@ -179,6 +193,7 @@ void Viewer::Run() {
       core::DrawOptions draw_options = {};
       draw_options.view = camera->ViewMatrix();
       draw_options.projection = camera->ProjectionMatrix();
+      draw_options.model = model;
       draw_options.width = width;
       draw_options.height = height;
       draw_options.background = {0.f, 0.f, 0.f};

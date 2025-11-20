@@ -8,6 +8,7 @@ namespace vkgs {
 struct DrawOptions {
   float view[16];        // column-major
   float projection[16];  // column-major
+  float model[16];       // column-major
   uint32_t width;
   uint32_t height;
   float background[3];

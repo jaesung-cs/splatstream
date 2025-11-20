@@ -11,6 +11,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(imgui)
 
 FetchContent_Declare(
+  imguizmo
+  GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
+  GIT_TAG        71f14292205c3317122b39627ed98efce137086a  # 20251105, v1.92.5 WIP
+)
+FetchContent_MakeAvailable(imguizmo)
+
+FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
   GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579  # 3.4
@@ -18,14 +25,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glfw)
 
 add_library(vkgs_viewer SHARED
-  src/viewer.cc
   src/camera.cc
+  src/context.cc
+  src/viewer.cc
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp
   ${imgui_SOURCE_DIR}/imgui_tables.cpp
   ${imgui_SOURCE_DIR}/imgui_widgets.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+  ${imguizmo_SOURCE_DIR}/ImGuizmo.cpp
 )
 add_library(vkgs::viewer ALIAS vkgs_viewer)
 
@@ -36,6 +45,7 @@ target_include_directories(vkgs_viewer
     src/
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
+    ${imguizmo_SOURCE_DIR}
 )
 
 target_link_libraries(vkgs_viewer
