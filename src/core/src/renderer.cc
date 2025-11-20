@@ -416,13 +416,18 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
 
 void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
                                   const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
-                                  std::vector<VkFormat> formats, std::vector<uint32_t> locations) {
+                                  std::vector<VkFormat> formats, std::vector<uint32_t> locations,
+                                  VkFormat depth_format) {
   gpu::GraphicsPipelineCreateInfo splat_pipeline_info = {};
   splat_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
   splat_pipeline_info.vertex_shader = gpu::ShaderCode(splat_vert);
   splat_pipeline_info.fragment_shader = gpu::ShaderCode(splat_frag);
   splat_pipeline_info.formats = std::move(formats);
   splat_pipeline_info.locations = std::move(locations);
+  if (depth_format != VK_FORMAT_UNDEFINED) {
+    splat_pipeline_info.depth_format = depth_format;
+    splat_pipeline_info.depth_test = true;
+  }
   auto splat_pipeline = gpu::GraphicsPipeline::Create(splat_pipeline_info);
 
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)

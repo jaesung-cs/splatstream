@@ -62,6 +62,8 @@ target_compile_definitions(vkgs_viewer
 
 add_shader(vkgs_viewer shader/blend.frag blend_frag)
 add_shader(vkgs_viewer shader/blend.vert blend_vert)
+add_shader(vkgs_viewer shader/color.frag color_frag)
+add_shader(vkgs_viewer shader/color.vert color_vert)
 
 set_target_properties(vkgs_viewer PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

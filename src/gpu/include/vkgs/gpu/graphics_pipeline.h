@@ -31,6 +31,9 @@ struct GraphicsPipelineCreateInfo {
   std::vector<VkFormat> formats;
   std::vector<uint32_t> locations;
   std::vector<uint32_t> input_indices;
+  VkFormat depth_format;
+  bool depth_test;
+  bool depth_write;
 };
 
 class GraphicsPipelinePool;

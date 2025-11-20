@@ -30,6 +30,9 @@ bool GraphicsPipelineCreateInfoLess::operator()(const GraphicsPipelineCreateInfo
   for (size_t i = 0; i < lhs.locations.size(); ++i) {
     if (lhs.locations[i] != rhs.locations[i]) return lhs.locations[i] < rhs.locations[i];
   }
+  if (lhs.depth_format != rhs.depth_format) return lhs.depth_format < rhs.depth_format;
+  if (lhs.depth_test != rhs.depth_test) return lhs.depth_test < rhs.depth_test;
+  if (lhs.depth_write != rhs.depth_write) return lhs.depth_write < rhs.depth_write;
   return false;
 }
 
@@ -89,7 +92,7 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsP
   rendering_info.pNext = next;
   rendering_info.colorAttachmentCount = create_info.formats.size();
   rendering_info.pColorAttachmentFormats = create_info.formats.data();
-
+  rendering_info.depthAttachmentFormat = create_info.depth_format;
   VkPipelineVertexInputStateCreateInfo vertex_input_state = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly_state = {
@@ -109,6 +112,12 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsP
 
   VkPipelineMultisampleStateCreateInfo multisample_state = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
   multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+  VkPipelineDepthStencilStateCreateInfo depth_stencil_state = {
+      VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+  depth_stencil_state.depthTestEnable = create_info.depth_test;
+  depth_stencil_state.depthWriteEnable = create_info.depth_write;
+  depth_stencil_state.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 
   // TODO: blend equation
   std::vector<VkPipelineColorBlendAttachmentState> color_attachments(create_info.formats.size());
@@ -146,6 +155,7 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsP
   pipeline_info.pInputAssemblyState = &input_assembly_state;
   pipeline_info.pViewportState = &viewport_state;
   pipeline_info.pRasterizationState = &rasterization_state;
+  pipeline_info.pDepthStencilState = &depth_stencil_state;
   pipeline_info.pMultisampleState = &multisample_state;
   pipeline_info.pColorBlendState = &color_blend_state;
   pipeline_info.pDynamicState = &dynamic_state;
