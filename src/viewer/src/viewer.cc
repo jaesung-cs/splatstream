@@ -168,21 +168,40 @@ void Viewer::Run() {
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
 
-    ImGui::Begin("Hello, world!");
-    ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
-    ImGui::End();
+    static glm::mat4 model(1.f);
 
     // Gizmo
-    glm::mat4 y_flip(1.f);
-    y_flip[1][1] = -1.f;
+    glm::mat4 vk_to_gl(1.f);
+    // y-axis flip
+    vk_to_gl[1][1] = -1.f;
+    // z: (0, 1) -> (-1, 1)
+    vk_to_gl[2][2] = 2.f;
+    vk_to_gl[3][2] = -1.f;
     auto view = camera->ViewMatrix();
-    auto projection = y_flip * camera->ProjectionMatrix();  // In ImGuizmo's OpenGL coordinate system
-    static glm::mat4 model(1.f);
-    if (!is_minimized) {
-      ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
-    }
-    ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::UNIVERSAL, ImGuizmo::LOCAL,
+    auto projection = vk_to_gl * camera->ProjectionMatrix();
+    if (!is_minimized) ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+    ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
+                         ImGuizmo::TRANSLATE | ImGuizmo::ROTATE | ImGuizmo::SCALE_X, ImGuizmo::LOCAL,
                          glm::value_ptr(model));
+
+    if (ImGui::Begin("vkgs viewer")) {
+      ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+
+      // Apply X scale to Y and Z
+      glm::vec3 translation;
+      glm::vec3 rotation;
+      glm::vec3 scale;
+      ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), glm::value_ptr(translation),
+                                            glm::value_ptr(rotation), glm::value_ptr(scale));
+
+      ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.01f);
+      ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.1f);
+      ImGui::SliderFloat("Scale", &scale.x, 0.01f, 100.f, "%.3f", ImGuiSliderFlags_Logarithmic);
+      scale.y = scale.z = scale.x;
+      ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(translation), glm::value_ptr(rotation),
+                                              glm::value_ptr(scale), glm::value_ptr(model));
+    }
+    ImGui::End();
 
     if (is_minimized) {
       ImGui::EndFrame();
