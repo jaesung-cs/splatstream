@@ -61,6 +61,8 @@ target_compile_definitions(vkgs_viewer
     VKGS_VIEWER_EXPORTS
 )
 
+add_shader(vkgs_viewer shader/blend.frag blend_frag)
+add_shader(vkgs_viewer shader/blend.vert blend_vert)
 add_shader(vkgs_viewer shader/color.frag color_frag)
 add_shader(vkgs_viewer shader/color.vert color_vert)
 

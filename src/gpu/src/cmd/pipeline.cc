@@ -38,6 +38,16 @@ Pipeline& Pipeline::Bind(VkPipeline pipeline) {
   return *this;
 }
 
+Pipeline& Pipeline::AttachmentLocations(const std::vector<uint32_t>& locations) {
+  attachment_locations_ = locations;
+  return *this;
+}
+
+Pipeline& Pipeline::InputAttachmentIndices(const std::vector<uint32_t>& indices) {
+  input_attachment_indices_ = indices;
+  return *this;
+}
+
 void Pipeline::Commit(VkCommandBuffer cb) {
   if (buffer_descriptors_.size() > 0 || image_descriptors_.size() > 0) {
     // List so that addresses of previous inserts never be invalidated.
@@ -80,10 +90,27 @@ void Pipeline::Commit(VkCommandBuffer cb) {
     vkCmdBindPipeline(cb, bind_point_, pipeline_);
   }
 
+  if (!attachment_locations_.empty()) {
+    VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
+    location_info.colorAttachmentCount = attachment_locations_.size();
+    location_info.pColorAttachmentLocations = attachment_locations_.data();
+    vkCmdSetRenderingAttachmentLocations(cb, &location_info);
+  }
+
+  if (!input_attachment_indices_.empty()) {
+    VkRenderingInputAttachmentIndexInfo input_attachment_index_info = {
+        VK_STRUCTURE_TYPE_RENDERING_INPUT_ATTACHMENT_INDEX_INFO};
+    input_attachment_index_info.colorAttachmentCount = input_attachment_indices_.size();
+    input_attachment_index_info.pColorAttachmentInputIndices = input_attachment_indices_.data();
+    vkCmdSetRenderingInputAttachmentIndices(cb, &input_attachment_index_info);
+  }
+
   buffer_descriptors_.clear();
   image_descriptors_.clear();
   push_constants_.clear();
   pipeline_ = VK_NULL_HANDLE;
+  attachment_locations_.clear();
+  input_attachment_indices_.clear();
 }
 
 }  // namespace cmd
