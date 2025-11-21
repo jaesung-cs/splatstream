@@ -154,7 +154,7 @@ void Swapchain::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchai
   swapchain_info->imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
   swapchain_info->imageExtent = surface_capabilities.currentExtent;
   swapchain_info->imageArrayLayers = 1;
-  swapchain_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  swapchain_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
   swapchain_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   swapchain_info->preTransform = surface_capabilities.currentTransform;
   swapchain_info->presentMode = VK_PRESENT_MODE_FIFO_KHR;

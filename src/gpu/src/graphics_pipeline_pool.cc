@@ -124,8 +124,8 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsP
   for (auto& color_attachment : color_attachments) {
     color_attachment = {};
     color_attachment.blendEnable = VK_TRUE;
-    color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-    color_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     color_attachment.colorBlendOp = VK_BLEND_OP_ADD;
     color_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     color_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;

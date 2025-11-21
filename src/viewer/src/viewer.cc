@@ -30,8 +30,6 @@
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/gaussian_splats.h"
 
-#include "generated/blend_vert.h"
-#include "generated/blend_frag.h"
 #include "generated/color_vert.h"
 #include "generated/color_frag.h"
 #include "camera.h"
@@ -66,35 +64,22 @@ void Viewer::Run() {
   VkFormat swapchain_format = swapchain->format();
   VkFormat low_format = VK_FORMAT_B8G8R8A8_UNORM;
   VkFormat high_format = VK_FORMAT_R16G16B16A16_SFLOAT;
-  std::vector<VkFormat> formats = {swapchain_format, low_format, high_format};
+  std::vector<VkFormat> formats = {high_format};
 
-  // Blend pipeline
+  // Graphics pipelines
   struct PushConstants {
     glm::mat4 projection;
     glm::mat4 view;
   };
 
   auto graphics_pipeline_layout =
-      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
-                                   {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
-                                  {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants)}});
-
-  gpu::GraphicsPipelineCreateInfo blend_pipeline_info = {};
-  blend_pipeline_info.pipeline_layout = *graphics_pipeline_layout;
-  blend_pipeline_info.vertex_shader = gpu::ShaderCode(blend_vert);
-  blend_pipeline_info.fragment_shader = gpu::ShaderCode(blend_frag);
-  blend_pipeline_info.formats = formats;
-  blend_pipeline_info.locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
-  blend_pipeline_info.input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
-  blend_pipeline_info.depth_format = VK_FORMAT_D16_UNORM;
-  auto blend_pipeline = gpu::GraphicsPipeline::Create(blend_pipeline_info);
+      gpu::PipelineLayout::Create({}, {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants)}});
 
   gpu::GraphicsPipelineCreateInfo color_pipeline_info = {};
   color_pipeline_info.pipeline_layout = *graphics_pipeline_layout;
   color_pipeline_info.vertex_shader = gpu::ShaderCode(color_vert);
   color_pipeline_info.fragment_shader = gpu::ShaderCode(color_frag);
   color_pipeline_info.formats = formats;
-  color_pipeline_info.locations = {VK_ATTACHMENT_UNUSED, 0, VK_ATTACHMENT_UNUSED};
   color_pipeline_info.depth_format = VK_FORMAT_D16_UNORM;
   color_pipeline_info.depth_test = true;
   color_pipeline_info.depth_write = true;
@@ -124,7 +109,7 @@ void Viewer::Run() {
   // TODO: load model
   auto parser = std::make_shared<core::Parser>();
   auto renderer = std::make_shared<core::Renderer>();
-  auto splats = parser->LoadFromPly("./models/bonsai_30000.ply");
+  auto splats = parser->LoadFromPly("./test_random/gsplat.ply");
 
   auto camera = std::make_shared<Camera>();
 
@@ -254,12 +239,8 @@ void Viewer::Run() {
       auto gsem = device->AllocateSemaphore();
       auto gval = gsem->value();
 
-      auto image8 = gpu::Image::Create(low_format, width, height,
-                                       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
-                                           VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
       auto image16 = gpu::Image::Create(high_format, width, height,
-                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
-                                            VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
+                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
       auto depth_image =
           gpu::Image::Create(VK_FORMAT_D16_UNORM, width, height,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT);
@@ -296,40 +277,21 @@ void Viewer::Run() {
                      *screen_splats->draw_indirect())
             // Image layout transition
             .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
-            .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image8)
-            .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image16)
+                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, *image16)
             .Image(0, 0, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, *depth_image)
             .Commit(cb);
 
         // Rendering
-        std::array<VkRenderingAttachmentInfo, 3> color_attachments;
-
-        // Present image
+        std::array<VkRenderingAttachmentInfo, 1> color_attachments;
+        // Splats image
         color_attachments[0] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-        color_attachments[0].imageView = present_image_info.image_view;
+        color_attachments[0].imageView = image16->image_view();
         color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         color_attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         color_attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        color_attachments[0].clearValue.color = {0.f, 0.f, 0.f, 0.f};
-        // Scene image
-        color_attachments[1] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-        color_attachments[1].imageView = image8->image_view();
-        color_attachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        color_attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        color_attachments[1].clearValue.color = {0.5f, 0.5f, 0.5f, 0.f};  // TODO: background alpha
-        // Splats image
-        color_attachments[2] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-        color_attachments[2].imageView = image16->image_view();
-        color_attachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        color_attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        color_attachments[2].clearValue.color = {0.f, 0.f, 0.f, 0.f};
+        color_attachments[0].clearValue.color = {0.5f, 0.5f, 0.5f, 0.f};
 
         VkRenderingAttachmentInfo depth_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
         depth_attachment.imageView = depth_image->image_view();
@@ -352,7 +314,7 @@ void Viewer::Run() {
         VkRect2D scissor = {0, 0, width, height};
         vkCmdSetScissor(cb, 0, 1, &scissor);
 
-        // subpass 0: render scene
+        // render scene
         PushConstants push_constants = {};
         push_constants.projection = camera->ProjectionMatrix();
         push_constants.view = camera->ViewMatrix();
@@ -361,69 +323,49 @@ void Viewer::Run() {
             .Bind(*color_pipeline)
             .Commit(cb);
 
-        {
-          VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
-          std::array<uint32_t, 3> locations = {VK_ATTACHMENT_UNUSED, 0, VK_ATTACHMENT_UNUSED};
-          location_info.colorAttachmentCount = locations.size();
-          location_info.pColorAttachmentLocations = locations.data();
-          vkCmdSetRenderingAttachmentLocations(cb, &location_info);
-          vkCmdDraw(cb, 6, 1, 0, 0);
-        }
+        vkCmdDraw(cb, 6, 1, 0, 0);
 
-        // subpass 1: render splats
-        gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
-            .Memory(VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT)
-            .Commit(cb);
-        {
-          // location 0: image16
-          VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
-          std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED, 0};
-          location_info.colorAttachmentCount = locations.size();
-          location_info.pColorAttachmentLocations = locations.data();
-          vkCmdSetRenderingAttachmentLocations(cb, &location_info);
-          renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, locations,
-                                       VK_FORMAT_D16_UNORM);
-        }
-
-        // subpass 2: blend
-        gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
-            .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
-            .Commit(cb);
-
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
-            .Input(0, image8->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-            .Input(1, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-            .Bind(*blend_pipeline)
-            .Commit(cb);
-
-        {
-          VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
-          std::array<uint32_t, 3> locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
-          location_info.colorAttachmentCount = locations.size();
-          location_info.pColorAttachmentLocations = locations.data();
-          vkCmdSetRenderingAttachmentLocations(cb, &location_info);
-
-          VkRenderingInputAttachmentIndexInfo input_attachment_index_info = {
-              VK_STRUCTURE_TYPE_RENDERING_INPUT_ATTACHMENT_INDEX_INFO};
-          std::array<uint32_t, 3> input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
-          input_attachment_index_info.colorAttachmentCount = input_indices.size();
-          input_attachment_index_info.pColorAttachmentInputIndices = input_indices.data();
-          vkCmdSetRenderingInputAttachmentIndices(cb, &input_attachment_index_info);
-        }
-
-        vkCmdDraw(cb, 3, 1, 0, 0);
+        // render splats
+        renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, {}, VK_FORMAT_D16_UNORM);
 
         vkCmdEndRendering(cb);
 
-        // Wait for color attachment write to complete, before rendering UI.
+        // Blit to present image
         gpu::cmd::Barrier()
-            .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT)
+            .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                   VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
+                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *image16)
+            .Image(0, 0, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, present_image_info.image)
             .Commit(cb);
 
-        // Rendering
+        std::array<VkImageBlit2, 1> regions;
+        regions[0] = {VK_STRUCTURE_TYPE_IMAGE_BLIT_2};
+        regions[0].srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        regions[0].srcOffsets[0] = {0, 0, 0};
+        regions[0].srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+        regions[0].dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        regions[0].dstOffsets[0] = {0, 0, 0};
+        regions[0].dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+        VkBlitImageInfo2 blit_info = {VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2};
+        blit_info.srcImage = *image16;
+        blit_info.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        blit_info.dstImage = present_image_info.image;
+        blit_info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        blit_info.regionCount = regions.size();
+        blit_info.pRegions = regions.data();
+        blit_info.filter = VK_FILTER_NEAREST;
+        vkCmdBlitImage2(cb, &blit_info);
+
+        // Rendering UI
+        gpu::cmd::Barrier()
+            .Image(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                   VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                   present_image_info.image)
+            .Commit(cb);
+
         VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
         color_attachment.imageView = present_image_info.image_view;
         color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -444,7 +386,6 @@ void Viewer::Run() {
                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, present_image_info.image)
             .Commit(cb);
 
-        image8->Keep();
         image16->Keep();
         depth_image->Keep();
 
@@ -473,7 +414,6 @@ void Viewer::Run() {
   cq = nullptr;
   gq = nullptr;
   graphics_pipeline_layout = nullptr;
-  blend_pipeline = nullptr;
   color_pipeline = nullptr;
   parser = nullptr;
   renderer = nullptr;

@@ -39,7 +39,7 @@ void main() {
   // In Vulkan NDC [-1, 1], -1.2 <= x <= 1.2
   if (abs(pos.x) <= 1.2f && abs(pos.y) <= 1.2f && pos.z >= 0.f && pos.z <= 1.f) {
     uint instance_index = atomicAdd(visible_point_count, 1);
-    key[instance_index] = floatBitsToUint(pos.z);
+    key[instance_index] = floatBitsToUint(1.f - pos.z);
     index[instance_index] = id;
   }
 }
