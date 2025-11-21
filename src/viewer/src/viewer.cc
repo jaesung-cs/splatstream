@@ -176,6 +176,7 @@ void Viewer::Run() {
 
     static glm::mat4 model(1.f);
     static bool vsync = true;
+    static int sh_degree = splats->sh_degree();
 
     // Gizmo
     glm::mat4 vk_to_gl(1.f);
@@ -200,6 +201,8 @@ void Viewer::Run() {
         else
           swapchain->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
       }
+
+      ImGui::SliderInt("SH degree", &sh_degree, 0, splats->sh_degree());
 
       // Apply X scale to Y and Z
       glm::vec3 translation;
@@ -237,7 +240,7 @@ void Viewer::Run() {
       draw_options.height = height;
       draw_options.background = {0.f, 0.f, 0.f};
       draw_options.eps2d = 0.01f;
-      draw_options.sh_degree = splats->sh_degree();
+      draw_options.sh_degree = sh_degree;
 
       // ring buffer
       auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
