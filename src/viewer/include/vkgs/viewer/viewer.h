@@ -1,14 +1,16 @@
 #ifndef VKGS_VIEWER_VIEWER_H
 #define VKGS_VIEWER_VIEWER_H
 
+#include <array>
 #include <memory>
 
 #include "export_api.h"
 
+#include "storage.h"
+
 struct GLFWwindow;
 
 namespace vkgs {
-
 namespace viewer {
 
 class Context;
@@ -24,6 +26,9 @@ class VKGS_VIEWER_API Viewer {
   std::shared_ptr<Context> context_;
 
   GLFWwindow* window_ = nullptr;
+
+  std::array<Storage, 2> ring_buffer_;
+  uint64_t frame_index_ = 0;
 };
 
 }  // namespace viewer

@@ -34,7 +34,6 @@
 #include "generated/color_frag.h"
 #include "camera.h"
 #include "context.h"
-#include "vulkan/vulkan_core.h"
 
 namespace vkgs {
 namespace viewer {
@@ -64,6 +63,7 @@ void Viewer::Run() {
 
   VkFormat swapchain_format = swapchain->format();
   VkFormat high_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+  VkFormat depth_format = VK_FORMAT_D32_SFLOAT;
   std::vector<VkFormat> formats = {high_format};
 
   // Graphics pipelines
@@ -80,7 +80,7 @@ void Viewer::Run() {
   color_pipeline_info.vertex_shader = gpu::ShaderCode(color_vert);
   color_pipeline_info.fragment_shader = gpu::ShaderCode(color_frag);
   color_pipeline_info.formats = formats;
-  color_pipeline_info.depth_format = VK_FORMAT_D16_UNORM;
+  color_pipeline_info.depth_format = depth_format;
   color_pipeline_info.depth_test = true;
   color_pipeline_info.depth_write = true;
   auto color_pipeline = gpu::GraphicsPipeline::Create(color_pipeline_info);
@@ -109,7 +109,7 @@ void Viewer::Run() {
   // TODO: load model
   auto parser = std::make_shared<core::Parser>();
   auto renderer = std::make_shared<core::Renderer>();
-  auto splats = parser->LoadFromPly("./test_random/gsplat.ply");
+  auto splats = parser->LoadFromPly("./models/bonsai_30000.ply");
 
   auto camera = std::make_shared<Camera>();
 
@@ -120,7 +120,7 @@ void Viewer::Run() {
     bool is_minimized = io.DisplaySize.x <= 0.0f || io.DisplaySize.y <= 0.0f;
 
     // handle events
-    if (!io.WantCaptureMouse) {
+    if (!io.WantCaptureMouse || (ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !ImGui::IsAnyItemActive())) {
       bool left = io.MouseDown[ImGuiMouseButton_Left];
       bool right = io.MouseDown[ImGuiMouseButton_Right];
       bool ctrl = ImGui::IsKeyDown(ImGuiKey::ImGuiMod_Ctrl);
@@ -175,6 +175,7 @@ void Viewer::Run() {
     ImGuizmo::BeginFrame();
 
     static glm::mat4 model(1.f);
+    static bool vsync = true;
 
     // Gizmo
     glm::mat4 vk_to_gl(1.f);
@@ -238,19 +239,17 @@ void Viewer::Run() {
       draw_options.eps2d = 0.01f;
       draw_options.sh_degree = splats->sh_degree();
 
-      // TODO: ring buffer
-      auto screen_splats = std::make_shared<core::ScreenSplats>();
-      screen_splats->Update(splats->size());
-      auto csem = device->AllocateSemaphore();
+      // ring buffer
+      auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
+      storage.Update(splats->size(), width, height);
+      auto screen_splats = storage.screen_splats();
+      auto csem = storage.compute_semaphore();
       auto cval = csem->value();
-      auto gsem = device->AllocateSemaphore();
+      auto gsem = storage.graphics_semaphore();
       auto gval = gsem->value();
-
-      auto image16 = gpu::Image::Create(high_format, width, height,
-                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-      auto depth_image =
-          gpu::Image::Create(VK_FORMAT_D16_UNORM, width, height,
-                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT);
+      auto image16 = storage.image();
+      auto depth_image = storage.depth_image();
+      frame_index_++;
 
       // Compute queue
       {
@@ -333,7 +332,7 @@ void Viewer::Run() {
         vkCmdDraw(cb, 6, 1, 0, 0);
 
         // render splats
-        renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, {}, VK_FORMAT_D16_UNORM);
+        renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, {}, depth_format);
 
         vkCmdEndRendering(cb);
 
