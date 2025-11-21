@@ -85,7 +85,7 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsP
   VkRenderingAttachmentLocationInfo location_info = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_LOCATION_INFO};
   location_info.pNext = next;
   location_info.colorAttachmentCount = create_info.locations.size();
-  location_info.pColorAttachmentLocations = create_info.locations.empty() ? NULL : create_info.locations.data();
+  location_info.pColorAttachmentLocations = create_info.locations.data();
   if (!create_info.locations.empty()) next = &location_info;
 
   VkPipelineRenderingCreateInfo rendering_info = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
