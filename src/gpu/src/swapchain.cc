@@ -8,25 +8,9 @@
 namespace vkgs {
 namespace gpu {
 
-Swapchain::Swapchain(VkSurfaceKHR surface) : surface_(surface) {
-  format_ = VK_FORMAT_B8G8R8A8_UNORM;
-
-  VkSwapchainCreateInfoKHR swapchain_info;
-  GetDefaultSwapchainCreateInfo(&swapchain_info);
-  vkCreateSwapchainKHR(*device_, &swapchain_info, NULL, &swapchain_);
-  extent_ = swapchain_info.imageExtent;
-
-  uint32_t image_count = 3;
-  vkGetSwapchainImagesKHR(*device_, swapchain_, &image_count, images_.data());
-
-  for (int i = 0; i < 3; ++i) {
-    VkImageViewCreateInfo view_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    view_info.image = images_[i];
-    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    view_info.format = format_;
-    view_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    vkCreateImageView(*device_, &view_info, NULL, &image_views_[i]);
-  }
+Swapchain::Swapchain(VkSurfaceKHR surface, VkFormat format, VkImageUsageFlags usage)
+    : surface_(surface), format_(format), usage_(usage) {
+  need_recreate_ = true;
 
   for (int i = 0; i < kFrameCount; ++i) {
     VkSemaphoreCreateInfo semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
@@ -40,10 +24,15 @@ Swapchain::Swapchain(VkSurfaceKHR surface) : surface_(surface) {
 }
 
 Swapchain::~Swapchain() {
-  Wait();
+  if (swapchain_) {
+    Wait();
 
-  for (int i = 0; i < 3; ++i) {
-    vkDestroyImageView(*device_, image_views_[i], NULL);
+    for (int i = 0; i < 3; ++i) {
+      vkDestroyImageView(*device_, image_views_[i], NULL);
+    }
+
+    if (swapchain_) vkDestroySwapchainKHR(*device_, swapchain_, NULL);
+    vkDestroySurfaceKHR(device_->instance(), surface_, NULL);
   }
 
   for (int i = 0; i < kFrameCount; ++i) {
@@ -51,9 +40,11 @@ Swapchain::~Swapchain() {
     vkDestroySemaphore(*device_, render_finished_semaphores_[i], NULL);
     vkDestroyFence(*device_, render_finished_fences_[i], NULL);
   }
+}
 
-  if (swapchain_) vkDestroySwapchainKHR(*device_, swapchain_, NULL);
-  vkDestroySurfaceKHR(device_->instance(), surface_, NULL);
+void Swapchain::SetPresentMode(VkPresentModeKHR present_mode) {
+  present_mode_ = present_mode;
+  need_recreate_ = true;
 }
 
 PresentImageInfo Swapchain::AcquireNextImage() {
@@ -63,6 +54,8 @@ PresentImageInfo Swapchain::AcquireNextImage() {
 
   VkSemaphore image_available_semaphore = image_available_semaphores_[frame_index_];
   VkSemaphore render_finished_semaphore = render_finished_semaphores_[frame_index_];
+
+  if (need_recreate_) Recreate();
 
   while (true) {
     VkResult result = vkAcquireNextImageKHR(*device_, swapchain_, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE,
@@ -130,7 +123,7 @@ void Swapchain::Recreate() {
   vkGetSwapchainImagesKHR(*device_, swapchain_, &image_count, images_.data());
 
   for (int i = 0; i < 3; ++i) {
-    vkDestroyImageView(*device_, image_views_[i], NULL);
+    if (image_views_[i]) vkDestroyImageView(*device_, image_views_[i], NULL);
 
     VkImageViewCreateInfo view_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     view_info.image = images_[i];
@@ -139,6 +132,8 @@ void Swapchain::Recreate() {
     view_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     vkCreateImageView(*device_, &view_info, NULL, &image_views_[i]);
   }
+
+  need_recreate_ = false;
 }
 
 void Swapchain::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchain_info) {
@@ -157,7 +152,7 @@ void Swapchain::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchai
   swapchain_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
   swapchain_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   swapchain_info->preTransform = surface_capabilities.currentTransform;
-  swapchain_info->presentMode = VK_PRESENT_MODE_FIFO_KHR;
+  swapchain_info->presentMode = present_mode_;
   swapchain_info->clipped = VK_TRUE;
 }
 

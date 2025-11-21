@@ -59,10 +59,10 @@ void Viewer::Run() {
   VkSurfaceKHR surface = VK_NULL_HANDLE;
   glfwCreateWindowSurface(instance, window_, NULL, &surface);
 
-  auto swapchain = std::make_shared<gpu::Swapchain>(surface);
+  auto swapchain = std::make_shared<gpu::Swapchain>(
+      surface, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
   VkFormat swapchain_format = swapchain->format();
-  VkFormat low_format = VK_FORMAT_B8G8R8A8_UNORM;
   VkFormat high_format = VK_FORMAT_R16G16B16A16_SFLOAT;
   std::vector<VkFormat> formats = {high_format};
 
@@ -191,7 +191,14 @@ void Viewer::Run() {
                          glm::value_ptr(model));
 
     if (ImGui::Begin("vkgs viewer")) {
-      ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+      ImGui::Text("FPS: %.2f", io.Framerate);
+
+      if (ImGui::Checkbox("vsync", &vsync)) {
+        if (vsync)
+          swapchain->SetPresentMode(VK_PRESENT_MODE_FIFO_KHR);
+        else
+          swapchain->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
+      }
 
       // Apply X scale to Y and Z
       glm::vec3 translation;
