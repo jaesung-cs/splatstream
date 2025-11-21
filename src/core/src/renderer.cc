@@ -26,8 +26,6 @@
 #include "generated/projection.h"
 #include "generated/splat_vert.h"
 #include "generated/splat_frag.h"
-#include "generated/splat_background_vert.h"
-#include "generated/splat_background_frag.h"
 #include "sorter.h"
 #include "compute_storage.h"
 #include "graphics_storage.h"
@@ -80,15 +78,7 @@ Renderer::Renderer() {
   projection_pipeline_ = gpu::ComputePipeline::Create(*compute_pipeline_layout_, projection);
 
   graphics_pipeline_layout_ =
-      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
-                                  {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(GraphicsPushConstants)}});
-
-  gpu::GraphicsPipelineCreateInfo splat_background_pipeline_info = {};
-  splat_background_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
-  splat_background_pipeline_info.vertex_shader = gpu::ShaderCode(splat_background_vert);
-  splat_background_pipeline_info.fragment_shader = gpu::ShaderCode(splat_background_frag);
-  splat_background_pipeline_info.formats = {VK_FORMAT_R16G16B16A16_SFLOAT};
-  splat_background_pipeline_ = gpu::GraphicsPipeline::Create(splat_background_pipeline_info);
+      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
 }
 
 Renderer::~Renderer() = default;
@@ -156,9 +146,6 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     gpu::GraphicsTask task;
     auto cb = task.command_buffer();
 
-    GraphicsPushConstants graphics_push_constants;
-    graphics_push_constants.background = glm::vec4(draw_options.background, 1.f);
-
     // Acquire
     gpu::cmd::Barrier()
         .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, cq, gq,
@@ -179,7 +166,8 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.clearValue.color = {0.f, 0.f, 0.f, 0.f};
+    color_attachment.clearValue.color = {draw_options.background.r, draw_options.background.g,
+                                         draw_options.background.b, 0.f};
     VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
     rendering_info.renderArea.offset = {0, 0};
     rendering_info.renderArea.extent = {width, height};
@@ -194,12 +182,6 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
     RenderScreenSplats(cb, splats, draw_options, screen_splats, {VK_FORMAT_R16G16B16A16_SFLOAT}, {0});
-
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
-        .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(graphics_push_constants), &graphics_push_constants)
-        .Bind(*splat_background_pipeline_)
-        .Commit(cb);
-    vkCmdDraw(cb, 3, 1, 0, 0);
 
     vkCmdEndRendering(cb);
 
