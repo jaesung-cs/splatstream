@@ -78,7 +78,8 @@ Renderer::Renderer() {
   projection_pipeline_ = gpu::ComputePipeline::Create(*compute_pipeline_layout_, projection);
 
   graphics_pipeline_layout_ =
-      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}});
+      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
+                                  {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)}});
 }
 
 Renderer::~Renderer() = default;
@@ -412,7 +413,9 @@ void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSp
   }
   auto splat_pipeline = gpu::GraphicsPipeline::Create(splat_pipeline_info);
 
+  glm::mat4 projection_inverse = glm::inverse(draw_options.projection);
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout_)
+      .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(projection_inverse), &projection_inverse)
       .Storage(0, *screen_splats->instances())
       .Bind(*splat_pipeline)
       .Commit(cb);
