@@ -45,6 +45,8 @@ Viewer::Viewer() { context_ = GetContext(); }
 Viewer::~Viewer() = default;
 
 void Viewer::Run() {
+  if (model_path_.empty()) throw std::runtime_error("Model path is not set");
+
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
@@ -127,10 +129,10 @@ void Viewer::Run() {
   init_info.CheckVkResultFn = nullptr;
   ImGui_ImplVulkan_Init(&init_info);
 
-  // TODO: load model
+  // Load model
   auto parser = std::make_shared<core::Parser>();
   auto renderer = std::make_shared<core::Renderer>();
-  auto splats = parser->LoadFromPly("./models/bonsai_30000.ply");
+  auto splats = parser->LoadFromPly(model_path_);
 
   auto camera = std::make_shared<Camera>();
 
@@ -198,7 +200,7 @@ void Viewer::Run() {
     static glm::mat4 model(1.f);
     static bool vsync = true;
     static int sh_degree = splats->sh_degree();
-    static int render_type = 2;
+    static int render_type = 0;
     static glm::vec3 background(0.f, 0.f, 0.f);
 
     // Gizmo
@@ -371,8 +373,8 @@ void Viewer::Run() {
         vkCmdSetScissor(cb, 0, 1, &scissor);
 
         // render scene
-        // TODO: draw scene to depth image
-        if (render_type != 2) {
+        // TODO: draw scene to color/depth image
+        if (false) {
           ColorPushConstants color_push_constants = {};
           color_push_constants.projection = camera->ProjectionMatrix();
           color_push_constants.view = camera->ViewMatrix();

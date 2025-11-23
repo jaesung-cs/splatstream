@@ -4,7 +4,6 @@
 #include <vk_mem_alloc.h>
 
 #include "vkgs/gpu/device.h"
-#include "vulkan/vulkan_core.h"
 
 namespace vkgs {
 namespace gpu {

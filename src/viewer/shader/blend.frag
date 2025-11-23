@@ -23,7 +23,7 @@ void main() {
         float gradient = fwidth(d);
         const float edge_threshold = 0.01f;
         const float edge_width = 0.01f;
-        float border = smoothstep(edge_threshold, edge_threshold + edge_width, gradient / d);
+        float border = smoothstep(edge_threshold, edge_threshold + edge_width, gradient / (1.f - d));
 
         vec3 display_color = vec3(0.f) * border + d * (1.f - border);
         out_color = vec4(display_color * depth.g, depth.g);

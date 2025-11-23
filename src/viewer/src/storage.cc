@@ -4,7 +4,6 @@
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/image.h"
-#include "vulkan/vulkan_core.h"
 
 namespace vkgs {
 namespace viewer {

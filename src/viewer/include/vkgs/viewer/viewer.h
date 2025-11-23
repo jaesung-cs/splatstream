@@ -3,6 +3,7 @@
 
 #include <array>
 #include <memory>
+#include <string>
 
 #include "export_api.h"
 
@@ -20,12 +21,15 @@ class VKGS_VIEWER_API Viewer {
   Viewer();
   ~Viewer();
 
+  void SetModelPath(const std::string& path) { model_path_ = path; }
   void Run();
 
  private:
   std::shared_ptr<Context> context_;
 
   GLFWwindow* window_ = nullptr;
+
+  std::string model_path_;
 
   std::array<Storage, 2> ring_buffer_;
   uint64_t frame_index_ = 0;
