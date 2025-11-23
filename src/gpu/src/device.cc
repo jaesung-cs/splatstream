@@ -69,9 +69,9 @@ Device::Device(const DeviceCreateInfo& create_info) {
   // Instance
   VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   app_info.pApplicationName = "vkgs";
-  app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 5);
+  app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 6);
   app_info.pEngineName = "vkgs";
-  app_info.engineVersion = VK_MAKE_VERSION(0, 0, 5);
+  app_info.engineVersion = VK_MAKE_VERSION(0, 0, 6);
   app_info.apiVersion = VK_API_VERSION_1_4;
 
   VkDebugUtilsMessengerCreateInfoEXT messenger_info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
