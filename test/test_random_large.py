@@ -37,7 +37,8 @@ if __name__ == "__main__":
         opacities=sigmoid(np.random.rand(N) - 2),
         colors=np.random.rand(N, 16, 3) * 2 - 1,
     )
-    splats.wait()
+
+    ss.show(splats)
 
     width = 128
     height = 128
