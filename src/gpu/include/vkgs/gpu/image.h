@@ -17,6 +17,7 @@ class Device;
 
 class VKGS_GPU_API Image : public Object {
  public:
+  // TODO: red-alpha -> generalize swizzle
   static std::shared_ptr<Image> Create(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage);
 
  public:

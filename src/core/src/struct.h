@@ -22,10 +22,6 @@ struct ComputePushConstants {
   uint32_t sh_degree_draw;
 };
 
-struct GraphicsPushConstants {
-  alignas(16) glm::vec4 background;
-};
-
 struct Camera {
   alignas(16) glm::mat4 projection;
   alignas(16) glm::mat4 view;

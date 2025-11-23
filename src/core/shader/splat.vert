@@ -1,11 +1,16 @@
 #version 460 core
 
+layout(std430, push_constant) uniform PushConstant {
+  mat4 projection_inverse;
+};
+
 layout(std430, binding = 0) readonly buffer Instances {
   vec4 instances[];  // (N, 12). 3 for ndc position, 1 radius, 4 for rot scale, 4 for color.
 };
 
 layout(location = 0) out vec4 out_color;
 layout(location = 1) out vec2 out_position;
+layout(location = 2) out vec4 out_view_position;
 
 const vec2 positions[4] = vec2[4](
   vec2(-1.f, -1.f),
@@ -29,4 +34,6 @@ void main() {
   gl_Position = vec4(ndc_position.xyz + vec3(rot_scale * position * ndc_position.w, 0.f), 1.f);
   out_color = color;
   out_position = position * ndc_position.w;
+
+  out_view_position = projection_inverse * vec4(ndc_position.xyz, 1.f);
 }

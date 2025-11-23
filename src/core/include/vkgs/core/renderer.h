@@ -78,7 +78,6 @@ class VKGS_CORE_API Renderer {
   std::shared_ptr<gpu::ComputePipeline> projection_pipeline_;
 
   std::shared_ptr<gpu::PipelineLayout> graphics_pipeline_layout_;
-  std::shared_ptr<gpu::GraphicsPipeline> splat_background_pipeline_;
 
   struct RingBuffer {
     std::shared_ptr<ComputeStorage> compute_storage;

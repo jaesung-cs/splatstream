@@ -28,6 +28,10 @@ class VKGS_GPU_API Pipeline {
 
   Pipeline& Bind(VkPipeline pipeline);
 
+  Pipeline& AttachmentLocations(const std::vector<uint32_t>& locations);
+
+  Pipeline& InputAttachmentIndices(const std::vector<uint32_t>& indices);
+
   void Commit(VkCommandBuffer cb);
 
  private:
@@ -56,6 +60,9 @@ class VKGS_GPU_API Pipeline {
   std::vector<PushConstantData> push_constants_;
 
   VkPipeline pipeline_ = VK_NULL_HANDLE;
+
+  std::vector<uint32_t> attachment_locations_;
+  std::vector<uint32_t> input_attachment_indices_;
 };
 
 }  // namespace cmd
