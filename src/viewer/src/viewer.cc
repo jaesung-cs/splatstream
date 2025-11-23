@@ -25,7 +25,6 @@
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 
-#include "vkgs/core/parser.h"
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/gaussian_splats.h"
@@ -45,7 +44,11 @@ Viewer::Viewer() { context_ = GetContext(); }
 Viewer::~Viewer() = default;
 
 void Viewer::Run() {
-  if (model_path_.empty()) throw std::runtime_error("Model path is not set");
+  bool own_renderer = false;
+  if (!renderer_) {
+    renderer_ = std::make_shared<core::Renderer>();
+    own_renderer = true;
+  }
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -129,11 +132,6 @@ void Viewer::Run() {
   init_info.CheckVkResultFn = nullptr;
   ImGui_ImplVulkan_Init(&init_info);
 
-  // Load model
-  auto parser = std::make_shared<core::Parser>();
-  auto renderer = std::make_shared<core::Renderer>();
-  auto splats = parser->LoadFromPly(model_path_);
-
   auto camera = std::make_shared<Camera>();
 
   while (!glfwWindowShouldClose(window_)) {
@@ -199,7 +197,7 @@ void Viewer::Run() {
 
     static glm::mat4 model(1.f);
     static bool vsync = true;
-    static int sh_degree = splats->sh_degree();
+    static int sh_degree = splats_->sh_degree();
     static int render_type = 0;
     static glm::vec3 background(0.f, 0.f, 0.f);
 
@@ -227,7 +225,7 @@ void Viewer::Run() {
           swapchain->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
       }
 
-      ImGui::SliderInt("SH degree", &sh_degree, 0, splats->sh_degree());
+      ImGui::SliderInt("SH degree", &sh_degree, 0, splats_->sh_degree());
 
       constexpr const char* render_types[] = {"Color", "Alpha", "Depth"};
       ImGui::Combo("Render type", &render_type, render_types, IM_ARRAYSIZE(render_types));
@@ -274,7 +272,7 @@ void Viewer::Run() {
 
       // ring buffer
       auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
-      storage.Update(splats->size(), width, height);
+      storage.Update(splats_->size(), width, height);
       auto screen_splats = storage.screen_splats();
       auto csem = storage.compute_semaphore();
       auto cval = csem->value();
@@ -291,7 +289,7 @@ void Viewer::Run() {
         auto cb = task.command_buffer();
 
         // Compute
-        renderer->ComputeScreenSplats(cb, splats, draw_options, screen_splats);
+        renderer_->ComputeScreenSplats(cb, splats_, draw_options, screen_splats);
 
         // Release
         gpu::cmd::Barrier()
@@ -391,9 +389,9 @@ void Viewer::Run() {
         gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
             .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED})
             .Commit(cb);
-        renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats,
-                                     {VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED},
-                                     depth_format);
+        renderer_->RenderScreenSplats(cb, splats_, draw_options, screen_splats, formats,
+                                      {VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED},
+                                      depth_format, render_type == 2);
 
         // subpass 1:
         gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
@@ -475,10 +473,9 @@ void Viewer::Run() {
   graphics_pipeline_layout = nullptr;
   color_pipeline = nullptr;
   blend_pipeline = nullptr;
-  parser = nullptr;
-  renderer = nullptr;
-  splats = nullptr;
   device = nullptr;
+
+  if (own_renderer) renderer_ = nullptr;
 
   glfwDestroyWindow(window_);
 }

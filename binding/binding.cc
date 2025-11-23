@@ -28,30 +28,32 @@ PYBIND11_MODULE(_core, m) {
              return engine.CreateGaussianSplats(N, means_ptr, quats_ptr, scales_ptr, opacities_ptr, colors_u16_ptr,
                                                 sh_degree);
            })
-      .def("draw", [](vkgs::Engine& engine, vkgs::GaussianSplats splats, py::array_t<float> view,
-                      py::array_t<float> projection, uint32_t width, uint32_t height, py::array_t<float> background,
-                      float eps2d, int sh_degree, py::array_t<uint8_t> dst) {
-        const auto* background_ptr = static_cast<const float*>(background.request().ptr);
-        const auto* view_ptr = static_cast<const float*>(view.request().ptr);
-        const auto* projection_ptr = static_cast<const float*>(projection.request().ptr);
-        auto* dst_ptr = static_cast<uint8_t*>(dst.request().ptr);
+      .def("draw",
+           [](vkgs::Engine& engine, vkgs::GaussianSplats splats, py::array_t<float> view, py::array_t<float> projection,
+              uint32_t width, uint32_t height, py::array_t<float> background, float eps2d, int sh_degree,
+              py::array_t<uint8_t> dst) {
+             const auto* background_ptr = static_cast<const float*>(background.request().ptr);
+             const auto* view_ptr = static_cast<const float*>(view.request().ptr);
+             const auto* projection_ptr = static_cast<const float*>(projection.request().ptr);
+             auto* dst_ptr = static_cast<uint8_t*>(dst.request().ptr);
 
-        vkgs::DrawOptions draw_options = {};
-        // row-major data to column-major
-        for (int r = 0; r < 4; ++r) {
-          for (int c = 0; c < 4; ++c) {
-            draw_options.view[c * 4 + r] = view_ptr[r * 4 + c];
-            draw_options.projection[c * 4 + r] = projection_ptr[r * 4 + c];
-            draw_options.model[c * 4 + r] = r == c;  // Identity matrix
-          }
-        }
-        draw_options.width = width;
-        draw_options.height = height;
-        std::memcpy(draw_options.background, background_ptr, 3 * sizeof(float));
-        draw_options.eps2d = eps2d;
-        draw_options.sh_degree = sh_degree;
-        return engine.Draw(splats, draw_options, dst_ptr);
-      });
+             vkgs::DrawOptions draw_options = {};
+             // row-major data to column-major
+             for (int r = 0; r < 4; ++r) {
+               for (int c = 0; c < 4; ++c) {
+                 draw_options.view[c * 4 + r] = view_ptr[r * 4 + c];
+                 draw_options.projection[c * 4 + r] = projection_ptr[r * 4 + c];
+                 draw_options.model[c * 4 + r] = r == c;  // Identity matrix
+               }
+             }
+             draw_options.width = width;
+             draw_options.height = height;
+             std::memcpy(draw_options.background, background_ptr, 3 * sizeof(float));
+             draw_options.eps2d = eps2d;
+             draw_options.sh_degree = sh_degree;
+             return engine.Draw(splats, draw_options, dst_ptr);
+           })
+      .def("show", &vkgs::Engine::Show);
 
   py::class_<vkgs::GaussianSplats>(m, "GaussianSplats")
       .def_property_readonly("size", &vkgs::GaussianSplats::size)

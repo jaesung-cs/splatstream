@@ -14,5 +14,8 @@ class Engine:
     def draw(self, *args, **kwargs):
         return self.engine.draw(*args, **kwargs)
 
+    def show(self, *args, **kwargs):
+        return self.engine.show(*args, **kwargs)
+
 
 singleton_engine = Engine()

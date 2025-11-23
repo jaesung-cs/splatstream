@@ -18,6 +18,7 @@ target_include_directories(vkgs_vkgs
 target_link_libraries(vkgs_vkgs
   PRIVATE
     vkgs::core
+    vkgs::viewer
 )
 
 target_compile_definitions(vkgs_vkgs PRIVATE VKGS_EXPORTS)

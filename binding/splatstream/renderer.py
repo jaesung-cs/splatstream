@@ -161,3 +161,7 @@ def draw(
         )
 
     return RenderedImage(images, (*batch_dims, height, width, 4), rendered_images)
+
+
+def show(splats: _core.GaussianSplats):
+    return singleton_engine.show(splats)

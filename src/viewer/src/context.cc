@@ -31,6 +31,7 @@ Context::Context() {
   device_info.enable_viewer = true;
   device_info.instance_extensions.assign(instance_extensions, instance_extensions + count);
   gpu::Init(device_info);
+  device_ = gpu::GetDevice();
 }
 
 Context::~Context() { glfwTerminate(); }

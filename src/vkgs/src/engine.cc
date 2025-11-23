@@ -9,10 +9,16 @@
 #include "vkgs/core/draw_options.h"
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/parser.h"
+#include "vkgs/viewer/viewer.h"
 
 namespace vkgs {
 
-Engine::Engine() : parser_(std::make_shared<core::Parser>()), renderer_(std::make_shared<core::Renderer>()) {}
+Engine::Engine()
+    : viewer_(std::make_shared<viewer::Viewer>()),
+      parser_(std::make_shared<core::Parser>()),
+      renderer_(std::make_shared<core::Renderer>()) {
+  viewer_->SetRenderer(renderer_);
+}
 
 Engine::~Engine() = default;
 
@@ -41,6 +47,11 @@ RenderingTask Engine::Draw(GaussianSplats splats, const DrawOptions& draw_option
   core_draw_options.eps2d = draw_options.eps2d;
   core_draw_options.sh_degree = draw_options.sh_degree;
   return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, dst));
+}
+
+void Engine::Show(GaussianSplats splats) {
+  viewer_->SetSplats(splats.get());
+  viewer_->Run();
 }
 
 }  // namespace vkgs

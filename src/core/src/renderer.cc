@@ -26,6 +26,8 @@
 #include "generated/projection.h"
 #include "generated/splat_vert.h"
 #include "generated/splat_frag.h"
+#include "generated/splat_depth_vert.h"
+#include "generated/splat_depth_frag.h"
 #include "sorter.h"
 #include "compute_storage.h"
 #include "graphics_storage.h"
@@ -399,12 +401,12 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
 
 void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
                                   const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
-                                  std::vector<VkFormat> formats, std::vector<uint32_t> locations,
-                                  VkFormat depth_format) {
+                                  std::vector<VkFormat> formats, std::vector<uint32_t> locations, VkFormat depth_format,
+                                  bool render_depth) {
   gpu::GraphicsPipelineCreateInfo splat_pipeline_info = {};
   splat_pipeline_info.pipeline_layout = *graphics_pipeline_layout_;
-  splat_pipeline_info.vertex_shader = gpu::ShaderCode(splat_vert);
-  splat_pipeline_info.fragment_shader = gpu::ShaderCode(splat_frag);
+  splat_pipeline_info.vertex_shader = render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert);
+  splat_pipeline_info.fragment_shader = render_depth ? gpu::ShaderCode(splat_depth_frag) : gpu::ShaderCode(splat_frag);
   splat_pipeline_info.formats = std::move(formats);
   splat_pipeline_info.locations = std::move(locations);
   if (depth_format != VK_FORMAT_UNDEFINED) {

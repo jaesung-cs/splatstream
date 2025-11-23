@@ -58,6 +58,8 @@ add_shader(vkgs_core shader/projection.comp projection)
 add_shader(vkgs_core shader/rank.comp rank)
 add_shader(vkgs_core shader/splat.frag splat_frag)
 add_shader(vkgs_core shader/splat.vert splat_vert)
+add_shader(vkgs_core shader/splat.frag splat_depth_frag VKGS_RENDER_DEPTH)
+add_shader(vkgs_core shader/splat.vert splat_depth_vert VKGS_RENDER_DEPTH)
 
 set_target_properties(vkgs_core PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

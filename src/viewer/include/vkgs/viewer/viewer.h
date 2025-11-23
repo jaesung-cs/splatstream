@@ -12,6 +12,11 @@
 struct GLFWwindow;
 
 namespace vkgs {
+namespace core {
+class GaussianSplats;
+class Renderer;
+}  // namespace core
+
 namespace viewer {
 
 class Context;
@@ -21,7 +26,9 @@ class VKGS_VIEWER_API Viewer {
   Viewer();
   ~Viewer();
 
-  void SetModelPath(const std::string& path) { model_path_ = path; }
+  void SetRenderer(std::shared_ptr<core::Renderer> renderer) { renderer_ = renderer; }
+  void SetSplats(std::shared_ptr<core::GaussianSplats> splats) { splats_ = splats; }
+
   void Run();
 
  private:
@@ -29,7 +36,8 @@ class VKGS_VIEWER_API Viewer {
 
   GLFWwindow* window_ = nullptr;
 
-  std::string model_path_;
+  std::shared_ptr<core::Renderer> renderer_;
+  std::shared_ptr<core::GaussianSplats> splats_;
 
   std::array<Storage, 2> ring_buffer_;
   uint64_t frame_index_ = 0;

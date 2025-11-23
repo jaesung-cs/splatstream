@@ -55,7 +55,6 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
   std::cerr << "Vulkan Validation [" << level << "] [" << type << "] " << callback_data->pMessage << std::endl
             << std::endl;
 
-  exit(1);
   return VK_FALSE;
 }
 

@@ -30,7 +30,7 @@ add_executable(viewer
 
 target_link_libraries(viewer
   PRIVATE
-    vkgs::vkgs
+    vkgs::core
     vkgs::viewer
 )
 

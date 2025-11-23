@@ -62,7 +62,7 @@ class VKGS_CORE_API Renderer {
   void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
                           const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
                           std::vector<VkFormat> formats, std::vector<uint32_t> locations,
-                          VkFormat depth_format = VK_FORMAT_UNDEFINED);
+                          VkFormat depth_format = VK_FORMAT_UNDEFINED, bool render_depth = false);
 
  private:
   std::string device_name_;
