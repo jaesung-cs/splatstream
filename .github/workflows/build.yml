@@ -45,7 +45,8 @@ jobs:
     - name: Install glfw dependencies (ubuntu)
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
-        sudo apt install libwayland-dev libxkbcommon-dev xorg-dev
+        sudo apt-get update
+        sudo apt-get install libwayland-dev libxkbcommon-dev xorg-dev
 
     - name: Install Python dependencies
       run: |
