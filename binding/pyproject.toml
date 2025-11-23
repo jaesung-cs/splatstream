@@ -16,5 +16,5 @@ license = {text = "MIT"}
 [tool.scikit-build]
 cmake.source-dir = "."
 cmake.build-type = "Release"
-cmake.build-args = ["-DGLFW_BUILD_WAYLAND=OFF"]
+cmake.args = ["-DGLFW_BUILD_WAYLAND=OFF"]
 wheel.packages = ["splatstream"]
