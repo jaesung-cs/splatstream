@@ -46,7 +46,7 @@ jobs:
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         sudo apt-get update
-        sudo apt-get install libwayland-dev libxkbcommon-dev xorg-dev
+        sudo apt-get install libwayland-dev libxkbcommon-dev xorg-dev libgl1-mesa-dev
 
     - name: Install Python dependencies
       run: |
