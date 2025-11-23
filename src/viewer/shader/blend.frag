@@ -18,15 +18,14 @@ void main() {
     } else if (mode == 1) {  // alpha
         out_color = vec4(color.a);
     } else if (mode == 2) {  // depth
-        float d = depth.r / depth.g;
-        const float gap = 1.f;
-        d = depth.g > 0.f ? mod(d / gap, 1.f) : 0.f;
-        d = d > 0.5f ? 1.f - d : d;
-        const float threshold = 0.05f;
-        d = d < threshold ? 1.f - (d - threshold) : 0.f;
-        d = 1.f - d;
+        const float max_depth = 10.f;
+        float d = 1.f - clamp((depth.r / depth.g) / max_depth, 0.f, 1.f);
+        float gradient = fwidth(d);
+        const float edge_threshold = 0.01f;
+        const float edge_width = 0.01f;
+        float border = smoothstep(edge_threshold, edge_threshold + edge_width, gradient / d);
 
-        vec3 display_color = vec3(d * color.rgb);
+        vec3 display_color = vec3(0.f) * border + d * (1.f - border);
         out_color = vec4(display_color * depth.g, depth.g);
     }
 }

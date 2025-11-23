@@ -65,7 +65,7 @@ void Viewer::Run() {
 
   VkFormat swapchain_format = swapchain->format();
   VkFormat high_format = VK_FORMAT_R16G16B16A16_SFLOAT;
-  VkFormat depth_image_format = VK_FORMAT_R32G32_SFLOAT;
+  VkFormat depth_image_format = VK_FORMAT_R16G16_SFLOAT;
   VkFormat depth_format = VK_FORMAT_D32_SFLOAT;
   std::vector<VkFormat> formats = {swapchain_format, high_format, depth_image_format};
 
@@ -387,9 +387,10 @@ void Viewer::Run() {
 
         // render splats
         gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
-            .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, 1})
+            .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED})
             .Commit(cb);
-        renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats, {VK_ATTACHMENT_UNUSED, 0, 1},
+        renderer->RenderScreenSplats(cb, splats, draw_options, screen_splats, formats,
+                                     {VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED},
                                      depth_format);
 
         // subpass 1:

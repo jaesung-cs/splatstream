@@ -28,7 +28,7 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
                                     VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
   }
   if (!depth_image_ || depth_image_->width() != width || depth_image_->height() != height) {
-    depth_image_ = gpu::Image::Create(VK_FORMAT_R32G32_SFLOAT, width, height,
+    depth_image_ = gpu::Image::Create(VK_FORMAT_R16G16_SFLOAT, width, height,
                                       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
                                           VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
   }
