@@ -2,39 +2,58 @@
 
 ## C++ File Structure
 `src/` directory has three components:
-- `api`: c++ API wrapper, hiding all Vulkan dependency and exposes the conceptual containers and operations only.
+- `vkgs`: c++ API wrapper, hiding all Vulkan dependency and exposes the conceptual containers and operations only.
 - `core`: main algorithm for rendering Gaussian Splattings, where Vulkan commands for rendering are submitted.
+- `viewer`: viewer codes, managing window system and UI, managing GLFW and imgui contexts internally.
 - `gpu`: Vulkan backend, with helping features: object lifetime management, object creation, etc.
 
-## Front-to-Back Rendering
-The splats are sorted front-to-back, unlike how general renderers draw transparent objects back-to-front.
-This is intended in order to calculate the accumulated alpha.
+## Vulkan Object Lifetime Management
+In `gpu` module, `std::shared_ptr` is meant to manage lifetime of Vulkan resources.
+A `std::shared_ptr` as a class member means "as long as this object is alive, objects that it depends must be alive as well."
+
+The seed of all other Vulkan objects is the Vulkan device.
+The `Device` class is defined normally, and a singleton Vulkan device is created and retrieved with `GetDevice()` function.
+It returns a `std::shared_ptr<Device>` type to be shared by requested objects, and also it is wanted to be destroyed when no objects are used.
+
+The trick is using `std::weak_ptr<Device>` to manage the device like a singleton object.
+In `vkgs/gpu/gpu.cc`, `GetDevice()` is defined as:
+```cpp
+namespace {
+std::weak_ptr<Device> device;
+}
+
+std::shared_ptr<Device> GetDevice() {
+  if (device.expired()) {
+    // Not just `return device = std::make_shared<Device>();`.
+    // Instead, create a shared ptr, let a weak ptr points to it while keeping the object's lifetime until returning.
+    auto new_device = std::make_shared<Device>();
+    device = new_device;
+    return new_device;
+  }
+  // If the weak_ptr still points to a valid object, return it.
+  return device.lock();
+}
+```
+
+Another crucial point is that all Vulkan objects needed by GPU commands submitted to queue must be alive until they are finished and signaled by fences.
+The objects include `VkPipeline`, `VkPipelineLayout`, `VkBuffer`, `VkImage`, `VkSwapchainKHR`, etc.
+To generalize this necessity, wrappers of all Vulkan object types that would be used in commands derive from `Object` class.
+Calling `Object::Keep()` while recording a command buffer guarantees that the `std::shared_ptr` of the object sustains until the fence is signaled.
+The `std::shared_ptr` of the object is kept in `Task` object.
+Tasks are monitored regularly and desteoyed when the attached fences are signaled.
+
+One of the biggest challenges of this design is that the object management system must be considered very carefully not to make dangling `std::shared_ptr` cycles.
+
+Other design patterns for managing lifetime of Vulkan objects could be a single context having `unique_ptr`s of dependent resources, where public interface for the resources are available via handles or wrapper classes.
+This design is not adopted because it seemingly makes the design more complex and requires more lines of codes.
+
+## Back-to-Front Rendering
+The splats are sorted back-to-front, like how general renderers draw transparent objects.
 
 $$
 \begin{align*}
-C_i &= C_{i-1} + \alpha_i c_i \prod_{j \lt i} (1 - \alpha_j) = C_{i-1} + (\alpha_i c_i) T_{i-1}, \\
-T_i &= \prod_{j \le i} (1 - \alpha_j) = (1 - \alpha_i) T_{i-1}.
-\end{align*}
-$$
-
-The equation turns into the following blending equation:
-
-$$
-\begin{align*}
-C &:= T_{dst} C_{src} + 1 \cdot C_{dst}, \quad \quad \quad C_{src} = \alpha_{src} c_{src}, \\
-T &:= 0 \cdot \alpha_{src} + (1 - \alpha_{src}) \cdot T_{dst}.
-\end{align*}
-$$
-
-Opacity is one minus transmittance.
-
-$$
-\begin{align*}
-\Alpha_i &= 1 - T_i = 1 - (1 - \alpha_i) (1 - \Alpha_{i-1}) \\
-&= 1 - (1 - \alpha_i) + (1 - \alpha_i) \Alpha_{i-1} \\
-&= \alpha_i + (1 - \alpha_i) \Alpha_{i-1}, \\
-C &:= (1 - \Alpha_{dst}) \cdot C_{src} + 1 \cdot C_{dst}, \\
-\Alpha &:= 1 \cdot \alpha_{src} + (1 - \alpha_{src}) \cdot \Alpha_{dst}
+C_i &= \alpha_i c_i + (1 - \alpha_i) C_{i+1} = 1 \cdot (\alpha_i c_i) + (1 - \alpha_i) C_{i+1}, \\
+T_i &= \alpha_i + (1 - \alpha_i) T_{i+1} = 1 \cdot \alpha_i + (1 - \alpha_i) T_{i+1}
 \end{align*}
 $$
 
@@ -42,35 +61,22 @@ This leads to the fragment shader pre-multiplied alpha, and Vulkan blend operati
 ```glsl
 out vec4 out_color;
 void main() {
-    out_color = vec4(color * alpha, alpha);  // C_{src} \alpha_{src} c_{src}
+    out_color = vec4(color * alpha, alpha);  // \alpha_{i} c_{i}
 }
 ```
 
 ```c++
-color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;  // (1 - A_{dst}) . C_{src}
-color_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;                  //       1       . C_{dst}
+color_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;                  //       1       . c_{i}
+color_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // (1 - a_{src}) . C_{i+1}
 color_attachment.colorBlendOp = VK_BLEND_OP_ADD;
-color_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;                  //       1       . a_{src}
-color_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // (1 - a_{src}) . A_{dst}
+color_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;                  //       1       . a_{i}
+color_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // (1 - a_{src}) . T_{i+1}
 color_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
 ```
 
-Background color shouldn't affect to the alpha, but fill out with the color for the rest of transparency.
-These conditions can be written and implemented with the same blending operation.
-
-$$
-\begin{align*}
-C &:= (1 - \Alpha_{dst}) C_{bg} + 1 \cdot C_{dst}, \\
-A &:= 1 \cdot \alpha_{src} + (1 - \alpha_{src}) \cdot \Alpha_{dst} = \Alpha_{dst}, \\
-\alpha_{src} &= 0, \quad C_{bg} = c_{bg}.
-\end{align*}
-$$
-
-```glsl
-out vec4 out_color;
-void main() {
-    out_color = vec4(color_background.rgb, 0.f);
-}
+Background can be filled with clear color:
+```c++
+color_attachment.clearValue.color = {background.r, background.g, background.b, 0.f};
 ```
 
 ## Image Format
@@ -153,3 +159,49 @@ All together, here shows a diagram demonstrating dependency chains for i, i+N, i
 Each queue submission is represented within `[]`. The semaphores are depicted with arrows, representing 3 different timeline semaphores C, G, T and its their stages 0 for C, T and 0, 1 for G.
 
 In a random splat scene, double buffering (N=2) is 10% faster than single buffer (N=1). Triple buffering (N=3) is just the same as double buffering in throughput.
+
+## Depth Rendering
+The four points of quads in Normalized Device Coordinates (NDC) are available in vertex shaders.
+The homogeneous coordinates multiplied by inverse of projection matrix yield and linearly interpolated by rasterizer yields a homogeneous coordinate in viewer space in fragment shader.
+The distance from camera to fragment is just the length of the vector.
+
+Blend the depth values to get the weighted depth value as well as color value:
+$$
+\begin{align*}
+D_i = \alpha_i d_i + (1 - \alpha_i) D_{i+1},
+\end{align*}
+$$
+to an `R16G16_SFLOAT` image (or `R16_SFLOAT` because alpha values are also available in color image.)
+
+### Outlining
+Drawing borders is simpliy achieved by rendering dark if the gradient of depth is higher than threshold.
+
+```glsl
+float depth = subpassInput(depth_iamge).r;
+float gradient = fwidth(depth);  // fwidth is the same as abs(dFdx(depth)) + abs(dFdy(depth)).
+```
+
+One of disadvantages is that `fwidth`, `dFdx`, `dFdy` is just a finite difference; GPU groups four quad pixels to calculate those values, making the gradient values in any 2-pixel square the same.
+This makes borders very coarse and thick.
+
+A good property of Gaussian Splats for this purpose is that the splat is differentiable.
+The analytic difference can be driven by hand, but I leave it as TODO because it is not available for triangular meshes that I wanted to draw in viewer.
+
+## Dynamic Rendering
+Dynamic rendering (`VK_KHR_dynamic_rendering` and `VK_KHR_dynamic_rendering_local_read`) is a recent feature that was promoted to 1.4 and makes the rendering process and management of objects much easier.
+
+Like drawing general scenes where opaque objects are rendered first then transparent objects, we want to draw the opaque scene first to update color and depth buffer, and then Gaussian splattings over the scene. So, the opaque scene is drawn in subpass 0, and gaussian splattings are drawn in subpass 1.
+
+One crucial point is that we need at least float16 image for the image quality of Gaussian splatting. So, rendering Gaussian splattings over the color image of 8-bit precision `B8G8R8A8_UNORM` isn't what we want. Instead, the splats are rendered on a transient image of `R16G16B16A16_SFLOAT` and then blended in subpass 2.
+- Attachment 0: swapchain image (`B8G8R8A8_UNORM`)
+- Attachment 1: high-res image (`R16G16B16A16_SFLOAT`, transient)
+- Attachment 2: depth image (`R16G16_SFLOAT`, transient)
+- Depth attachment
+- Subpass 0:
+  - draw opaque scene to Attachment 1, with depth attachment read/write.
+  - draw Gaussian splats to Attachment 1 and 2, with depth attachment read (depth test only).
+- Subpass 1:
+  - blend pixel colors of input Attachment 1 and 2 to Attachment 0.
+
+ImGui's dynamic rendering is partially supported, in that multiple attachments are not available for now.
+So, UI is rendered to the swapchain image in a separate render pass.

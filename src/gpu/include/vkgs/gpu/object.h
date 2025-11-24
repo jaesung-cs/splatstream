@@ -1,13 +1,29 @@
 #ifndef VKGS_GPU_OBJECT_H
 #define VKGS_GPU_OBJECT_H
 
+#include <memory>
+
+#include "export_api.h"
+
 namespace vkgs {
 namespace gpu {
 
-class Object {
+class Device;
+
+class VKGS_GPU_API Object : public std::enable_shared_from_this<Object> {
  public:
-  Object() = default;
-  virtual ~Object() = default;
+  Object();
+  virtual ~Object();
+
+  /**
+   * Keep this object alive in the currently bound task.
+   * Raise exception if no task is bound.
+   */
+  void Keep();
+
+ protected:
+  // Hold device so that device is not destroyed before objects are destroyed.
+  std::shared_ptr<Device> device_;
 };
 
 }  // namespace gpu

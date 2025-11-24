@@ -3,24 +3,36 @@
 
 #include <string>
 #include <memory>
+#include <vector>
+#include <functional>
 
-#include "volk.h"
-#include "vk_mem_alloc.h"
+#include <vulkan/vulkan.h>
 
 #include "export_api.h"
 
 namespace vkgs {
 namespace gpu {
 
+class Object;
 class Queue;
 class Semaphore;
 class Fence;
 class SemaphorePool;
 class FencePool;
+class TaskMonitor;
+class Command;
+class QueueTask;
+class Task;
+class GraphicsPipelinePool;
 
-class VKGS_GPU_API Device {
+struct DeviceCreateInfo {
+  bool enable_viewer;
+  std::vector<const char*> instance_extensions;
+};
+
+class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
  public:
-  Device();
+  Device(const DeviceCreateInfo& create_info);
   ~Device();
 
   operator VkDevice() const noexcept { return device_; }
@@ -30,6 +42,7 @@ class VKGS_GPU_API Device {
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
+  auto instance() const noexcept { return instance_; }
   auto allocator() const noexcept { return allocator_; }
   auto physical_device() const noexcept { return physical_device_; }
   auto device() const noexcept { return device_; }
@@ -40,8 +53,17 @@ class VKGS_GPU_API Device {
 
   std::shared_ptr<Semaphore> AllocateSemaphore();
   std::shared_ptr<Fence> AllocateFence();
+  std::shared_ptr<GraphicsPipelinePool> GetGraphicsPipelinePool() { return graphics_pipeline_pool_; }
 
   void WaitIdle();
+
+  // Internal
+  void SetCurrentTask(Task* task) { current_task_ = task; }
+  void ClearCurrentTask() { current_task_ = nullptr; }
+  Task* CurrentTask() const { return current_task_; }
+
+  std::shared_ptr<QueueTask> AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+                                          std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback);
 
  private:
   std::string device_name_;
@@ -51,13 +73,17 @@ class VKGS_GPU_API Device {
   VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
   VkDevice device_ = VK_NULL_HANDLE;
 
-  VmaAllocator allocator_ = VK_NULL_HANDLE;
+  void* allocator_ = VK_NULL_HANDLE;
 
   std::shared_ptr<Queue> graphics_queue_;
   std::shared_ptr<Queue> compute_queue_;
   std::shared_ptr<Queue> transfer_queue_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
   std::shared_ptr<FencePool> fence_pool_;
+  std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool_;
+  std::shared_ptr<TaskMonitor> task_monitor_;
+
+  Task* current_task_ = nullptr;
 };
 
 }  // namespace gpu

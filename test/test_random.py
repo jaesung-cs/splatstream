@@ -37,6 +37,8 @@ if __name__ == "__main__":
         colors=np.random.rand(N, 16, 3) * 2 - 1,
     )
 
+    ss.show(splats)
+
     width = 256
     height = 256
     fov_x = math.radians(120.0)

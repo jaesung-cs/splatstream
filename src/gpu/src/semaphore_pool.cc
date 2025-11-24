@@ -1,5 +1,7 @@
 #include "semaphore_pool.h"
 
+#include <volk.h>
+
 #include "vkgs/gpu/semaphore.h"
 
 namespace vkgs {
@@ -30,7 +32,7 @@ std::shared_ptr<Semaphore> SemaphorePool::Allocate() {
     semaphores_.pop_back();
   }
 
-  return std::make_shared<Semaphore>(device_, shared_from_this(), semaphore.first, semaphore.second);
+  return std::make_shared<Semaphore>(shared_from_this(), semaphore.first, semaphore.second);
 }
 
 void SemaphorePool::Free(VkSemaphore semaphore, uint64_t value) { semaphores_.emplace_back(semaphore, value); }

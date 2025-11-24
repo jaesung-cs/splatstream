@@ -7,7 +7,6 @@
 namespace vkgs {
 namespace gpu {
 
-class Device;
 class Image;
 
 }  // namespace gpu
@@ -16,7 +15,7 @@ namespace core {
 
 class GraphicsStorage {
  public:
-  GraphicsStorage(std::shared_ptr<gpu::Device> device);
+  GraphicsStorage();
   ~GraphicsStorage();
 
   auto image() const noexcept { return image_; }
@@ -25,7 +24,6 @@ class GraphicsStorage {
   void Update(uint32_t width, uint32_t height);
 
  private:
-  std::shared_ptr<gpu::Device> device_;
   uint32_t width_ = 0;
   uint32_t height_ = 0;
 

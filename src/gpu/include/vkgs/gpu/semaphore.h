@@ -1,13 +1,12 @@
 #ifndef VKGS_GPU_SEMAPHORE_H
 #define VKGS_GPU_SEMAPHORE_H
 
-#include "object.h"
-
 #include <memory>
 
-#include "volk.h"
+#include <vulkan/vulkan.h>
 
 #include "export_api.h"
+#include "object.h"
 
 namespace vkgs {
 namespace gpu {
@@ -16,8 +15,8 @@ class SemaphorePool;
 
 class VKGS_GPU_API Semaphore : public Object {
  public:
-  Semaphore(VkDevice device, std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
-  ~Semaphore() override;
+  Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
+  ~Semaphore();
 
   operator VkSemaphore() const noexcept { return semaphore_; }
   auto value() const noexcept { return value_; }
@@ -28,7 +27,6 @@ class VKGS_GPU_API Semaphore : public Object {
   void Increment() { value_++; }
 
  private:
-  VkDevice device_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
 
   VkSemaphore semaphore_;

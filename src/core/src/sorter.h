@@ -1,8 +1,6 @@
 #ifndef VKGS_CORE_SORTER_H
 #define VKGS_CORE_SORTER_H
 
-#include "volk.h"
-
 #include "vk_radix_sort.h"
 
 namespace vkgs {

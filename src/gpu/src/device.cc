@@ -1,17 +1,19 @@
 #include "vkgs/gpu/device.h"
 
 #include <iostream>
-#include <vector>
+
+#include <volk.h>
+#include <vk_mem_alloc.h>
 
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
-#include "vkgs/gpu/fence.h"
 
 #include "semaphore_pool.h"
 #include "fence_pool.h"
-
-namespace vkgs {
-namespace gpu {
+#include "graphics_pipeline_pool.h"
+#include "fence.h"
+#include "command.h"
+#include "task_monitor.h"
 
 namespace {
 
@@ -50,21 +52,26 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
       break;
   }
 
-  std::cerr << "Vulkan Validation [" << level << "] [" << type << "] " << callback_data->pMessage << std::endl;
+  std::cerr << "Vulkan Validation [" << level << "] [" << type << "] " << callback_data->pMessage << std::endl
+            << std::endl;
+
   return VK_FALSE;
 }
 
 }  // namespace
 
-Device::Device() {
+namespace vkgs {
+namespace gpu {
+
+Device::Device(const DeviceCreateInfo& create_info) {
   volkInitialize();
 
   // Instance
   VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   app_info.pApplicationName = "vkgs";
-  app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 5);
+  app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 6);
   app_info.pEngineName = "vkgs";
-  app_info.engineVersion = VK_MAKE_VERSION(0, 0, 5);
+  app_info.engineVersion = VK_MAKE_VERSION(0, 0, 6);
   app_info.apiVersion = VK_API_VERSION_1_4;
 
   VkDebugUtilsMessengerCreateInfoEXT messenger_info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
@@ -78,12 +85,11 @@ Device::Device() {
       "VK_LAYER_KHRONOS_validation",
   };
 
-  std::vector<const char*> extensions = {
-      VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+  std::vector<const char*> extensions = create_info.instance_extensions;
+  extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #ifdef __APPLE__
-      VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+  extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 #endif
-  };
 
   VkInstanceCreateInfo instance_info = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
 #ifdef __APPLE__
@@ -96,7 +102,6 @@ Device::Device() {
   instance_info.enabledExtensionCount = extensions.size();
   instance_info.ppEnabledExtensionNames = extensions.data();
   vkCreateInstance(&instance_info, NULL, &instance_);
-
   volkLoadInstance(instance_);
 
   vkCreateDebugUtilsMessengerEXT(instance_, &messenger_info, NULL, &messenger_);
@@ -108,18 +113,14 @@ Device::Device() {
   vkEnumeratePhysicalDevices(instance_, &physical_device_count, physical_devices.data());
   physical_device_ = physical_devices[0];
 
-  VkPhysicalDeviceProperties device_properties;
-  vkGetPhysicalDeviceProperties(physical_device_, &device_properties);
-  device_name_ = device_properties.deviceName;
-
   // Queue
   uint32_t queue_family_count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(physical_device_, &queue_family_count, NULL);
   std::vector<VkQueueFamilyProperties> queue_family_properties(queue_family_count);
   vkGetPhysicalDeviceQueueFamilyProperties(physical_device_, &queue_family_count, queue_family_properties.data());
 
-  uint32_t graphics_queue_index = VK_QUEUE_FAMILY_IGNORED;
   uint32_t compute_queue_index = VK_QUEUE_FAMILY_IGNORED;
+  uint32_t graphics_queue_index = VK_QUEUE_FAMILY_IGNORED;
   uint32_t transfer_queue_index = VK_QUEUE_FAMILY_IGNORED;
   for (uint32_t i = 0; i < queue_family_count; i++) {
     auto type = queue_family_properties[i].queueFlags;
@@ -166,10 +167,17 @@ Device::Device() {
       "VK_KHR_portability_subset",
 #endif
   };
+  if (create_info.enable_viewer) device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+  // VkPhysicalDeviceVulkan14Features
+  VkPhysicalDeviceDynamicRenderingLocalReadFeatures dynamic_rendering_local_read_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES};
+  dynamic_rendering_local_read_features.dynamicRenderingLocalRead = VK_TRUE;
 
   // VkPhysicalDeviceVulkan13Features
   VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features = {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+  dynamic_rendering_features.pNext = &dynamic_rendering_local_read_features;
   dynamic_rendering_features.dynamicRendering = VK_TRUE;
 
   VkPhysicalDeviceSynchronization2Features synchronization_features = {
@@ -194,14 +202,18 @@ Device::Device() {
   k16bit_storage_features.pNext = &host_query_reset_features;
   k16bit_storage_features.storageBuffer16BitAccess = VK_TRUE;
 
+  VkPhysicalDeviceSwapchainMaintenance1FeaturesKHR swapchain_maintenance_features = {
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_KHR};
+  swapchain_maintenance_features.pNext = &k16bit_storage_features;
+  swapchain_maintenance_features.swapchainMaintenance1 = VK_TRUE;
+
   VkDeviceCreateInfo device_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-  device_info.pNext = &k16bit_storage_features;
+  device_info.pNext = &swapchain_maintenance_features;
   device_info.queueCreateInfoCount = queue_create_infos.size();
   device_info.pQueueCreateInfos = queue_create_infos.data();
   device_info.enabledExtensionCount = device_extensions.size();
   device_info.ppEnabledExtensionNames = device_extensions.data();
   vkCreateDevice(physical_device_, &device_info, NULL, &device_);
-
   volkLoadDevice(device_);
 
   VkQueue graphics_queue;
@@ -211,8 +223,13 @@ Device::Device() {
   vkGetDeviceQueue(device_, compute_queue_index, 0, &compute_queue);
   vkGetDeviceQueue(device_, transfer_queue_index, 0, &transfer_queue);
 
+  VkPhysicalDeviceProperties device_properties;
+  vkGetPhysicalDeviceProperties(physical_device_, &device_properties);
+  device_name_ = device_properties.deviceName;
+
   semaphore_pool_ = std::make_shared<SemaphorePool>(device_);
   fence_pool_ = std::make_shared<FencePool>(device_);
+  graphics_pipeline_pool_ = std::make_shared<GraphicsPipelinePool>(device_);
 
   graphics_queue_ = std::make_shared<Queue>(device_, graphics_queue, graphics_queue_index);
   compute_queue_ = std::make_shared<Queue>(device_, compute_queue, compute_queue_index);
@@ -229,7 +246,12 @@ Device::Device() {
   allocator_info.instance = instance_;
   allocator_info.pVulkanFunctions = &functions;
   allocator_info.vulkanApiVersion = VK_API_VERSION_1_4;
-  vmaCreateAllocator(&allocator_info, &allocator_);
+  VmaAllocator allocator;
+  vmaCreateAllocator(&allocator_info, &allocator);
+  allocator_ = allocator;
+
+  // Task monitor
+  task_monitor_ = std::make_shared<gpu::TaskMonitor>();
 }
 
 Device::~Device() {
@@ -240,8 +262,11 @@ Device::~Device() {
   transfer_queue_ = nullptr;
   semaphore_pool_ = nullptr;
   fence_pool_ = nullptr;
+  graphics_pipeline_pool_ = nullptr;
+  task_monitor_ = nullptr;
 
-  vmaDestroyAllocator(allocator_);
+  VmaAllocator allocator = static_cast<VmaAllocator>(allocator_);
+  vmaDestroyAllocator(allocator);
   vkDestroyDevice(device_, NULL);
   vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, NULL);
   vkDestroyInstance(instance_, NULL);
@@ -256,7 +281,16 @@ uint32_t Device::transfer_queue_index() const noexcept { return transfer_queue_-
 std::shared_ptr<Semaphore> Device::AllocateSemaphore() { return semaphore_pool_->Allocate(); }
 std::shared_ptr<Fence> Device::AllocateFence() { return fence_pool_->Allocate(); }
 
-void Device::WaitIdle() { vkDeviceWaitIdle(device_); }
+void Device::WaitIdle() {
+  task_monitor_->FinishAllTasks();
+  vkDeviceWaitIdle(device_);
+}
+
+std::shared_ptr<QueueTask> Device::AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+                                                std::vector<std::shared_ptr<Object>> objects,
+                                                std::function<void()> callback) {
+  return task_monitor_->Add(fence, command, std::move(objects), callback);
+}
 
 }  // namespace gpu
 }  // namespace vkgs

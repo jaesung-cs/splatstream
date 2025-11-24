@@ -2,11 +2,21 @@
 
 layout(location = 0) in vec4 color;
 layout(location = 1) in vec2 position;
+layout(location = 2) in vec4 view_position;
 
-layout(location = 0) out vec4 out_color;
+layout(location = 0) out vec4 out_color;  // pre-multiplied alpha: (color * alpha, alpha)
+#ifdef VKGS_RENDER_DEPTH
+layout(location = 1) out vec4 out_depth;  // pre-multiplied alpha: (depth * alpha, alpha)
+#endif
 
 void main() {
   float gaussian_alpha = exp(-0.5f * dot(position, position));
   float alpha = color.a * gaussian_alpha;
   out_color = vec4(color.rgb * alpha, alpha);
+
+#ifdef VKGS_RENDER_DEPTH
+  vec3 p = view_position.xyz / view_position.w;
+  float d = length(p);
+  out_depth = vec4(d * alpha, alpha, 0.f, alpha);
+#endif
 }

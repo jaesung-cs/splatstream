@@ -1,10 +1,12 @@
 #include "vkgs/gpu/cmd/barrier.h"
 
+#include <volk.h>
+
 namespace vkgs {
 namespace gpu {
 namespace cmd {
 
-Barrier::Barrier() = default;
+Barrier::Barrier(VkDependencyFlags dependency_flags) : dependency_flags_(dependency_flags) {}
 
 Barrier::~Barrier() = default;
 
@@ -81,6 +83,12 @@ Barrier& Barrier::Memory(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_acc
 
 Barrier& Barrier::Image(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_access, VkPipelineStageFlags2 dst_stage,
                         VkAccessFlags2 dst_access, VkImageLayout old_layout, VkImageLayout new_layout, VkImage image) {
+  VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+  if (new_layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+  if (new_layout == VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL) aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
+  if (new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+
   VkImageMemoryBarrier2 barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
   barrier.srcStageMask = src_stage;
   barrier.srcAccessMask = src_access;
@@ -89,13 +97,14 @@ Barrier& Barrier::Image(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_acce
   barrier.oldLayout = old_layout;
   barrier.newLayout = new_layout;
   barrier.image = image;
-  barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+  barrier.subresourceRange = {aspect, 0, 1, 0, 1};
   image_barriers_.push_back(barrier);
   return *this;
 }
 
 void Barrier::Commit(VkCommandBuffer cb) {
   VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+  dependency_info.dependencyFlags = dependency_flags_;
   dependency_info.memoryBarrierCount = memory_barriers_.size();
   dependency_info.pMemoryBarriers = memory_barriers_.data();
   dependency_info.bufferMemoryBarrierCount = buffer_barriers_.size();

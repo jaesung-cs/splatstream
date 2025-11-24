@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 
-#include "volk.h"
+#include <vulkan/vulkan.h>
 
 #include "vkgs/gpu/export_api.h"
 
@@ -22,9 +22,15 @@ class VKGS_GPU_API Pipeline {
 
   Pipeline& Uniform(int binding, VkBuffer buffer);
 
+  Pipeline& Input(int binding, VkImageView image_view, VkImageLayout layout);
+
   Pipeline& PushConstant(VkShaderStageFlags stage, uint32_t offset, uint32_t size, const void* values);
 
   Pipeline& Bind(VkPipeline pipeline);
+
+  Pipeline& AttachmentLocations(const std::vector<uint32_t>& locations);
+
+  Pipeline& InputAttachmentIndices(const std::vector<uint32_t>& indices);
 
   void Commit(VkCommandBuffer cb);
 
@@ -32,11 +38,18 @@ class VKGS_GPU_API Pipeline {
   VkPipelineBindPoint bind_point_;
   VkPipelineLayout layout_;
 
-  struct DescriptorInfo {
+  struct BufferDescriptorInfo {
     VkDescriptorType type;
     VkBuffer buffer;
   };
-  std::map<int, DescriptorInfo> descriptors_;
+  std::map<int, BufferDescriptorInfo> buffer_descriptors_;
+
+  struct ImageDescriptorInfo {
+    VkDescriptorType type;
+    VkImageView image_view;
+    VkImageLayout layout;
+  };
+  std::map<int, ImageDescriptorInfo> image_descriptors_;
 
   struct PushConstantData {
     VkShaderStageFlags stage;
@@ -47,6 +60,9 @@ class VKGS_GPU_API Pipeline {
   std::vector<PushConstantData> push_constants_;
 
   VkPipeline pipeline_ = VK_NULL_HANDLE;
+
+  std::vector<uint32_t> attachment_locations_;
+  std::vector<uint32_t> input_attachment_indices_;
 };
 
 }  // namespace cmd

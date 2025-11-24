@@ -3,16 +3,14 @@
 
 #include <memory>
 
-#include "volk.h"
-
-#include "export_api.h"
+#include <vulkan/vulkan.h>
 
 namespace vkgs {
 namespace gpu {
 
 class FencePool;
 
-class VKGS_GPU_API Fence {
+class Fence {
  public:
   Fence(VkDevice device, std::shared_ptr<FencePool> fence_pool, VkFence fence);
   ~Fence();

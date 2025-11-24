@@ -20,10 +20,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(vma)
 
 # Static library only to load Vulkan functions statically properly.
-add_library(vkgs_gpu STATIC
+add_library(vkgs_gpu SHARED
   src/cmd/barrier.cc
   src/cmd/pipeline.cc
-  src/cmd/queue_submission.cc
   src/buffer.cc
   src/command_pool.cc
   src/command.cc
@@ -31,24 +30,24 @@ add_library(vkgs_gpu STATIC
   src/device.cc
   src/fence_pool.cc
   src/fence.cc
+  src/gpu.cc
+  src/graphics_pipeline_pool.cc
   src/graphics_pipeline.cc
   src/image.cc
+  src/object.cc
   src/pipeline_layout.cc
+  src/queue_task.cc
   src/queue.cc
   src/semaphore_pool.cc
   src/semaphore.cc
+  src/swapchain.cc
   src/task_monitor.cc
   src/task.cc
   src/timer.cc
-  src/volk_impl.cc
   src/vma_impl.cc
+  src/volk_impl.cc
 )
 add_library(vkgs::gpu ALIAS vkgs_gpu)
-
-target_compile_definitions(vkgs_gpu
-  PUBLIC
-    VK_NO_PROTOTYPES
-)
 
 target_include_directories(vkgs_gpu
   PUBLIC
@@ -59,11 +58,17 @@ target_include_directories(vkgs_gpu
 
 target_link_libraries(vkgs_gpu
   PUBLIC
+    Vulkan::Vulkan
+  PRIVATE
     volk::volk_headers
     GPUOpen::VulkanMemoryAllocator
 )
 
-target_compile_definitions(vkgs_gpu PUBLIC VKGS_GPU_STATIC)
+target_compile_definitions(vkgs_gpu
+  PRIVATE
+    VKGS_GPU_EXPORTS
+    VK_NO_PROTOTYPES  # to use volk internally, to expose vulkan header only
+)
 
 # TODO: Disables too many warnings from vma (MacOS only)
 #target_compile_options(vkgs_gpu PRIVATE -Wno-nullability-completeness)
