@@ -42,12 +42,6 @@ jobs:
         stripdown: true
         destination: C:\VulkanSDK
 
-    - name: Install glfw dependencies (ubuntu)
-      if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: |
-        sudo apt-get update
-        sudo apt-get install libwayland-dev libxkbcommon-dev xorg-dev libgl1-mesa-dev
-
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip

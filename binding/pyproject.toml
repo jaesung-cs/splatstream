@@ -16,5 +16,9 @@ license = {text = "MIT"}
 [tool.scikit-build]
 cmake.source-dir = "."
 cmake.build-type = "Release"
-cmake.args = ["-DGLFW_BUILD_WAYLAND=OFF"]
 wheel.packages = ["splatstream"]
+
+[tool.cibuildwheel.linux]
+before-all = [
+    "yum install -y wayland-devel libxkbcommon-devel libXcursor-devel libXi-devel libXinerama-devel libXrandr-devel"
+]
