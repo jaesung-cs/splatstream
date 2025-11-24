@@ -28,6 +28,9 @@ struct GraphicsPipelineCreateInfo {
   VkPipelineLayout pipeline_layout;
   ShaderCode vertex_shader;
   ShaderCode fragment_shader;
+  std::vector<VkVertexInputBindingDescription> bindings;
+  std::vector<VkVertexInputAttributeDescription> attributes;
+  VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   std::vector<VkFormat> formats;
   std::vector<uint32_t> locations;
   std::vector<uint32_t> input_indices;
