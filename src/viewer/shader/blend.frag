@@ -1,7 +1,7 @@
 #version 460 core
 
 layout (std430, push_constant) uniform PushConstants {
-    layout (offset = 128) int mode;
+    layout (offset = 192) int mode;
 };
 
 layout (input_attachment_index = 0, binding = 0) uniform subpassInput color_image;

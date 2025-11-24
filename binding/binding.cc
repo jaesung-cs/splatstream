@@ -53,7 +53,27 @@ PYBIND11_MODULE(_core, m) {
              draw_options.sh_degree = sh_degree;
              return engine.Draw(splats, draw_options, dst_ptr);
            })
-      .def("show", &vkgs::Engine::Show);
+      .def("show", &vkgs::Engine::Show)
+      .def("show_with_cameras", [](vkgs::Engine& engine, vkgs::GaussianSplats splats, py::array_t<float> extrinsics,
+                                   py::array_t<float> intrinsics, uint32_t width, uint32_t height) {
+        size_t N = extrinsics.shape(0);
+        const auto* extrinsics_ptr = static_cast<const float*>(extrinsics.request().ptr);
+        const auto* intrinsics_ptr = static_cast<const float*>(intrinsics.request().ptr);
+
+        for (auto i = 0; i < N; ++i) {
+          vkgs::CameraParams camera_params = {};
+          for (int r = 0; r < 4; ++r) {
+            for (int c = 0; c < 4; ++c) camera_params.extrinsic[c * 4 + r] = extrinsics_ptr[i * 16 + r * 4 + c];
+          }
+          for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) camera_params.intrinsic[c * 3 + r] = intrinsics_ptr[i * 9 + r * 3 + c];
+          }
+          camera_params.width = width;
+          camera_params.height = height;
+          engine.AddCamera(camera_params);
+        }
+        engine.Show(splats);
+      });
 
   py::class_<vkgs::GaussianSplats>(m, "GaussianSplats")
       .def_property_readonly("size", &vkgs::GaussianSplats::size)

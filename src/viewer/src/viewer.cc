@@ -78,6 +78,7 @@ void Viewer::Run() {
   struct ColorPushConstants {
     glm::mat4 projection;
     glm::mat4 view;
+    glm::mat4 model;
   };
 
   struct BlendPushConstants {
@@ -94,6 +95,14 @@ void Viewer::Run() {
   color_pipeline_info.pipeline_layout = *graphics_pipeline_layout;
   color_pipeline_info.vertex_shader = gpu::ShaderCode(color_vert);
   color_pipeline_info.fragment_shader = gpu::ShaderCode(color_frag);
+  color_pipeline_info.bindings = {
+      {0, sizeof(float) * 6, VK_VERTEX_INPUT_RATE_VERTEX},
+  };
+  color_pipeline_info.attributes = {
+      {0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0},
+      {1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3},
+  };
+  color_pipeline_info.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
   color_pipeline_info.formats = formats;
   color_pipeline_info.locations = {VK_ATTACHMENT_UNUSED, 0, 1};
   color_pipeline_info.depth_format = depth_format;
@@ -133,6 +142,60 @@ void Viewer::Run() {
   ImGui_ImplVulkan_Init(&init_info);
 
   auto camera = std::make_shared<Camera>();
+
+  // Camera
+  std::shared_ptr<gpu::Buffer> camera_vertices;
+  std::shared_ptr<gpu::Buffer> camera_indices;
+  uint32_t camera_index_size = 0;
+  {
+    gpu::GraphicsTask task;
+    auto cb = task.command_buffer();
+
+    std::vector<uint32_t> indices = {
+        0, 1, 0, 2, 0, 3, 0, 4,  // legs
+        1, 2, 2, 4, 4, 3, 3, 1,  // frames
+    };
+    std::vector<float> vertices = {
+        0.f,  0.f,  0.f, 1.f, 1.f, 1.f,  // eye
+        -1.f, -1.f, 1.f, 1.f, 1.f, 1.f,  // 0
+        1.f,  -1.f, 1.f, 1.f, 1.f, 1.f,  // 1
+        -1.f, 1.f,  1.f, 1.f, 1.f, 1.f,  // 2
+        1.f,  1.f,  1.f, 1.f, 1.f, 1.f,  // 3
+    };
+
+    camera_index_size = indices.size();
+
+    auto indices_stage =
+        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, indices.size() * sizeof(indices[0]), true);
+    auto vertices_stage =
+        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertices.size() * sizeof(vertices[0]), true);
+
+    std::memcpy(indices_stage->data(), indices.data(), indices.size() * sizeof(indices[0]));
+    std::memcpy(vertices_stage->data(), vertices.data(), vertices.size() * sizeof(vertices[0]));
+
+    camera_vertices = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                          vertices.size() * sizeof(vertices[0]));
+    camera_indices = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                         indices.size() * sizeof(indices[0]));
+
+    VkBufferCopy region = {0, 0, indices_stage->size()};
+    vkCmdCopyBuffer(cb, *indices_stage, *camera_indices, 1, &region);
+    region = {0, 0, vertices_stage->size()};
+    vkCmdCopyBuffer(cb, *vertices_stage, *camera_vertices, 1, &region);
+
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT,
+                VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT)
+        .Commit(cb);
+
+    indices_stage->Keep();
+    vertices_stage->Keep();
+    camera_vertices->Keep();
+    camera_indices->Keep();
+
+    task.Submit();
+  }
 
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
@@ -200,6 +263,7 @@ void Viewer::Run() {
     static int sh_degree = splats_->sh_degree();
     static int render_type = 0;
     static glm::vec3 background(0.f, 0.f, 0.f);
+    static float camera_scale = 0.1f;
 
     // Gizmo
     glm::mat4 vk_to_gl(1.f);
@@ -245,6 +309,8 @@ void Viewer::Run() {
       scale.y = scale.z = scale.x;
       ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(translation), glm::value_ptr(rotation),
                                               glm::value_ptr(scale), glm::value_ptr(model));
+
+      ImGui::SliderFloat("Camera Scale", &camera_scale, 0.01f, 10.f, "%.3f", ImGuiSliderFlags_Logarithmic);
     }
     ImGui::End();
 
@@ -371,18 +437,34 @@ void Viewer::Run() {
         vkCmdSetScissor(cb, 0, 1, &scissor);
 
         // render scene
-        // TODO: draw scene to color/depth image
-        if (false) {
-          ColorPushConstants color_push_constants = {};
-          color_push_constants.projection = camera->ProjectionMatrix();
-          color_push_constants.view = camera->ViewMatrix();
+        // TODO: draw scene to depth image
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
+            .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, 1})
+            .Bind(*color_pipeline)
+            .Commit(cb);
+
+        ColorPushConstants color_push_constants = {};
+        color_push_constants.projection = camera->ProjectionMatrix();
+        color_push_constants.view = camera->ViewMatrix();
+        for (const auto& camera_param : camera_params_) {
+          glm::mat4 ndc_to_image = glm::mat4(1.f);
+          ndc_to_image[0][0] = 0.5f * camera_param.width;
+          ndc_to_image[1][1] = 0.5f * camera_param.height;
+          ndc_to_image[2][0] = 0.5f * camera_param.width;
+          ndc_to_image[2][1] = 0.5f * camera_param.height;
+          color_push_constants.model = model * glm::inverse(camera_param.extrinsic) *
+                                       glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
+                                       glm::mat4(glm::mat3(camera_scale));
+
           gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
               .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants), &color_push_constants)
-              .Bind(*color_pipeline)
-              .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, 1})
               .Commit(cb);
 
-          vkCmdDraw(cb, 6, 1, 0, 0);
+          vkCmdBindIndexBuffer(cb, *camera_indices, 0, VK_INDEX_TYPE_UINT32);
+          VkBuffer buffer = *camera_vertices;
+          VkDeviceSize offset = 0;
+          vkCmdBindVertexBuffers(cb, 0, 1, &buffer, &offset);
+          vkCmdDrawIndexed(cb, camera_index_size, 1, 0, 0, 0);
         }
 
         // render splats
@@ -473,6 +555,8 @@ void Viewer::Run() {
   graphics_pipeline_layout = nullptr;
   color_pipeline = nullptr;
   blend_pipeline = nullptr;
+  camera_vertices = nullptr;
+  camera_indices = nullptr;
   device = nullptr;
 
   if (own_renderer) renderer_ = nullptr;

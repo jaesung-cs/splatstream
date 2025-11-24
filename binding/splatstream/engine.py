@@ -17,5 +17,8 @@ class Engine:
     def show(self, *args, **kwargs):
         return self.engine.show(*args, **kwargs)
 
+    def show_with_cameras(self, *args, **kwargs):
+        return self.engine.show_with_cameras(*args, **kwargs)
+
 
 singleton_engine = Engine()
