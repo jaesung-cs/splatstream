@@ -4,6 +4,9 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
+
 namespace vkgs {
 namespace viewer {
 
@@ -35,32 +38,32 @@ glm::mat4 Camera::ProjectionMatrix() const {
   return conversion * projection;
 }
 
-glm::mat4 Camera::ViewMatrix() const { return glm::lookAt(Eye(), center_, glm::vec3(0.f, 1.f, 0.f)); }
+glm::mat4 Camera::ViewMatrix() const {
+  auto cam = glm::toMat4(quat_);
+  cam[3] = glm::vec4(Eye(), 1.f);
+  return glm::inverse(cam);
+}
 
 glm::vec3 Camera::Eye() const {
-  const auto sin_phi = std::sin(phi_);
-  const auto cos_phi = std::cos(phi_);
-  const auto sin_theta = std::sin(theta_);
-  const auto cos_theta = std::cos(theta_);
-  return center_ + r_ * glm::vec3(sin_phi * sin_theta, cos_phi, sin_phi * cos_theta);
+  auto rot = glm::toMat3(quat_);
+  return center_ + r_ * rot[2];
 }
 
-void Camera::Rotate(float x, float y) {
-  theta_ -= rotation_sensitivity_ * x;
-  float eps = glm::radians(0.1f);
-  phi_ = std::clamp(phi_ - rotation_sensitivity_ * y, eps, glm::pi<float>() - eps);
+void Camera::Rotate(float dx, float dy) {
+  if (dx == 0.f && dy == 0.f) return;
+  dx = -dx;
+
+  glm::vec3 axis = glm::normalize(glm::vec3(-dy, dx, 0.f));
+  float angle = glm::length(glm::vec2(-dy, dx)) * rotation_sensitivity_;
+  float c = std::cos(angle / 2.f);
+  float s = std::sin(angle / 2.f);
+  glm::quat dq = glm::quat(c, s * axis.x, s * axis.y, s * axis.z);
+  quat_ = quat_ * dq;
 }
 
-void Camera::Translate(float x, float y, float z) {
-  // camera = center + r (sin phi sin theta, cos phi, sin phi cos theta)
-  const auto sin_phi = std::sin(phi_);
-  const auto cos_phi = std::cos(phi_);
-  const auto sin_theta = std::sin(theta_);
-  const auto cos_theta = std::cos(theta_);
-  center_ +=
-      translation_sensitivity_ * r_ *
-      (-x * glm::vec3(cos_theta, 0.f, -sin_theta) + y * glm::vec3(-cos_phi * sin_theta, sin_phi, -cos_phi * cos_theta) +
-       -z * glm::vec3(sin_phi * sin_theta, cos_phi, sin_phi * cos_theta));
+void Camera::Translate(float dx, float dy, float dz) {
+  auto rot = glm::toMat3(quat_);
+  center_ += translation_sensitivity_ * r_ * (-dx * rot[0] + dy * rot[1] + -dz * rot[2]);
 }
 
 void Camera::Zoom(float x) { r_ /= std::exp(zoom_sensitivity_ * x); }
