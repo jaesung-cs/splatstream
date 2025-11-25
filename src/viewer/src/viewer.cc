@@ -264,20 +264,7 @@ void Viewer::Run() {
     static int render_type = 0;
     static glm::vec3 background(0.f, 0.f, 0.f);
     static float camera_scale = 0.1f;
-
-    // Gizmo
-    glm::mat4 vk_to_gl(1.f);
-    // y-axis flip
-    vk_to_gl[1][1] = -1.f;
-    // z: (0, 1) -> (-1, 1)
-    vk_to_gl[2][2] = 2.f;
-    vk_to_gl[3][2] = -1.f;
-    auto view = camera->ViewMatrix();
-    auto projection = vk_to_gl * camera->ProjectionMatrix();
-    if (!is_minimized) ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
-    ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
-                         ImGuizmo::TRANSLATE | ImGuizmo::ROTATE | ImGuizmo::SCALE_X, ImGuizmo::LOCAL,
-                         glm::value_ptr(model));
+    static int camera_index = 0;
 
     if (ImGui::Begin("vkgs viewer")) {
       ImGui::Text("FPS: %.2f", io.Framerate);
@@ -296,21 +283,19 @@ void Viewer::Run() {
 
       ImGui::ColorEdit3("Background", glm::value_ptr(background));
 
-      // Apply X scale to Y and Z
-      glm::vec3 translation;
-      glm::vec3 rotation;
-      glm::vec3 scale;
-      ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), glm::value_ptr(translation),
-                                            glm::value_ptr(rotation), glm::value_ptr(scale));
+      if (!camera_params_.empty()) {
+        ImGui::SliderFloat("Camera Scale", &camera_scale, 0.01f, 10.f, "%.3f", ImGuiSliderFlags_Logarithmic);
 
-      ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.01f);
-      ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.1f);
-      ImGui::SliderFloat("Scale", &scale.x, 0.01f, 100.f, "%.3f", ImGuiSliderFlags_Logarithmic);
-      scale.y = scale.z = scale.x;
-      ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(translation), glm::value_ptr(rotation),
-                                              glm::value_ptr(scale), glm::value_ptr(model));
-
-      ImGui::SliderFloat("Camera Scale", &camera_scale, 0.01f, 10.f, "%.3f", ImGuiSliderFlags_Logarithmic);
+        if (ImGui::SliderInt("Camera Index", &camera_index, 0, camera_params_.size() - 1)) {
+          const auto& camera_params = camera_params_[camera_index];
+          // OpenCV convention: x right, y down, z forward.
+          // To glm convention: x right, y up, z backward.
+          glm::mat4 glm_view = glm::mat4(1.f);
+          glm_view[1][1] = -1.f;
+          glm_view[2][2] = -1.f;
+          camera->SetView(glm_view * camera_params.extrinsic);
+        }
+      }
     }
     ImGui::End();
 

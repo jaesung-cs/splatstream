@@ -2,6 +2,7 @@
 #define VKGS_VIEWER_CAMERA_H
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace vkgs {
 namespace viewer {
@@ -27,6 +28,8 @@ class Camera {
    */
   void SetFov(float fov);
 
+  void SetView(const glm::mat4& view);
+
   glm::mat4 ProjectionMatrix() const;
   glm::mat4 ViewMatrix() const;
   glm::vec3 Eye() const;
@@ -34,9 +37,9 @@ class Camera {
   uint32_t height() const noexcept { return height_; }
   auto fov() const noexcept { return fovy_; }
 
-  void Rotate(float x, float y);
-  void Translate(float x, float y, float z = 0.f);
-  void Zoom(float x);
+  void Rotate(float dx, float dy);
+  void Translate(float dx, float dy, float dz = 0.f);
+  void Zoom(float dx);
   void DollyZoom(float scroll);
 
  private:
@@ -47,10 +50,9 @@ class Camera {
   float far_ = 100.f;
 
   glm::vec3 center_ = {0.f, 0.f, 0.f};
-  // camera = center + r (sin phi sin theta, cos phi, sin phi cos theta)
+  // camera = center + r * Rot(quat).z
   float r_ = 2.f;
-  float phi_ = glm::radians(45.f);
-  float theta_ = glm::radians(45.f);
+  glm::quat quat_ = {1.f, 0.f, 0.f, 0.f};
 
   float rotation_sensitivity_ = 0.01f;
   float translation_sensitivity_ = 0.002f;
