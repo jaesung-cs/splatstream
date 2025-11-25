@@ -26,6 +26,13 @@ void Camera::SetFov(float fov) {
   fovy_ = fov;
 }
 
+void Camera::SetView(const glm::mat4& view) {
+  // Decompose view matrix to quaternion and center
+  glm::mat4 cam = glm::inverse(view);
+  quat_ = glm::quat_cast(cam);
+  center_ = cam[3] - r_ * cam[2];
+}
+
 glm::mat4 Camera::ProjectionMatrix() const {
   float aspect = static_cast<float>(width_) / height_;
   glm::mat4 projection = glm::perspective(fovy_, aspect, near_, far_);

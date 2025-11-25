@@ -28,6 +28,8 @@ class Camera {
    */
   void SetFov(float fov);
 
+  void SetView(const glm::mat4& view);
+
   glm::mat4 ProjectionMatrix() const;
   glm::mat4 ViewMatrix() const;
   glm::vec3 Eye() const;
