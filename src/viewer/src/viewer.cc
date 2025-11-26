@@ -143,6 +143,16 @@ void Viewer::Run() {
 
   auto camera = std::make_shared<Camera>();
 
+  // Initialize camera with first camera params
+  if (!camera_params_.empty()) {
+    const auto& camera_params = camera_params_[0];
+    glm::mat4 glm_view = glm::mat4(1.f);
+    glm_view[1][1] = -1.f;
+    glm_view[2][2] = -1.f;
+    camera->SetView(glm_view * camera_params.extrinsic);
+    camera->Update(10.f);
+  }
+
   // Camera
   std::shared_ptr<gpu::Buffer> camera_vertices;
   std::shared_ptr<gpu::Buffer> camera_indices;
