@@ -200,6 +200,11 @@ void Viewer::Run() {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
 
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
+
     const auto& io = ImGui::GetIO();
     bool is_minimized = io.DisplaySize.x <= 0.0f || io.DisplaySize.y <= 0.0f;
 
@@ -253,10 +258,7 @@ void Viewer::Run() {
       }
     }
 
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-    ImGuizmo::BeginFrame();
+    camera->Update(io.DeltaTime);
 
     static glm::mat4 model(1.f);
     static bool vsync = true;

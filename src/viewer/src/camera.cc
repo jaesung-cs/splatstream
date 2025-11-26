@@ -7,6 +7,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
+#include "util.h"
+
 namespace vkgs {
 namespace viewer {
 
@@ -21,16 +23,24 @@ void Camera::SetWindowSize(uint32_t width, uint32_t height) {
 
 void Camera::SetFov(float fov) {
   // dolly zoom
-  r_ *= std::tan(fovy_ / 2.f) / std::tan(fov / 2.f);
+  float r0 = target_r_;
+  target_r_ *= std::tan(target_fovy_ / 2.f) / std::tan(fov / 2.f);
+  target_.p = target_.p - (r0 - target_r_) * glm::toMat3(target_.q)[2];
 
-  fovy_ = fov;
+  target_fovy_ = fov;
 }
 
 void Camera::SetView(const glm::mat4& view) {
-  // Decompose view matrix to quaternion and center
+  // Decompose view matrix to quaternion and eye
   glm::mat4 cam = glm::inverse(view);
-  quat_ = glm::quat_cast(cam);
-  center_ = cam[3] - r_ * cam[2];
+  target_.q = glm::quat_cast(cam);
+  target_.p = cam[3];
+}
+
+void Camera::Update(float dt) {
+  pose_ = SmoothDamp(pose_, target_, velocity_, 0.05f, dt);
+  fovy_ = SmoothDamp(fovy_, target_fovy_, velocity_fovy_, 0.05f, dt);
+  r_ = SmoothDamp(r_, target_r_, velocity_r_, 0.05f, dt);
 }
 
 glm::mat4 Camera::ProjectionMatrix() const {
@@ -46,15 +56,12 @@ glm::mat4 Camera::ProjectionMatrix() const {
 }
 
 glm::mat4 Camera::ViewMatrix() const {
-  auto cam = glm::toMat4(quat_);
-  cam[3] = glm::vec4(Eye(), 1.f);
+  auto cam = glm::toMat4(pose_.q);
+  cam[3] = glm::vec4(pose_.p, 1.f);
   return glm::inverse(cam);
 }
 
-glm::vec3 Camera::Eye() const {
-  auto rot = glm::toMat3(quat_);
-  return center_ + r_ * rot[2];
-}
+glm::vec3 Camera::Eye() const { return pose_.p; }
 
 void Camera::Rotate(float dx, float dy) {
   if (dx == 0.f && dy == 0.f) return;
@@ -65,18 +72,22 @@ void Camera::Rotate(float dx, float dy) {
   float c = std::cos(angle / 2.f);
   float s = std::sin(angle / 2.f);
   glm::quat dq = glm::quat(c, s * axis.x, s * axis.y, s * axis.z);
-  quat_ = quat_ * dq;
+  target_.q = target_.q * dq;
 }
 
 void Camera::Translate(float dx, float dy, float dz) {
-  auto rot = glm::toMat3(quat_);
-  center_ += translation_sensitivity_ * r_ * (-dx * rot[0] + dy * rot[1] + -dz * rot[2]);
+  auto rot = glm::toMat3(target_.q);
+  target_.p += translation_sensitivity_ * r_ * (-dx * rot[0] + dy * rot[1] + -dz * rot[2]);
 }
 
-void Camera::Zoom(float x) { r_ /= std::exp(zoom_sensitivity_ * x); }
+void Camera::Zoom(float x) {
+  float r0 = target_r_;
+  target_r_ /= std::exp(zoom_sensitivity_ * x);
+  target_.p = target_.p - (r0 - target_r_) * glm::toMat3(target_.q)[2];
+}
 
 void Camera::DollyZoom(float scroll) {
-  float new_fov = std::clamp(fovy_ - scroll * dolly_zoom_sensitivity_, min_fov(), max_fov());
+  float new_fov = std::clamp(target_fovy_ - scroll * dolly_zoom_sensitivity_, min_fov(), max_fov());
   SetFov(new_fov);
 }
 
