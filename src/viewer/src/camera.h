@@ -4,6 +4,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include "pose.h"
+
 namespace vkgs {
 namespace viewer {
 
@@ -29,6 +31,7 @@ class Camera {
   void SetFov(float fov);
 
   void SetView(const glm::mat4& view);
+  void Update(float dt);
 
   glm::mat4 ProjectionMatrix() const;
   glm::mat4 ViewMatrix() const;
@@ -49,10 +52,16 @@ class Camera {
   float near_ = 0.01f;
   float far_ = 100.f;
 
-  glm::vec3 center_ = {0.f, 0.f, 0.f};
-  // camera = center + r * Rot(quat).z
+  // center = eye - r * Rot(quat).z
   float r_ = 2.f;
-  glm::quat quat_ = {1.f, 0.f, 0.f, 0.f};
+  Pose pose_{{0.f, 0.f, 0.f}, {1.f, 0.f, 0.f, 0.f}};
+  Pose velocity_{{0.f, 0.f, 0.f}, {0.f, 0.f, 0.f, 0.f}};
+  Pose target_{{0.f, 0.f, 0.f}, {1.f, 0.f, 0.f, 0.f}};
+
+  float target_fovy_ = fovy_;
+  float velocity_fovy_ = 0.f;
+  float target_r_ = r_;
+  float velocity_r_ = 0.f;
 
   float rotation_sensitivity_ = 0.01f;
   float translation_sensitivity_ = 0.002f;
