@@ -38,6 +38,18 @@
 
 namespace vkgs {
 namespace viewer {
+namespace {
+
+glm::mat4 OpenCVExtrinsicToView(const glm::mat4& extrinsic) {
+  // OpenCV convention: x right, y down, z forward.
+  // To glm convention: x right, y up, z backward.
+  glm::mat4 view = glm::mat4(1.f);
+  view[1][1] = -1.f;
+  view[2][2] = -1.f;
+  return view * extrinsic;
+}
+
+}  // namespace
 
 Viewer::Viewer() { context_ = GetContext(); }
 
@@ -146,10 +158,7 @@ void Viewer::Run() {
   // Initialize camera with first camera params
   if (!camera_params_.empty()) {
     const auto& camera_params = camera_params_[0];
-    glm::mat4 glm_view = glm::mat4(1.f);
-    glm_view[1][1] = -1.f;
-    glm_view[2][2] = -1.f;
-    camera->SetView(glm_view * camera_params.extrinsic);
+    camera->SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
     camera->Update(10.f);
   }
 
@@ -217,6 +226,7 @@ void Viewer::Run() {
 
     const auto& io = ImGui::GetIO();
     bool is_minimized = io.DisplaySize.x <= 0.0f || io.DisplaySize.y <= 0.0f;
+    bool camera_modified = false;
 
     // handle events
     if (!io.WantCaptureMouse || (ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !ImGui::IsAnyItemActive())) {
@@ -230,20 +240,26 @@ void Viewer::Run() {
         // ctrl + drag for translation, otherwise rotate
         if (ctrl) {
           camera->Translate(dx, dy);
+          if (dx != 0.f || dy != 0.f) camera_modified = true;
         } else {
           camera->Rotate(dx, dy);
+          if (dx != 0.f || dy != 0.f) camera_modified = true;
         }
       } else if (!left && right) {
         camera->Translate(dx, dy);
+        if (dx != 0.f || dy != 0.f) camera_modified = true;
       } else if (left && right) {
         camera->Zoom(dy);
+        if (dy != 0.f) camera_modified = true;
       }
 
       if (io.MouseWheel != 0.f) {
         if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
           camera->DollyZoom(io.MouseWheel);
+          camera_modified = true;
         } else {
           camera->Zoom(io.MouseWheel * 10.f);
+          camera_modified = true;
         }
       }
     }
@@ -253,18 +269,23 @@ void Viewer::Run() {
       float dt = io.DeltaTime;
       if (ImGui::IsKeyDown(ImGuiKey_W)) {
         camera->Translate(0.f, 0.f, speed * dt);
+        camera_modified = true;
       }
       if (ImGui::IsKeyDown(ImGuiKey_S)) {
         camera->Translate(0.f, 0.f, -speed * dt);
+        camera_modified = true;
       }
       if (ImGui::IsKeyDown(ImGuiKey_A)) {
         camera->Translate(speed * dt, 0.f);
+        camera_modified = true;
       }
       if (ImGui::IsKeyDown(ImGuiKey_D)) {
         camera->Translate(-speed * dt, 0.f);
+        camera_modified = true;
       }
       if (ImGui::IsKeyDown(ImGuiKey_Space)) {
         camera->Translate(0.f, speed * dt);
+        camera_modified = true;
       }
     }
 
@@ -277,6 +298,9 @@ void Viewer::Run() {
     static glm::vec3 background(0.f, 0.f, 0.f);
     static float camera_scale = 0.1f;
     static int camera_index = 0;
+    static bool animation = false;
+    static float animation_time = 0.f;
+    static float animation_speed = 30.f;
 
     if (ImGui::Begin("vkgs viewer")) {
       ImGui::Text("FPS: %.2f", io.Framerate);
@@ -300,14 +324,33 @@ void Viewer::Run() {
 
         if (ImGui::SliderInt("Camera Index", &camera_index, 0, camera_params_.size() - 1)) {
           const auto& camera_params = camera_params_[camera_index];
-          // OpenCV convention: x right, y down, z forward.
-          // To glm convention: x right, y up, z backward.
-          glm::mat4 glm_view = glm::mat4(1.f);
-          glm_view[1][1] = -1.f;
-          glm_view[2][2] = -1.f;
-          camera->SetView(glm_view * camera_params.extrinsic);
+          camera->SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
+          camera_modified = true;
         }
       }
+
+      if (camera_modified) {
+        animation = false;
+      }
+
+      if (ImGui::Checkbox("Animation", &animation)) {
+        if (animation) {
+          animation_time = camera_index;
+        }
+      }
+
+      if (animation) {
+        animation_time += io.DeltaTime * animation_speed;
+        animation_time = std::fmod(animation_time, camera_params_.size());
+
+        if (!camera_params_.empty()) {
+          camera_index = static_cast<int>(animation_time);
+          const auto& camera_params = camera_params_[camera_index];
+          camera->SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
+        }
+      }
+
+      ImGui::SliderFloat("Animation Speed (FPS)", &animation_speed, 1.f, 60.f, "%.2f");
     }
     ImGui::End();
 
