@@ -49,6 +49,15 @@ RenderingTask Engine::Draw(GaussianSplats splats, const DrawOptions& draw_option
   return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, dst));
 }
 
+void Engine::AddCamera(const CameraParams& camera_params) {
+  viewer::CameraParams viewer_camera_params = {};
+  viewer_camera_params.extrinsic = glm::make_mat4(camera_params.extrinsic);
+  viewer_camera_params.intrinsic = glm::make_mat3(camera_params.intrinsic);
+  viewer_camera_params.width = camera_params.width;
+  viewer_camera_params.height = camera_params.height;
+  viewer_->AddCamera(viewer_camera_params);
+}
+
 void Engine::Show(GaussianSplats splats) {
   viewer_->SetSplats(splats.get());
   viewer_->Run();

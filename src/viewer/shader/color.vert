@@ -3,21 +3,15 @@
 layout (std430, push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
+    mat4 model;
 };
 
-layout (location = 0) out vec4 color;
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 color;
 
-const vec4 positions[6] = vec4[6](
-    vec4(0.f, 0.f, 0.f, 1.f),
-    vec4(1.f, 0.f, 0.f, 1.f),
-    vec4(0.f, 1.f, 0.f, 1.f),
-    vec4(0.f, 1.f, 0.f, 1.f),
-    vec4(1.f, 0.f, 0.f, 1.f),
-    vec4(1.f, 1.f, 0.f, 1.f)
-);
+layout (location = 0) out vec4 out_color;
 
 void main() {
-    vec4 position = positions[gl_VertexIndex % 6];
-    gl_Position = projection * view * position;
-    color = position;
+    gl_Position = projection * view * model *vec4(position, 1.f);
+    out_color = vec4(color, 1.f);
 }

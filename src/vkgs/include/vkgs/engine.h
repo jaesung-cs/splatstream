@@ -7,6 +7,7 @@
 #include "vkgs/export_api.h"
 
 #include "vkgs/draw_options.h"
+#include "vkgs/camera_params.h"
 
 namespace vkgs {
 namespace core {
@@ -36,6 +37,7 @@ class VKGS_API Engine {
                                       const float* opacities, const uint16_t* colors, int sh_degree);
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
+  void AddCamera(const CameraParams& camera_params);
   void Show(GaussianSplats splats);
 
  private:

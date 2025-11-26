@@ -15,6 +15,26 @@ bool operator<(const ShaderCode& lhs, const ShaderCode& rhs) {
   return lhs.size != rhs.size ? lhs.size < rhs.size : lhs.data < rhs.data;
 }
 
+bool operator!=(const VkVertexInputBindingDescription& lhs, const VkVertexInputBindingDescription& rhs) {
+  return lhs.binding != rhs.binding || lhs.stride != rhs.stride || lhs.inputRate != rhs.inputRate;
+}
+bool operator<(const VkVertexInputBindingDescription& lhs, const VkVertexInputBindingDescription& rhs) {
+  return lhs.binding != rhs.binding ? lhs.binding < rhs.binding
+         : lhs.stride != rhs.stride ? lhs.stride < rhs.stride
+                                    : lhs.inputRate < rhs.inputRate;
+}
+
+bool operator!=(const VkVertexInputAttributeDescription& lhs, const VkVertexInputAttributeDescription& rhs) {
+  return lhs.binding != rhs.binding || lhs.location != rhs.location || lhs.format != rhs.format ||
+         lhs.offset != rhs.offset;
+}
+bool operator<(const VkVertexInputAttributeDescription& lhs, const VkVertexInputAttributeDescription& rhs) {
+  return lhs.binding != rhs.binding     ? lhs.binding < rhs.binding
+         : lhs.location != rhs.location ? lhs.location < rhs.location
+         : lhs.format != rhs.format     ? lhs.format < rhs.format
+                                        : lhs.offset < rhs.offset;
+}
+
 }  // namespace
 
 bool GraphicsPipelineCreateInfoLess::operator()(const GraphicsPipelineCreateInfo& lhs,
@@ -22,6 +42,15 @@ bool GraphicsPipelineCreateInfoLess::operator()(const GraphicsPipelineCreateInfo
   if (lhs.pipeline_layout != rhs.pipeline_layout) return lhs.pipeline_layout < rhs.pipeline_layout;
   if (lhs.vertex_shader != rhs.vertex_shader) return lhs.vertex_shader < rhs.vertex_shader;
   if (lhs.fragment_shader != rhs.fragment_shader) return lhs.fragment_shader < rhs.fragment_shader;
+  if (lhs.bindings.size() != rhs.bindings.size()) return lhs.bindings.size() < rhs.bindings.size();
+  for (size_t i = 0; i < lhs.bindings.size(); ++i) {
+    if (lhs.bindings[i] != rhs.bindings[i]) return lhs.bindings[i] < rhs.bindings[i];
+  }
+  if (lhs.attributes.size() != rhs.attributes.size()) return lhs.attributes.size() < rhs.attributes.size();
+  for (size_t i = 0; i < lhs.attributes.size(); ++i) {
+    if (lhs.attributes[i] != rhs.attributes[i]) return lhs.attributes[i] < rhs.attributes[i];
+  }
+  if (lhs.topology != rhs.topology) return lhs.topology < rhs.topology;
   if (lhs.formats.size() != rhs.formats.size()) return lhs.formats.size() < rhs.formats.size();
   for (size_t i = 0; i < lhs.formats.size(); ++i) {
     if (lhs.formats[i] != rhs.formats[i]) return lhs.formats[i] < rhs.formats[i];
@@ -93,11 +122,16 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsP
   rendering_info.colorAttachmentCount = create_info.formats.size();
   rendering_info.pColorAttachmentFormats = create_info.formats.data();
   rendering_info.depthAttachmentFormat = create_info.depth_format;
+
   VkPipelineVertexInputStateCreateInfo vertex_input_state = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+  vertex_input_state.vertexBindingDescriptionCount = create_info.bindings.size();
+  vertex_input_state.pVertexBindingDescriptions = create_info.bindings.data();
+  vertex_input_state.vertexAttributeDescriptionCount = create_info.attributes.size();
+  vertex_input_state.pVertexAttributeDescriptions = create_info.attributes.data();
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly_state = {
       VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-  input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  input_assembly_state.topology = create_info.topology;
 
   VkPipelineViewportStateCreateInfo viewport_state = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
   viewport_state.viewportCount = 1;

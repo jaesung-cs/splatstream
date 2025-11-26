@@ -163,5 +163,34 @@ def draw(
     return RenderedImage(images, (*batch_dims, height, width, 4), rendered_images)
 
 
-def show(splats: _core.GaussianSplats):
-    return singleton_engine.show(splats)
+def show(
+    splats: _core.GaussianSplats,
+    viewmats: np.ndarray | None = None,
+    Ks: np.ndarray | None = None,
+    width: int | None = None,
+    height: int | None = None,
+):
+    """
+    viewmats: (..., 4, 4)
+    Ks: (..., 3, 3)
+    width: width of camera param
+    height: height of camera param
+    """
+    if (
+        viewmats is not None
+        and Ks is not None
+        and width is not None
+        and height is not None
+    ):
+        batch_dims = np.broadcast_shapes(
+            viewmats.shape[:-2],
+            Ks.shape[:-2],
+        )
+        viewmats = np.broadcast_to(viewmats, (*batch_dims, 4, 4))
+        Ks = np.broadcast_to(Ks, (*batch_dims, 3, 3))
+
+        viewmats = np.ascontiguousarray(viewmats.reshape(-1, 4, 4), dtype=np.float32)
+        Ks = np.ascontiguousarray(Ks.reshape(-1, 3, 3), dtype=np.float32)
+        singleton_engine.show_with_cameras(splats, viewmats, Ks, width, height)
+    else:
+        singleton_engine.show(splats)
