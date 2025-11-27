@@ -41,6 +41,7 @@ class Camera {
   auto fov() const noexcept { return fovy_; }
 
   void Rotate(float dx, float dy);
+  void Roll(float dx);
   void Translate(float dx, float dy, float dz = 0.f);
   void Zoom(float dx);
   void DollyZoom(float scroll);

@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "splatstream"
-version = "0.0.7"
+version = "0.0.8"
 description = "Streamlined 3dgs rendering"
 authors = [
     {name = "Jaesung Park", email = "jaesung.cs@gmail.com"}
