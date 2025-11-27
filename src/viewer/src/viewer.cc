@@ -287,6 +287,17 @@ void Viewer::Run() {
         camera->Translate(0.f, speed * dt);
         camera_modified = true;
       }
+
+      constexpr float pi = 3.14159265f;
+      constexpr float rolling_speed = pi;
+      if (ImGui::IsKeyDown(ImGuiKey_Q)) {
+        camera->Roll(rolling_speed * dt);
+        camera_modified = true;
+      }
+      if (ImGui::IsKeyDown(ImGuiKey_E)) {
+        camera->Roll(-rolling_speed * dt);
+        camera_modified = true;
+      }
     }
 
     camera->Update(io.DeltaTime);

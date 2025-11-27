@@ -75,6 +75,11 @@ void Camera::Rotate(float dx, float dy) {
   target_.q = target_.q * dq;
 }
 
+void Camera::Roll(float dx) {
+  glm::quat dq = glm::quat(std::cos(dx / 2.f), 0.f, 0.f, std::sin(dx / 2.f));
+  target_.q = target_.q * dq;
+}
+
 void Camera::Translate(float dx, float dy, float dz) {
   auto rot = glm::toMat3(target_.q);
   target_.p += translation_sensitivity_ * r_ * (-dx * rot[0] + dy * rot[1] + -dz * rot[2]);
