@@ -12,6 +12,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
+
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/gpu.h"
@@ -35,6 +38,7 @@
 #include "generated/blend_frag.h"
 #include "camera.h"
 #include "context.h"
+#include "pose_spline.h"
 
 namespace vkgs {
 namespace viewer {
@@ -47,6 +51,15 @@ glm::mat4 OpenCVExtrinsicToView(const glm::mat4& extrinsic) {
   view[1][1] = -1.f;
   view[2][2] = -1.f;
   return view * extrinsic;
+}
+
+Pose OpenCVExtrinsicToPose(const glm::mat4& extrinsic) {
+  auto view = OpenCVExtrinsicToView(extrinsic);
+  auto c2w = glm::inverse(view);
+  Pose pose;
+  pose.q = glm::quat_cast(c2w);
+  pose.p = c2w[3];
+  return pose;
 }
 
 }  // namespace
@@ -162,6 +175,14 @@ void Viewer::Run() {
     camera->Update(10.f);
   }
 
+  // Camera spline
+  std::vector<Pose> poses;
+  for (int i = 0; i < camera_params_.size(); i++) {
+    const auto& camera_params = camera_params_[i];
+    poses.push_back(OpenCVExtrinsicToPose(camera_params.extrinsic));
+  }
+  PoseSpline pose_spline(std::move(poses));
+
   // Camera
   std::shared_ptr<gpu::Buffer> camera_vertices;
   std::shared_ptr<gpu::Buffer> camera_indices;
@@ -256,7 +277,6 @@ void Viewer::Run() {
       if (io.MouseWheel != 0.f) {
         if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
           camera->DollyZoom(io.MouseWheel);
-          camera_modified = true;
         } else {
           camera->Zoom(io.MouseWheel * 10.f);
           camera_modified = true;
@@ -355,9 +375,11 @@ void Viewer::Run() {
         animation_time = std::fmod(animation_time, camera_params_.size());
 
         if (!camera_params_.empty()) {
-          camera_index = static_cast<int>(animation_time);
-          const auto& camera_params = camera_params_[camera_index];
-          camera->SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
+          auto pose = pose_spline.Evaluate(animation_time);
+          glm::mat4 w2c = glm::toMat4(pose.q);
+          w2c[3] = glm::vec4(pose.p, 1.f);
+          auto c2w = glm::inverse(w2c);
+          camera->SetView(c2w);
         }
       }
 
