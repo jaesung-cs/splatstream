@@ -4,6 +4,7 @@
 #include <memory>
 
 namespace vkgs {
+
 namespace core {
 class ScreenSplats;
 }

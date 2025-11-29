@@ -30,6 +30,7 @@ add_library(vkgs_viewer SHARED
   src/pose_spline.cc
   src/storage.cc
   src/util.cc
+  src/viewer_impl.cc
   src/viewer.cc
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp

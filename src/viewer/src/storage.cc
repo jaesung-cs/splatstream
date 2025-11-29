@@ -1,4 +1,4 @@
-#include "vkgs/viewer/storage.h"
+#include "storage.h"
 
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/gpu/gpu.h"
