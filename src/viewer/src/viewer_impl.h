@@ -43,6 +43,7 @@ class Viewer::Impl {
   void InitializeWindow();
   void FinalizeWindow();
   void HandleEvents();
+  void DrawUi();
   void Draw(const gpu::PresentImageInfo& present_image_info);
 
   std::shared_ptr<Context> context_;
@@ -66,6 +67,8 @@ class Viewer::Impl {
     bool animation;
     float animation_time;
     float animation_speed;
+    bool camera_modified;
+    bool left_panel;
   };
   ViewerOptions viewer_options_ = {};
 

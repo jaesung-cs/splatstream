@@ -7,6 +7,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"  // dock
 #include "ImGuizmo.h"
 
 #include <glm/glm.hpp>
@@ -84,12 +85,15 @@ void Viewer::Impl::InitializeWindow() {
   auto instance = device->instance();
   glfwCreateWindowSurface(instance, window_, NULL, &surface_);
 
+  swapchain_ = std::make_unique<gpu::Swapchain>(surface_, swapchain_format_,
+                                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+
   auto gq = device->graphics_queue();
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO();
   ImGui::StyleColorsDark();
+  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   ImGui_ImplGlfw_InitForVulkan(window_, true);
   ImGui_ImplVulkan_InitInfo init_info = {};
@@ -119,8 +123,8 @@ void Viewer::Impl::FinalizeWindow() {
 
 void Viewer::Impl::HandleEvents() {
   const auto& io = ImGui::GetIO();
-  bool is_minimized = io.DisplaySize.x <= 0.0f || io.DisplaySize.y <= 0.0f;
-  bool camera_modified = false;
+
+  viewer_options_.camera_modified = false;
 
   // handle events
   if (!io.WantCaptureMouse || (ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !ImGui::IsAnyItemActive())) {
@@ -134,17 +138,17 @@ void Viewer::Impl::HandleEvents() {
       // ctrl + drag for translation, otherwise rotate
       if (ctrl) {
         camera_.Translate(dx, dy);
-        if (dx != 0.f || dy != 0.f) camera_modified = true;
+        if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
       } else {
         camera_.Rotate(dx, dy);
-        if (dx != 0.f || dy != 0.f) camera_modified = true;
+        if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
       }
     } else if (!left && right) {
       camera_.Translate(dx, dy);
-      if (dx != 0.f || dy != 0.f) camera_modified = true;
+      if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
     } else if (left && right) {
       camera_.Zoom(dy);
-      if (dy != 0.f) camera_modified = true;
+      if (dy != 0.f) viewer_options_.camera_modified = true;
     }
 
     if (io.MouseWheel != 0.f) {
@@ -152,7 +156,7 @@ void Viewer::Impl::HandleEvents() {
         camera_.DollyZoom(io.MouseWheel);
       } else {
         camera_.Zoom(io.MouseWheel * 10.f);
-        camera_modified = true;
+        viewer_options_.camera_modified = true;
       }
     }
   }
@@ -162,91 +166,142 @@ void Viewer::Impl::HandleEvents() {
     float dt = io.DeltaTime;
     if (ImGui::IsKeyDown(ImGuiKey_W)) {
       camera_.Translate(0.f, 0.f, speed * dt);
-      camera_modified = true;
+      viewer_options_.camera_modified = true;
     }
     if (ImGui::IsKeyDown(ImGuiKey_S)) {
       camera_.Translate(0.f, 0.f, -speed * dt);
-      camera_modified = true;
+      viewer_options_.camera_modified = true;
     }
     if (ImGui::IsKeyDown(ImGuiKey_A)) {
       camera_.Translate(speed * dt, 0.f);
-      camera_modified = true;
+      viewer_options_.camera_modified = true;
     }
     if (ImGui::IsKeyDown(ImGuiKey_D)) {
       camera_.Translate(-speed * dt, 0.f);
-      camera_modified = true;
+      viewer_options_.camera_modified = true;
     }
     if (ImGui::IsKeyDown(ImGuiKey_Space)) {
       camera_.Translate(0.f, speed * dt);
-      camera_modified = true;
+      viewer_options_.camera_modified = true;
     }
 
     constexpr float pi = 3.14159265f;
     constexpr float rolling_speed = pi;
     if (ImGui::IsKeyDown(ImGuiKey_Q)) {
       camera_.Roll(rolling_speed * dt);
-      camera_modified = true;
+      viewer_options_.camera_modified = true;
     }
     if (ImGui::IsKeyDown(ImGuiKey_E)) {
       camera_.Roll(-rolling_speed * dt);
-      camera_modified = true;
+      viewer_options_.camera_modified = true;
     }
   }
 
   camera_.Update(io.DeltaTime);
+}
 
-  if (ImGui::Begin("vkgs viewer")) {
+void Viewer::Impl::DrawUi() {
+  const auto& io = ImGui::GetIO();
+
+  // Dock panels
+  ImGuiID dockspace_id = ImGui::GetID("My Dockspace");
+  ImGuiViewport* viewport = ImGui::GetMainViewport();
+  if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
+    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+    ImGuiID dock_id_left;
+    ImGuiID dock_id_right;
+    ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, &dock_id_left, &dock_id_right);
+    auto left_node = ImGui::DockBuilderGetNode(dock_id_left);
+    left_node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+    ImGui::DockBuilderDockWindow("Left", dock_id_left);
+    ImGui::DockBuilderDockWindow("Right", dock_id_right);
+    ImGui::DockBuilderFinish(dockspace_id);
+  }
+
+  ImGui::DockSpaceOverViewport(dockspace_id, NULL,
+                               ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingInCentralNode);
+
+  const ImGuiWindowFlags dock_flags =
+      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
+  bool left_panel = viewer_options_.left_panel;
+
+  if (left_panel) {
+    ImGui::Begin("Left", NULL, dock_flags);
+    auto size = ImGui::GetContentRegionAvail();
+
     ImGui::Text("FPS: %.2f", io.Framerate);
-
-    if (ImGui::Checkbox("vsync", &viewer_options_.vsync)) {
-      if (viewer_options_.vsync)
-        swapchain_->SetPresentMode(VK_PRESENT_MODE_FIFO_KHR);
-      else
-        swapchain_->SetPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
-    }
-
-    ImGui::SliderInt("SH degree", &viewer_options_.sh_degree, 0, splats_->sh_degree());
-
-    constexpr const char* render_types[] = {"Color", "Alpha", "Depth"};
-    ImGui::Combo("Render type", &viewer_options_.render_type, render_types, IM_ARRAYSIZE(render_types));
-
-    ImGui::ColorEdit3("Background", glm::value_ptr(viewer_options_.background));
-
-    if (!camera_params_.empty()) {
-      ImGui::SliderFloat("Camera Scale", &viewer_options_.camera_scale, 0.01f, 10.f, "%.3f",
-                         ImGuiSliderFlags_Logarithmic);
-
-      if (ImGui::SliderInt("Camera Index", &viewer_options_.camera_index, 0, camera_params_.size() - 1)) {
-        const auto& camera_params = camera_params_[viewer_options_.camera_index];
-        camera_.SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
-        camera_modified = true;
+    if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+      if (ImGui::Checkbox("vsync", &viewer_options_.vsync)) {
+        if (viewer_options_.vsync)
+          swapchain_->SetPresentMode(VK_PRESENT_MODE_FIFO_KHR);
+        else
+          swapchain_->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
       }
-    }
 
-    if (camera_modified) {
-      viewer_options_.animation = false;
-    }
+      ImGui::SliderInt("SH degree", &viewer_options_.sh_degree, 0, splats_->sh_degree());
 
-    if (ImGui::Checkbox("Animation", &viewer_options_.animation)) {
-      if (viewer_options_.animation) {
-        viewer_options_.animation_time = viewer_options_.camera_index;
-      }
-    }
+      constexpr const char* render_types[] = {"Color", "Alpha", "Depth"};
+      ImGui::Combo("Render type", &viewer_options_.render_type, render_types, IM_ARRAYSIZE(render_types));
 
-    if (viewer_options_.animation) {
-      viewer_options_.animation_time += io.DeltaTime * viewer_options_.animation_speed;
-      viewer_options_.animation_time = std::fmod(viewer_options_.animation_time, camera_params_.size());
+      ImGui::ColorEdit3("Background", glm::value_ptr(viewer_options_.background));
 
       if (!camera_params_.empty()) {
-        auto pose = pose_spline_.Evaluate(viewer_options_.animation_time);
-        glm::mat4 w2c = glm::toMat4(pose.q);
-        w2c[3] = glm::vec4(pose.p, 1.f);
-        auto c2w = glm::inverse(w2c);
-        camera_.SetView(c2w);
+        ImGui::SliderFloat("Camera Scale", &viewer_options_.camera_scale, 0.01f, 10.f, "%.3f",
+                           ImGuiSliderFlags_Logarithmic);
+
+        if (ImGui::SliderInt("Camera Index", &viewer_options_.camera_index, 0, camera_params_.size() - 1)) {
+          const auto& camera_params = camera_params_[viewer_options_.camera_index];
+          camera_.SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
+          viewer_options_.camera_modified = true;
+        }
+      }
+
+      if (viewer_options_.camera_modified) {
+        viewer_options_.animation = false;
       }
     }
 
-    ImGui::SliderFloat("Animation Speed (FPS)", &viewer_options_.animation_speed, 1.f, 60.f, "%.2f");
+    if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
+      if (ImGui::Checkbox("Animation##Button", &viewer_options_.animation)) {
+        if (viewer_options_.animation) {
+          viewer_options_.animation_time = viewer_options_.camera_index;
+        }
+      }
+
+      if (viewer_options_.animation) {
+        viewer_options_.animation_time += io.DeltaTime * viewer_options_.animation_speed;
+        viewer_options_.animation_time = std::fmod(viewer_options_.animation_time, camera_params_.size());
+
+        if (!camera_params_.empty()) {
+          auto pose = pose_spline_.Evaluate(viewer_options_.animation_time);
+          glm::mat4 w2c = glm::toMat4(pose.q);
+          w2c[3] = glm::vec4(pose.p, 1.f);
+          auto c2w = glm::inverse(w2c);
+          camera_.SetView(c2w);
+        }
+      }
+
+      ImGui::SliderFloat("Animation Speed (FPS)", &viewer_options_.animation_speed, 1.f, 60.f, "%.2f");
+    }
+
+    ImVec2 pos = {size.x + 5.f, size.y / 2.f};
+    ImGui::SetCursorScreenPos(pos);
+    if (ImGui::Button("<")) {
+      viewer_options_.left_panel = false;
+    }
+
+    ImGui::End();
+  }
+
+  ImGui::Begin("Right", NULL, dock_flags | ImGuiWindowFlags_NoBackground);
+  auto size = ImGui::GetContentRegionAvail();
+  if (!left_panel) {
+    ImVec2 pos = {-5.f, size.y / 2.f};
+    ImGui::SetCursorPos(pos);
+    if (ImGui::Button(">")) {
+      viewer_options_.left_panel = true;
+    }
   }
   ImGui::End();
 }
@@ -256,9 +311,6 @@ void Viewer::Impl::Run() {
 
   // Formats
   std::vector<VkFormat> formats = {swapchain_format_, high_format_, depth_image_format_};
-
-  auto swapchain_ = std::make_unique<gpu::Swapchain>(
-      surface_, swapchain_format_, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
   // Graphics pipelines
   color_pipeline_layout_ =
@@ -375,6 +427,7 @@ void Viewer::Impl::Run() {
   viewer_options_.animation = false;
   viewer_options_.animation_time = 0.f;
   viewer_options_.animation_speed = 30.f;
+  viewer_options_.left_panel = true;
 
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
@@ -385,6 +438,7 @@ void Viewer::Impl::Run() {
     ImGuizmo::BeginFrame();
 
     HandleEvents();
+    DrawUi();
 
     const auto& io = ImGui::GetIO();
     bool is_minimized = io.DisplaySize.x <= 0.0f || io.DisplaySize.y <= 0.0f;
