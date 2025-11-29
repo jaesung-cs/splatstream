@@ -69,16 +69,7 @@ Viewer::Viewer() { context_ = GetContext(); }
 Viewer::~Viewer() = default;
 
 void Viewer::Run() {
-  bool own_renderer = false;
-  if (!renderer_) {
-    renderer_ = std::make_shared<core::Renderer>();
-    own_renderer = true;
-  }
-
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO();
-  ImGui::StyleColorsDark();
+  auto renderer = renderer_ ? renderer_ : std::make_shared<core::Renderer>();
 
   auto device = gpu::GetDevice();
   auto instance = device->instance();
@@ -90,14 +81,15 @@ void Viewer::Run() {
   VkSurfaceKHR surface = VK_NULL_HANDLE;
   glfwCreateWindowSurface(instance, window_, NULL, &surface);
 
-  auto swapchain = std::make_shared<gpu::Swapchain>(
-      surface, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-
-  VkFormat swapchain_format = swapchain->format();
+  // Formats
+  VkFormat swapchain_format = VK_FORMAT_B8G8R8A8_UNORM;
   VkFormat high_format = VK_FORMAT_R16G16B16A16_SFLOAT;
   VkFormat depth_image_format = VK_FORMAT_R16G16_SFLOAT;
   VkFormat depth_format = VK_FORMAT_D32_SFLOAT;
   std::vector<VkFormat> formats = {swapchain_format, high_format, depth_image_format};
+
+  auto swapchain = std::make_shared<gpu::Swapchain>(
+      surface, swapchain_format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
   // Graphics pipelines
   struct ColorPushConstants {
@@ -110,14 +102,11 @@ void Viewer::Run() {
     int mode;
   };
 
-  auto graphics_pipeline_layout = gpu::PipelineLayout::Create(
-      {{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
-       {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
-      {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)},
-       {VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ColorPushConstants), sizeof(BlendPushConstants)}});
+  auto color_pipeline_layout =
+      gpu::PipelineLayout::Create({}, {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}});
 
   gpu::GraphicsPipelineCreateInfo color_pipeline_info = {};
-  color_pipeline_info.pipeline_layout = *graphics_pipeline_layout;
+  color_pipeline_info.pipeline_layout = *color_pipeline_layout;
   color_pipeline_info.vertex_shader = gpu::ShaderCode(color_vert);
   color_pipeline_info.fragment_shader = gpu::ShaderCode(color_frag);
   color_pipeline_info.bindings = {
@@ -135,8 +124,13 @@ void Viewer::Run() {
   color_pipeline_info.depth_write = true;
   auto color_pipeline = gpu::GraphicsPipeline::Create(color_pipeline_info);
 
+  auto blend_pipeline_layout =
+      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+                                   {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
+                                  {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlendPushConstants)}});
+
   gpu::GraphicsPipelineCreateInfo blend_pipeline_info = {};
-  blend_pipeline_info.pipeline_layout = *graphics_pipeline_layout;
+  blend_pipeline_info.pipeline_layout = *blend_pipeline_layout;
   blend_pipeline_info.vertex_shader = gpu::ShaderCode(blend_vert);
   blend_pipeline_info.fragment_shader = gpu::ShaderCode(blend_frag);
   blend_pipeline_info.formats = formats;
@@ -145,45 +139,15 @@ void Viewer::Run() {
   blend_pipeline_info.depth_format = depth_format;
   auto blend_pipeline = gpu::GraphicsPipeline::Create(blend_pipeline_info);
 
-  auto cq = device->compute_queue();
-  auto gq = device->graphics_queue();
-
-  // ImGui rendering
-  ImGui_ImplGlfw_InitForVulkan(window_, true);
-  ImGui_ImplVulkan_InitInfo init_info = {};
-  init_info.Instance = instance;
-  init_info.PhysicalDevice = device->physical_device();
-  init_info.Device = *device;
-  init_info.QueueFamily = *gq;
-  init_info.Queue = *gq;
-  init_info.DescriptorPoolSize = 1024;
-  init_info.MinImageCount = 3;
-  init_info.ImageCount = 3;
-  init_info.PipelineInfoMain.PipelineRenderingCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
-  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapchain_format;
-  init_info.UseDynamicRendering = true;
-  init_info.CheckVkResultFn = nullptr;
-  ImGui_ImplVulkan_Init(&init_info);
-
+  // Camera
   auto camera = std::make_shared<Camera>();
-
-  // Initialize camera with first camera params
   if (!camera_params_.empty()) {
+    // Initialize camera with first camera params
     const auto& camera_params = camera_params_[0];
     camera->SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
     camera->Update(10.f);
   }
 
-  // Camera spline
-  std::vector<Pose> poses;
-  for (int i = 0; i < camera_params_.size(); i++) {
-    const auto& camera_params = camera_params_[i];
-    poses.push_back(OpenCVExtrinsicToPose(camera_params.extrinsic));
-  }
-  PoseSpline pose_spline(std::move(poses));
-
-  // Camera
   std::shared_ptr<gpu::Buffer> camera_vertices;
   std::shared_ptr<gpu::Buffer> camera_indices;
   uint32_t camera_index_size = 0;
@@ -236,6 +200,41 @@ void Viewer::Run() {
 
     task.Submit();
   }
+
+  // Camera spline
+  std::vector<Pose> poses;
+  for (int i = 0; i < camera_params_.size(); i++) {
+    const auto& camera_params = camera_params_[i];
+    poses.push_back(OpenCVExtrinsicToPose(camera_params.extrinsic));
+  }
+  PoseSpline pose_spline(std::move(poses));
+
+  // ImGui
+  auto gq = device->graphics_queue();
+
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  ImGui::StyleColorsDark();
+
+  ImGui_ImplGlfw_InitForVulkan(window_, true);
+  ImGui_ImplVulkan_InitInfo init_info = {};
+  init_info.Instance = instance;
+  init_info.PhysicalDevice = device->physical_device();
+  init_info.Device = *device;
+  init_info.QueueFamily = *gq;
+  init_info.Queue = *gq;
+  init_info.DescriptorPoolSize = 1024;
+  init_info.MinImageCount = 3;
+  init_info.ImageCount = 3;
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapchain_format;
+  init_info.UseDynamicRendering = true;
+  init_info.CheckVkResultFn = nullptr;
+  ImGui_ImplVulkan_Init(&init_info);
+
+  auto cq = device->compute_queue();
 
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
@@ -428,7 +427,7 @@ void Viewer::Run() {
         auto cb = task.command_buffer();
 
         // Compute
-        renderer_->ComputeScreenSplats(cb, splats_, draw_options, screen_splats);
+        renderer->ComputeScreenSplats(cb, splats_, draw_options, screen_splats);
 
         // Release
         gpu::cmd::Barrier()
@@ -511,7 +510,7 @@ void Viewer::Run() {
 
         // render scene
         // TODO: draw scene to depth image
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *color_pipeline_layout)
             .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, 1})
             .Bind(*color_pipeline)
             .Commit(cb);
@@ -529,8 +528,8 @@ void Viewer::Run() {
                                        glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
                                        glm::mat4(glm::mat3(camera_scale));
 
-          gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
-              .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants), &color_push_constants)
+          gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *color_pipeline_layout)
+              .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
               .Commit(cb);
 
           vkCmdBindIndexBuffer(cb, *camera_indices, 0, VK_INDEX_TYPE_UINT32);
@@ -541,12 +540,12 @@ void Viewer::Run() {
         }
 
         // render splats
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *color_pipeline_layout)
             .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED})
             .Commit(cb);
-        renderer_->RenderScreenSplats(cb, splats_, draw_options, screen_splats, formats,
-                                      {VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED},
-                                      depth_format, render_type == 2);
+        renderer->RenderScreenSplats(cb, splats_, draw_options, screen_splats, formats,
+                                     {VK_ATTACHMENT_UNUSED, 0, render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED},
+                                     depth_format, render_type == 2);
 
         // subpass 1:
         gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
@@ -556,11 +555,10 @@ void Viewer::Run() {
 
         BlendPushConstants blend_push_constants = {};
         blend_push_constants.mode = render_type;
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *graphics_pipeline_layout)
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *blend_pipeline_layout)
             .Input(0, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
             .Input(1, depth_image->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-            .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ColorPushConstants), sizeof(BlendPushConstants),
-                          &blend_push_constants)
+            .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(blend_push_constants), &blend_push_constants)
             .Bind(*blend_pipeline)
             .AttachmentLocations({0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED})
             .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0, 1})
@@ -625,14 +623,15 @@ void Viewer::Run() {
   swapchain = nullptr;
   cq = nullptr;
   gq = nullptr;
-  graphics_pipeline_layout = nullptr;
+  color_pipeline_layout = nullptr;
+  blend_pipeline_layout = nullptr;
   color_pipeline = nullptr;
   blend_pipeline = nullptr;
   camera_vertices = nullptr;
   camera_indices = nullptr;
   device = nullptr;
 
-  if (own_renderer) renderer_ = nullptr;
+  renderer = nullptr;
 
   glfwDestroyWindow(window_);
 }

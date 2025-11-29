@@ -38,9 +38,10 @@ void Camera::SetView(const glm::mat4& view) {
 }
 
 void Camera::Update(float dt) {
-  pose_ = SmoothDamp(pose_, target_, velocity_, 0.05f, dt);
-  fovy_ = SmoothDamp(fovy_, target_fovy_, velocity_fovy_, 0.05f, dt);
-  r_ = SmoothDamp(r_, target_r_, velocity_r_, 0.05f, dt);
+  constexpr float smooth_time = 0.1f;
+  pose_ = SmoothDamp(pose_, target_, velocity_, smooth_time, dt);
+  fovy_ = SmoothDamp(fovy_, target_fovy_, velocity_fovy_, smooth_time, dt);
+  r_ = SmoothDamp(r_, target_r_, velocity_r_, smooth_time, dt);
 }
 
 glm::mat4 Camera::ProjectionMatrix() const {
