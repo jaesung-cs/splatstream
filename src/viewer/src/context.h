@@ -17,6 +17,8 @@ class Context {
   Context();
   ~Context();
 
+  auto device() const noexcept { return device_; }
+
  private:
   std::shared_ptr<gpu::Device> device_;
 };

@@ -4,13 +4,25 @@
 #include <array>
 #include <vector>
 
+#include <vulkan/vulkan.h>
+
 #include "vkgs/viewer/viewer.h"
+#include "vkgs/gpu/swapchain.h"
 
 #include "storage.h"
+#include "camera.h"
+#include "pose_spline.h"
 
 struct GLFWwindow;
 
 namespace vkgs {
+namespace gpu {
+class Swapchain;
+class PipelineLayout;
+class GraphicsPipeline;
+class Buffer;
+}  // namespace gpu
+
 namespace viewer {
 
 class Context;
@@ -28,13 +40,50 @@ class Viewer::Impl {
   void Run();
 
  private:
+  void InitializeWindow();
+  void FinalizeWindow();
+  void HandleEvents();
+  void Draw(const gpu::PresentImageInfo& present_image_info);
+
   std::shared_ptr<Context> context_;
 
   GLFWwindow* window_ = nullptr;
+  VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+  VkFormat swapchain_format_ = VK_FORMAT_B8G8R8A8_UNORM;
+  VkFormat high_format_ = VK_FORMAT_R16G16B16A16_SFLOAT;
+  VkFormat depth_image_format_ = VK_FORMAT_R16G16_SFLOAT;
+  VkFormat depth_format_ = VK_FORMAT_D32_SFLOAT;
+  std::unique_ptr<gpu::Swapchain> swapchain_;
+
+  struct ViewerOptions {
+    glm::mat4 model;
+    bool vsync;
+    int sh_degree;
+    int render_type;
+    glm::vec3 background;
+    float camera_scale;
+    int camera_index;
+    bool animation;
+    float animation_time;
+    float animation_speed;
+  };
+  ViewerOptions viewer_options_ = {};
+
+  Camera camera_;
+  PoseSpline pose_spline_;
 
   std::shared_ptr<core::Renderer> renderer_;
   std::shared_ptr<core::GaussianSplats> splats_;
   std::vector<CameraParams> camera_params_;
+
+  std::shared_ptr<gpu::PipelineLayout> color_pipeline_layout_;
+  std::shared_ptr<gpu::GraphicsPipeline> color_pipeline_;
+  std::shared_ptr<gpu::PipelineLayout> blend_pipeline_layout_;
+  std::shared_ptr<gpu::GraphicsPipeline> blend_pipeline_;
+
+  std::shared_ptr<gpu::Buffer> camera_vertices_;
+  std::shared_ptr<gpu::Buffer> camera_indices_;
+  uint32_t camera_index_size_ = 0;
 
   std::array<Storage, 2> ring_buffer_;
   uint64_t frame_index_ = 0;
