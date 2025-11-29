@@ -14,6 +14,7 @@ requires-python = ">=3.10"
 license = {text = "MIT"}
 
 [tool.scikit-build]
+build-dir = ".skbuild"
 cmake.source-dir = "."
 cmake.build-type = "Release"
 wheel.packages = ["splatstream"]
