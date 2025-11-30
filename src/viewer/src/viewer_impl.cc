@@ -100,7 +100,7 @@ void Viewer::Impl::InitializeWindow() {
   ImGui_ImplVulkan_InitInfo init_info = {};
   init_info.Instance = device->instance();
   init_info.PhysicalDevice = device->physical_device();
-  init_info.Device = *device;
+  init_info.Device = device;
   init_info.QueueFamily = *gq;
   init_info.Queue = *gq;
   init_info.DescriptorPoolSize = 1024;

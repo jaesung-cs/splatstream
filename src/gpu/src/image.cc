@@ -3,8 +3,6 @@
 #include <volk.h>
 #include <vk_mem_alloc.h>
 
-#include "vkgs/gpu/device.h"
-
 namespace vkgs {
 namespace gpu {
 
@@ -49,14 +47,14 @@ ImageImpl::ImageImpl(VkFormat format, uint32_t width, uint32_t height, VkImageUs
                             VK_COMPONENT_SWIZZLE_A};
     view_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
   }
-  vkCreateImageView(*device_, &view_info, nullptr, &image_view_);
+  vkCreateImageView(device_, &view_info, nullptr, &image_view_);
 }
 
 ImageImpl::~ImageImpl() {
   VmaAllocator allocator = static_cast<VmaAllocator>(device_->allocator());
   VmaAllocation allocation = static_cast<VmaAllocation>(allocation_);
 
-  vkDestroyImageView(*device_, image_view_, nullptr);
+  vkDestroyImageView(device_, image_view_, nullptr);
   vmaDestroyImage(allocator, image_, allocation);
 }
 

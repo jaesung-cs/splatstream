@@ -52,7 +52,7 @@ class VKGS_GPU_API Task {
   QueueTask Submit();
 
  private:
-  std::shared_ptr<Device> device_;
+  Device device_;
   std::shared_ptr<Queue> queue_;
   Fence fence_;
   std::shared_ptr<Command> command_;

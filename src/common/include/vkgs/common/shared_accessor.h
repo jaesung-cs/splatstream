@@ -37,6 +37,12 @@ class SharedAccessor {
     return object;
   }
 
+  static ObjectType FromPtr(std::shared_ptr<InstanceType> instance) {
+    ObjectType object;
+    object.instance_ = instance;
+    return object;
+  }
+
  public:
   SharedAccessor() = default;
   virtual ~SharedAccessor() = default;
@@ -50,6 +56,8 @@ class SharedAccessor {
   operator T() const noexcept {
     return static_cast<T>(*instance_.get());
   }
+
+  auto impl() const noexcept { return instance_; }
 
  private:
   std::shared_ptr<InstanceType> instance_;

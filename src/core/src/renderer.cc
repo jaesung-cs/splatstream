@@ -45,7 +45,7 @@ namespace core {
 
 Renderer::Renderer() {
   auto device = gpu::GetDevice();
-  sorter_ = std::make_shared<Sorter>(*device, device->physical_device());
+  sorter_ = std::make_shared<Sorter>(device, device->physical_device());
 
   device_name_ = device->device_name();
   graphics_queue_index_ = device->graphics_queue_index();

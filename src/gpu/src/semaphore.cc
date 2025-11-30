@@ -2,8 +2,6 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/device.h"
-
 #include "semaphore_pool.h"
 
 namespace vkgs {
@@ -22,7 +20,7 @@ void SemaphoreImpl::Wait() {
   wait_info.semaphoreCount = 1;
   wait_info.pSemaphores = &semaphore_;
   wait_info.pValues = &value_;
-  vkWaitSemaphores(*device_, &wait_info, UINT64_MAX);
+  vkWaitSemaphores(device_, &wait_info, UINT64_MAX);
 }
 
 void SemaphoreImpl::SetValue(uint64_t value) { value_ = value; }

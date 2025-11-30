@@ -2,8 +2,6 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/device.h"
-
 namespace vkgs {
 namespace gpu {
 
@@ -17,10 +15,10 @@ SamplerImpl::SamplerImpl() {
   create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   create_info.minLod = 0.0f;
   create_info.maxLod = 100.0f;
-  vkCreateSampler(*device_, &create_info, NULL, &sampler_);
+  vkCreateSampler(device_, &create_info, NULL, &sampler_);
 }
 
-SamplerImpl::~SamplerImpl() { vkDestroySampler(*device_, sampler_, NULL); }
+SamplerImpl::~SamplerImpl() { vkDestroySampler(device_, sampler_, NULL); }
 
 }  // namespace gpu
 }  // namespace vkgs

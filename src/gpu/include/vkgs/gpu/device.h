@@ -8,6 +8,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+
 #include "export_api.h"
 
 namespace vkgs {
@@ -32,10 +34,10 @@ struct DeviceCreateInfo {
   std::vector<const char*> instance_extensions;
 };
 
-class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
+class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> {
  public:
-  Device(const DeviceCreateInfo& create_info);
-  ~Device();
+  DeviceImpl(const DeviceCreateInfo& create_info);
+  ~DeviceImpl();
 
   operator VkDevice() const noexcept { return device_; }
 
@@ -87,6 +89,8 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
 
   Task* current_task_ = nullptr;
 };
+
+class VKGS_GPU_API Device : public SharedAccessor<Device, DeviceImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

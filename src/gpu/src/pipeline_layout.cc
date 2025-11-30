@@ -2,8 +2,6 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/device.h"
-
 namespace vkgs {
 namespace gpu {
 
@@ -13,19 +11,19 @@ PipelineLayoutImpl::PipelineLayoutImpl(const std::vector<VkDescriptorSetLayoutBi
   layout_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT;
   layout_info.bindingCount = bindings.size();
   layout_info.pBindings = bindings.data();
-  vkCreateDescriptorSetLayout(*device_, &layout_info, nullptr, &descriptor_set_layout_);
+  vkCreateDescriptorSetLayout(device_, &layout_info, nullptr, &descriptor_set_layout_);
 
   VkPipelineLayoutCreateInfo pipeline_layout_info = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
   pipeline_layout_info.setLayoutCount = 1;
   pipeline_layout_info.pSetLayouts = &descriptor_set_layout_;
   pipeline_layout_info.pushConstantRangeCount = push_constants.size();
   pipeline_layout_info.pPushConstantRanges = push_constants.data();
-  vkCreatePipelineLayout(*device_, &pipeline_layout_info, nullptr, &pipeline_layout_);
+  vkCreatePipelineLayout(device_, &pipeline_layout_info, nullptr, &pipeline_layout_);
 }
 
 PipelineLayoutImpl::~PipelineLayoutImpl() {
-  vkDestroyPipelineLayout(*device_, pipeline_layout_, NULL);
-  vkDestroyDescriptorSetLayout(*device_, descriptor_set_layout_, NULL);
+  vkDestroyPipelineLayout(device_, pipeline_layout_, NULL);
+  vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, NULL);
 }
 
 }  // namespace gpu
