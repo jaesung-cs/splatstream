@@ -147,77 +147,9 @@ void Viewer::Impl::DrawUi() {
       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
   bool left_panel = viewer_options_.left_panel;
 
-  if (left_panel) {
-    ImGui::Begin("Left", NULL, dock_flags);
-    auto size = ImGui::GetContentRegionAvail();
-
-    ImGui::Text("FPS: %.2f", io.Framerate);
-    if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-      if (ImGui::Checkbox("vsync", &viewer_options_.vsync)) {
-        if (viewer_options_.vsync)
-          swapchain_->SetPresentMode(VK_PRESENT_MODE_FIFO_KHR);
-        else
-          swapchain_->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
-      }
-
-      ImGui::SliderInt("SH degree", &viewer_options_.sh_degree, 0, splats_->sh_degree());
-
-      constexpr const char* render_types[] = {"Color", "Alpha", "Depth"};
-      ImGui::Combo("Render type", &viewer_options_.render_type, render_types, IM_ARRAYSIZE(render_types));
-
-      ImGui::ColorEdit3("Background", glm::value_ptr(viewer_options_.background));
-
-      if (!camera_params_.empty()) {
-        ImGui::SliderFloat("Camera Scale", &viewer_options_.camera_scale, 0.01f, 10.f, "%.3f",
-                           ImGuiSliderFlags_Logarithmic);
-
-        if (ImGui::SliderInt("Camera Index", &viewer_options_.camera_index, 0, camera_params_.size() - 1)) {
-          const auto& camera_params = camera_params_[viewer_options_.camera_index];
-          camera_.SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
-          viewer_options_.camera_modified = true;
-        }
-      }
-    }
-
-    if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
-      if (ImGui::Checkbox("Animation##Button", &viewer_options_.animation)) {
-        if (viewer_options_.animation) {
-          viewer_options_.animation_time = viewer_options_.camera_index;
-        }
-      }
-
-      ImGui::SliderFloat("Animation Speed (FPS)", &viewer_options_.animation_speed, 1.f, 60.f, "%.2f");
-    }
-
-    ImVec2 pos = {size.x + 5.f, size.y / 2.f};
-    ImGui::SetCursorScreenPos(pos);
-    if (ImGui::Button("<")) {
-      viewer_options_.left_panel = false;
-    }
-
-    ImGui::End();
-  }
-
-  if (viewer_options_.camera_modified) {
-    viewer_options_.animation = false;
-  }
-
-  if (viewer_options_.animation) {
-    viewer_options_.animation_time += io.DeltaTime * viewer_options_.animation_speed;
-    viewer_options_.animation_time = std::fmod(viewer_options_.animation_time, camera_params_.size());
-
-    if (!camera_params_.empty()) {
-      auto pose = pose_spline_.Evaluate(viewer_options_.animation_time);
-      glm::mat4 w2c = glm::toMat4(pose.q);
-      w2c[3] = glm::vec4(pose.p, 1.f);
-      auto c2w = glm::inverse(w2c);
-      camera_.SetView(c2w);
-    }
-  }
-
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::Begin("Right", NULL, dock_flags);
-  auto size = ImGui::GetContentRegionAvail();
+  auto image_size = ImGui::GetContentRegionAvail();
 
   viewer_options_.camera_modified = false;
 
@@ -300,17 +232,17 @@ void Viewer::Impl::DrawUi() {
   camera_.Update(io.DeltaTime);
 
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
-  storage.Update(splats_->size(), size.x, size.y);
+  storage.Update(splats_->size(), image_size.x, image_size.y);
 
   ImGui::SetCursorPos({0.f, 0.f});
-  ImGui::Image(static_cast<VkDescriptorSet>(storage.texture()), size);
+  ImGui::Image(static_cast<VkDescriptorSet>(storage.texture()), image_size);
 
   if (!left_panel) {
     ImGui::SetCursorPos({0.f, 0.f});
     ImGui::Text("FPS: %.2f", io.Framerate);
-    ImGui::Text("Resolution: %dx%d", (int)size.x, (int)size.y);
+    ImGui::Text("Resolution: %dx%d", (int)image_size.x, (int)image_size.y);
 
-    ImVec2 pos = {-5.f, size.y / 2.f};
+    ImVec2 pos = {-5.f, image_size.y / 2.f};
     ImGui::SetCursorPos(pos);
     if (ImGui::Button(">")) {
       viewer_options_.left_panel = true;
@@ -318,6 +250,75 @@ void Viewer::Impl::DrawUi() {
   }
   ImGui::End();
   ImGui::PopStyleVar();
+
+  if (left_panel) {
+    ImGui::Begin("Left", NULL, dock_flags);
+    auto size = ImGui::GetContentRegionAvail();
+
+    ImGui::Text("FPS: %.2f", io.Framerate);
+    ImGui::Text("Resolution: %dx%d", (int)image_size.x, (int)image_size.y);
+    if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+      if (ImGui::Checkbox("vsync", &viewer_options_.vsync)) {
+        if (viewer_options_.vsync)
+          swapchain_->SetPresentMode(VK_PRESENT_MODE_FIFO_KHR);
+        else
+          swapchain_->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
+      }
+
+      ImGui::SliderInt("SH degree", &viewer_options_.sh_degree, 0, splats_->sh_degree());
+
+      constexpr const char* render_types[] = {"Color", "Alpha", "Depth"};
+      ImGui::Combo("Render type", &viewer_options_.render_type, render_types, IM_ARRAYSIZE(render_types));
+
+      ImGui::ColorEdit3("Background", glm::value_ptr(viewer_options_.background));
+
+      if (!camera_params_.empty()) {
+        ImGui::SliderFloat("Camera Scale", &viewer_options_.camera_scale, 0.01f, 10.f, "%.3f",
+                           ImGuiSliderFlags_Logarithmic);
+
+        if (ImGui::SliderInt("Camera Index", &viewer_options_.camera_index, 0, camera_params_.size() - 1)) {
+          const auto& camera_params = camera_params_[viewer_options_.camera_index];
+          camera_.SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
+          viewer_options_.camera_modified = true;
+        }
+      }
+    }
+
+    if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
+      if (ImGui::Checkbox("Animation##Button", &viewer_options_.animation)) {
+        if (viewer_options_.animation) {
+          viewer_options_.animation_time = viewer_options_.camera_index;
+        }
+      }
+
+      ImGui::SliderFloat("Animation Speed (FPS)", &viewer_options_.animation_speed, 1.f, 60.f, "%.2f");
+    }
+
+    ImVec2 pos = {size.x + 5.f, size.y / 2.f};
+    ImGui::SetCursorScreenPos(pos);
+    if (ImGui::Button("<")) {
+      viewer_options_.left_panel = false;
+    }
+
+    ImGui::End();
+  }
+
+  if (viewer_options_.camera_modified) {
+    viewer_options_.animation = false;
+  }
+
+  if (viewer_options_.animation) {
+    viewer_options_.animation_time += io.DeltaTime * viewer_options_.animation_speed;
+    viewer_options_.animation_time = std::fmod(viewer_options_.animation_time, camera_params_.size());
+
+    if (!camera_params_.empty()) {
+      auto pose = pose_spline_.Evaluate(viewer_options_.animation_time);
+      glm::mat4 w2c = glm::toMat4(pose.q);
+      w2c[3] = glm::vec4(pose.p, 1.f);
+      auto c2w = glm::inverse(w2c);
+      camera_.SetView(c2w);
+    }
+  }
 }
 
 void Viewer::Impl::Run() {
