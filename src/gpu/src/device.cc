@@ -7,11 +7,12 @@
 
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
+#include "vkgs/gpu/fence.h"
+#include "vkgs/gpu/graphics_pipeline.h"
 
 #include "semaphore_pool.h"
 #include "fence_pool.h"
 #include "graphics_pipeline_pool.h"
-#include "fence.h"
 #include "command.h"
 #include "task_monitor.h"
 
@@ -278,15 +279,19 @@ uint32_t Device::graphics_queue_index() const noexcept { return graphics_queue_-
 uint32_t Device::compute_queue_index() const noexcept { return compute_queue_->family_index(); }
 uint32_t Device::transfer_queue_index() const noexcept { return transfer_queue_->family_index(); }
 
-std::shared_ptr<Semaphore> Device::AllocateSemaphore() { return semaphore_pool_->Allocate(); }
-std::shared_ptr<Fence> Device::AllocateFence() { return fence_pool_->Allocate(); }
+Semaphore Device::AllocateSemaphore() { return semaphore_pool_->Allocate(); }
+Fence Device::AllocateFence() { return fence_pool_->Allocate(); }
+
+GraphicsPipeline Device::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info) {
+  return graphics_pipeline_pool_->Allocate(create_info);
+}
 
 void Device::WaitIdle() {
   task_monitor_->FinishAllTasks();
   vkDeviceWaitIdle(device_);
 }
 
-std::shared_ptr<QueueTask> Device::AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+std::shared_ptr<QueueTask> Device::AddQueueTask(Fence fence, std::shared_ptr<Command> command,
                                                 std::vector<std::shared_ptr<Object>> objects,
                                                 std::function<void()> callback) {
   return task_monitor_->Add(fence, command, std::move(objects), callback);

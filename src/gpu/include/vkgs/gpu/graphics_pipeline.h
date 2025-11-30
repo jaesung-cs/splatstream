@@ -41,14 +41,14 @@ struct GraphicsPipelineCreateInfo {
 
 class GraphicsPipelinePool;
 
-class VKGS_GPU_API GraphicsPipeline : public Object {
+class VKGS_GPU_API GraphicsPipelineImpl : public Object {
  public:
-  static std::shared_ptr<GraphicsPipeline> Create(const GraphicsPipelineCreateInfo& create_info);
+  GraphicsPipelineImpl(const GraphicsPipelineCreateInfo& create_info);
 
-  GraphicsPipeline(std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool,
-                   const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline);
+  GraphicsPipelineImpl(std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool,
+                       const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline);
 
-  ~GraphicsPipeline() override;
+  ~GraphicsPipelineImpl() override;
 
   operator VkPipeline() const noexcept { return pipeline_; }
 
@@ -57,6 +57,8 @@ class VKGS_GPU_API GraphicsPipeline : public Object {
   GraphicsPipelineCreateInfo create_info_;
   VkPipeline pipeline_ = VK_NULL_HANDLE;
 };
+
+class VKGS_GPU_API GraphicsPipeline : public SharedAccessor<GraphicsPipeline, GraphicsPipelineImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

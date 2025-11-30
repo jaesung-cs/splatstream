@@ -16,7 +16,7 @@ class SemaphorePool : public std::enable_shared_from_this<SemaphorePool> {
   explicit SemaphorePool(VkDevice device);
   ~SemaphorePool();
 
-  std::shared_ptr<Semaphore> Allocate();
+  Semaphore Allocate();
   void Free(VkSemaphore semaphore, uint64_t value);
 
  private:

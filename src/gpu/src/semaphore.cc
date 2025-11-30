@@ -9,15 +9,15 @@
 namespace vkgs {
 namespace gpu {
 
-Semaphore::Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value)
+SemaphoreImpl::SemaphoreImpl(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value)
     : semaphore_pool_(semaphore_pool), semaphore_(semaphore), value_(value) {}
 
-Semaphore::~Semaphore() {
+SemaphoreImpl::~SemaphoreImpl() {
   Wait();
   semaphore_pool_->Free(semaphore_, value_);
 }
 
-void Semaphore::Wait() {
+void SemaphoreImpl::Wait() {
   VkSemaphoreWaitInfo wait_info = {VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
   wait_info.semaphoreCount = 1;
   wait_info.pSemaphores = &semaphore_;
@@ -25,7 +25,9 @@ void Semaphore::Wait() {
   vkWaitSemaphores(*device_, &wait_info, UINT64_MAX);
 }
 
-void Semaphore::SetValue(uint64_t value) { value_ = value; }
+void SemaphoreImpl::SetValue(uint64_t value) { value_ = value; }
+
+template class SharedAccessor<Semaphore, SemaphoreImpl>;
 
 }  // namespace gpu
 }  // namespace vkgs

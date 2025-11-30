@@ -17,6 +17,8 @@ class Object;
 class Queue;
 class Semaphore;
 class Fence;
+struct GraphicsPipelineCreateInfo;
+class GraphicsPipeline;
 class SemaphorePool;
 class FencePool;
 class TaskMonitor;
@@ -51,9 +53,9 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
   auto compute_queue() const noexcept { return compute_queue_; }
   auto transfer_queue() const noexcept { return transfer_queue_; }
 
-  std::shared_ptr<Semaphore> AllocateSemaphore();
-  std::shared_ptr<Fence> AllocateFence();
-  std::shared_ptr<GraphicsPipelinePool> GetGraphicsPipelinePool() { return graphics_pipeline_pool_; }
+  Semaphore AllocateSemaphore();
+  Fence AllocateFence();
+  GraphicsPipeline AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info);
 
   void WaitIdle();
 
@@ -62,7 +64,7 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
   void ClearCurrentTask() { current_task_ = nullptr; }
   Task* CurrentTask() const { return current_task_; }
 
-  std::shared_ptr<QueueTask> AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
+  std::shared_ptr<QueueTask> AddQueueTask(Fence fence, std::shared_ptr<Command> command,
                                           std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback);
 
  private:

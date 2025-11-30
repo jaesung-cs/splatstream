@@ -8,7 +8,7 @@
 namespace vkgs {
 namespace gpu {
 
-Swapchain::Swapchain(VkSurfaceKHR surface, VkFormat format, VkImageUsageFlags usage)
+SwapchainImpl::SwapchainImpl(VkSurfaceKHR surface, VkFormat format, VkImageUsageFlags usage)
     : surface_(surface), format_(format), usage_(usage) {
   need_recreate_ = true;
 
@@ -23,7 +23,7 @@ Swapchain::Swapchain(VkSurfaceKHR surface, VkFormat format, VkImageUsageFlags us
   }
 }
 
-Swapchain::~Swapchain() {
+SwapchainImpl::~SwapchainImpl() {
   if (swapchain_) {
     Wait();
 
@@ -42,12 +42,12 @@ Swapchain::~Swapchain() {
   }
 }
 
-void Swapchain::SetPresentMode(VkPresentModeKHR present_mode) {
+void SwapchainImpl::SetPresentMode(VkPresentModeKHR present_mode) {
   present_mode_ = present_mode;
   need_recreate_ = true;
 }
 
-PresentImageInfo Swapchain::AcquireNextImage() {
+PresentImageInfo SwapchainImpl::AcquireNextImage() {
   uint32_t image_index = 0;
   VkFence render_finished_fence = render_finished_fences_[frame_index_];
   vkWaitForFences(*device_, 1, &render_finished_fence, VK_TRUE, UINT64_MAX);
@@ -80,7 +80,7 @@ PresentImageInfo Swapchain::AcquireNextImage() {
   return present_image_info;
 }
 
-void Swapchain::Present() {
+void SwapchainImpl::Present() {
   VkSemaphore render_finished_semaphore = render_finished_semaphores_[frame_index_];
   VkFence render_finished_fence = render_finished_fences_[frame_index_];
 
@@ -102,11 +102,11 @@ void Swapchain::Present() {
   frame_index_ = (frame_index_ + 1) % kFrameCount;
 }
 
-void Swapchain::Wait() const {
+void SwapchainImpl::Wait() const {
   vkWaitForFences(*device_, kFrameCount, render_finished_fences_.data(), VK_TRUE, UINT64_MAX);
 }
 
-void Swapchain::Recreate() {
+void SwapchainImpl::Recreate() {
   Wait();
 
   VkSwapchainCreateInfoKHR swapchain_info;
@@ -136,7 +136,7 @@ void Swapchain::Recreate() {
   need_recreate_ = false;
 }
 
-void Swapchain::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchain_info) {
+void SwapchainImpl::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchain_info) {
   auto physical_device = device_->physical_device();
 
   VkSurfaceCapabilitiesKHR surface_capabilities;
@@ -155,6 +155,8 @@ void Swapchain::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchai
   swapchain_info->presentMode = present_mode_;
   swapchain_info->clipped = VK_TRUE;
 }
+
+template class SharedAccessor<Swapchain, SwapchainImpl>;
 
 }  // namespace gpu
 }  // namespace vkgs

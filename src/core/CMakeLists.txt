@@ -44,8 +44,8 @@ target_link_libraries(vkgs_core
   PUBLIC
     Vulkan::Vulkan
     glm::glm
-  PRIVATE
     vkgs::gpu
+  PRIVATE
     vk_radix_sort
 )
 

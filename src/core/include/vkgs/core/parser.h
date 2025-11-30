@@ -7,10 +7,12 @@
 
 #include "export_api.h"
 
+#include "vkgs/gpu/pipeline_layout.h"
+#include "vkgs/gpu/compute_pipeline.h"
+
 namespace vkgs {
 namespace gpu {
 
-class PipelineLayout;
 class ComputePipeline;
 
 }  // namespace gpu
@@ -31,9 +33,9 @@ class VKGS_CORE_API Parser {
   std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
 
  private:
-  std::shared_ptr<gpu::PipelineLayout> parse_pipeline_layout_;
-  std::shared_ptr<gpu::ComputePipeline> parse_ply_pipeline_;
-  std::shared_ptr<gpu::ComputePipeline> parse_data_pipeline_;
+  gpu::PipelineLayout parse_pipeline_layout_;
+  gpu::ComputePipeline parse_ply_pipeline_;
+  gpu::ComputePipeline parse_data_pipeline_;
 };
 
 }  // namespace core

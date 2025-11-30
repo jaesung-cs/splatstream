@@ -7,7 +7,7 @@
 namespace vkgs {
 namespace gpu {
 
-ComputePipeline::ComputePipeline(VkPipelineLayout pipeline_layout, const uint32_t* shader, size_t size) {
+ComputePipelineImpl::ComputePipelineImpl(VkPipelineLayout pipeline_layout, const uint32_t* shader, size_t size) {
   VkShaderModuleCreateInfo shader_module_info = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
   shader_module_info.codeSize = size * sizeof(uint32_t);
   shader_module_info.pCode = shader;
@@ -25,7 +25,9 @@ ComputePipeline::ComputePipeline(VkPipelineLayout pipeline_layout, const uint32_
   vkDestroyShaderModule(*device_, shader_module, NULL);
 }
 
-ComputePipeline::~ComputePipeline() { vkDestroyPipeline(*device_, pipeline_, NULL); }
+ComputePipelineImpl::~ComputePipelineImpl() { vkDestroyPipeline(*device_, pipeline_, NULL); }
+
+template class SharedAccessor<ComputePipeline, ComputePipelineImpl>;
 
 }  // namespace gpu
 }  // namespace vkgs

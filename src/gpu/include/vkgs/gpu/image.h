@@ -15,14 +15,11 @@ namespace gpu {
 
 class Device;
 
-class VKGS_GPU_API Image : public Object {
+class VKGS_GPU_API ImageImpl : public Object {
  public:
   // TODO: red-alpha -> generalize swizzle
-  static std::shared_ptr<Image> Create(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage);
-
- public:
-  Image(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage);
-  ~Image() override;
+  ImageImpl(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage);
+  ~ImageImpl() override;
 
   operator VkImage() const noexcept { return image_; }
 
@@ -39,6 +36,8 @@ class VKGS_GPU_API Image : public Object {
   uint32_t width_;
   uint32_t height_;
 };
+
+class VKGS_GPU_API Image : public SharedAccessor<Image, ImageImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

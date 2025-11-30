@@ -13,10 +13,10 @@ namespace gpu {
 
 class SemaphorePool;
 
-class VKGS_GPU_API Semaphore : public Object {
+class VKGS_GPU_API SemaphoreImpl : public Object {
  public:
-  Semaphore(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
-  ~Semaphore();
+  SemaphoreImpl(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value);
+  ~SemaphoreImpl();
 
   operator VkSemaphore() const noexcept { return semaphore_; }
   auto value() const noexcept { return value_; }
@@ -32,6 +32,8 @@ class VKGS_GPU_API Semaphore : public Object {
   VkSemaphore semaphore_;
   uint64_t value_;
 };
+
+class VKGS_GPU_API Semaphore : public SharedAccessor<Semaphore, SemaphoreImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

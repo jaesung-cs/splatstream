@@ -7,6 +7,8 @@
 
 #include "export_api.h"
 
+#include "fence.h"
+
 namespace vkgs {
 namespace gpu {
 
@@ -16,8 +18,8 @@ class Command;
 
 class VKGS_GPU_API QueueTask {
  public:
-  QueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
-            std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback);
+  QueueTask(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+            std::function<void()> callback);
 
   ~QueueTask();
 
@@ -25,7 +27,7 @@ class VKGS_GPU_API QueueTask {
   void Wait();
 
  private:
-  std::shared_ptr<Fence> fence_;
+  Fence fence_;
   std::shared_ptr<Command> command_;
   std::vector<std::shared_ptr<Object>> objects_;
   std::function<void()> callback_;

@@ -5,17 +5,15 @@
 
 #include "imgui_texture.h"
 
+#include "vkgs/gpu/sampler.h"
+#include "vkgs/gpu/image.h"
+#include "vkgs/gpu/semaphore.h"
+
 namespace vkgs {
 
 namespace core {
 class ScreenSplats;
 }
-
-namespace gpu {
-class Image;
-class Sampler;
-class Semaphore;
-}  // namespace gpu
 
 namespace viewer {
 
@@ -49,15 +47,15 @@ class Storage {
 
  private:
   std::shared_ptr<core::ScreenSplats> screen_splats_;
-  std::shared_ptr<gpu::Image> image_;
-  std::shared_ptr<gpu::Image> image16_;
-  std::shared_ptr<gpu::Image> depth_image_;
-  std::shared_ptr<gpu::Image> depth_;
-  std::shared_ptr<gpu::Semaphore> compute_semaphore_;
-  std::shared_ptr<gpu::Semaphore> graphics_semaphore_;
+  gpu::Image image_;
+  gpu::Image image16_;
+  gpu::Image depth_image_;
+  gpu::Image depth_;
+  gpu::Semaphore compute_semaphore_;
+  gpu::Semaphore graphics_semaphore_;
 
   // For ImGui texture
-  std::shared_ptr<gpu::Sampler> sampler_;
+  gpu::Sampler sampler_;
   std::shared_ptr<ImGuiTexture> texture_;
 };
 

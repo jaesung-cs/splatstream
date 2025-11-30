@@ -8,7 +8,6 @@
 
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
-#include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/task.h"
@@ -47,16 +46,16 @@ namespace core {
 
 Parser::Parser() {
   parse_pipeline_layout_ = gpu::PipelineLayout::Create(
-      {
+      std::vector<VkDescriptorSetLayoutBinding>{
           {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
       },
-      {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePushConstants)}});
-  parse_ply_pipeline_ = gpu::ComputePipeline::Create(*parse_pipeline_layout_, parse_ply);
-  parse_data_pipeline_ = gpu::ComputePipeline::Create(*parse_pipeline_layout_, parse_data);
+      std::vector<VkPushConstantRange>{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePushConstants)}});
+  parse_ply_pipeline_ = gpu::ComputePipeline::Create(parse_pipeline_layout_, parse_ply);
+  parse_data_pipeline_ = gpu::ComputePipeline::Create(parse_pipeline_layout_, parse_data);
 }
 
 Parser::~Parser() = default;
@@ -137,28 +136,28 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
     auto cb = task.command_buffer();
 
     VkBufferCopy region = {0, 0, position_stage->size()};
-    vkCmdCopyBuffer(cb, *position_stage, *position, 1, &region);
+    vkCmdCopyBuffer(cb, position_stage, position, 1, &region);
     region = {0, 0, quats_stage->size()};
-    vkCmdCopyBuffer(cb, *quats_stage, *quats, 1, &region);
+    vkCmdCopyBuffer(cb, quats_stage, quats, 1, &region);
     region = {0, 0, scales_stage->size()};
-    vkCmdCopyBuffer(cb, *scales_stage, *scales, 1, &region);
+    vkCmdCopyBuffer(cb, scales_stage, scales, 1, &region);
     region = {0, 0, colors_stage->size()};
-    vkCmdCopyBuffer(cb, *colors_stage, *colors, 1, &region);
+    vkCmdCopyBuffer(cb, colors_stage, colors, 1, &region);
     region = {0, 0, opacity_stage->size()};
-    vkCmdCopyBuffer(cb, *opacity_stage, *opacity, 1, &region);
+    vkCmdCopyBuffer(cb, opacity_stage, opacity, 1, &region);
     region = {0, 0, index_stage->size()};
-    vkCmdCopyBuffer(cb, *index_stage, *index_buffer, 1, &region);
+    vkCmdCopyBuffer(cb, index_stage, index_buffer, 1, &region);
 
     gpu::cmd::Barrier()
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *position)
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *quats)
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *scales)
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *colors)
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *opacity)
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, *index_buffer)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, position)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, quats)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, scales)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, colors)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, opacity)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer)
         .Commit(cb);
 
-    task.Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    task.Signal(sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
     position_stage->Keep();
     quats_stage->Keep();
@@ -175,21 +174,21 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
-        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *position)
-        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *quats)
-        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *scales)
-        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *colors)
-        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, *opacity)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, position)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, quats)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, scales)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, colors)
+        .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, opacity)
         .Commit(cb);
 
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_)
-        .Storage(0, *quats)
-        .Storage(1, *scales)
-        .Storage(2, *cov3d)
-        .Storage(3, *colors)
-        .Storage(4, *sh)
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
+        .Storage(0, quats)
+        .Storage(1, scales)
+        .Storage(2, cov3d)
+        .Storage(3, colors)
+        .Storage(4, sh)
         .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants), &parse_data_push_constants)
-        .Bind(*parse_data_pipeline_)
+        .Bind(parse_data_pipeline_)
         .Commit(cb);
     vkCmdDispatch(cb, WorkgroupSize(size, 256), 1, 1);
 
@@ -202,7 +201,7 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
     scales->Keep();
     colors->Keep();
 
-    task.Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    task.Wait(sem, sem->value() + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     queue_task = task.Submit();
   }
 
@@ -212,10 +211,10 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
-        .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, *index_buffer)
+        .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, index_buffer)
         .Commit(cb);
 
-    task.Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
+    task.Wait(sem, sem->value() + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
   }
 
   sem->Increment();
@@ -357,17 +356,17 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
     auto cb = task.command_buffer();
 
     VkBufferCopy region = {0, 0, buffer_size};
-    vkCmdCopyBuffer(cb, *ply_stage, *ply_buffer, 1, &region);
+    vkCmdCopyBuffer(cb, ply_stage, ply_buffer, 1, &region);
 
     region = {0, 0, index_stage->size()};
-    vkCmdCopyBuffer(cb, *index_stage, *index_buffer, 1, &region);
+    vkCmdCopyBuffer(cb, index_stage, index_buffer, 1, &region);
 
     gpu::cmd::Barrier()
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *ply_buffer)
-        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, *index_buffer)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, ply_buffer)
+        .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer)
         .Commit(cb);
 
-    task.Signal(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    task.Signal(sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
     ply_stage->Keep();
     index_stage->Keep();
@@ -380,18 +379,18 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
-        .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, *ply_buffer)
+        .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, ply_buffer)
         .Commit(cb);
 
     // ply_buffer -> gaussian_splats
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *parse_pipeline_layout_)
-        .Storage(0, *ply_buffer)
-        .Storage(1, *position)
-        .Storage(2, *cov3d)
-        .Storage(3, *opacity)
-        .Storage(4, *sh)
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
+        .Storage(0, ply_buffer)
+        .Storage(1, position)
+        .Storage(2, cov3d)
+        .Storage(3, opacity)
+        .Storage(4, sh)
         .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_ply_push_constants), &parse_ply_push_constants)
-        .Bind(*parse_ply_pipeline_)
+        .Bind(parse_ply_pipeline_)
         .Commit(cb);
     vkCmdDispatch(cb, WorkgroupSize(point_count, 256), 1, 1);
 
@@ -402,7 +401,7 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
 
     ply_buffer->Keep();
 
-    task.Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    task.Wait(sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     queue_task = task.Submit();
   }
 
@@ -412,10 +411,10 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
     auto cb = task.command_buffer();
 
     gpu::cmd::Barrier()
-        .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, *index_buffer)
+        .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, index_buffer)
         .Commit(cb);
 
-    task.Wait(*sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    task.Wait(sem, sem->value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
   }
 
   sem->Increment();

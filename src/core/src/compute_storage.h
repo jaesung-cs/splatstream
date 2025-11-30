@@ -6,14 +6,9 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/gpu/buffer.h"
+
 namespace vkgs {
-namespace gpu {
-
-class Device;
-class Buffer;
-
-}  // namespace gpu
-
 namespace core {
 
 class ComputeStorage {
@@ -35,15 +30,15 @@ class ComputeStorage {
   uint32_t point_count_ = 0;
 
   // Fixed
-  std::shared_ptr<gpu::Buffer> visible_point_count_;  // (1)
-  std::shared_ptr<gpu::Buffer> camera_;               // (Camera)
-  std::shared_ptr<gpu::Buffer> camera_stage_;         // (Camera)
+  gpu::Buffer visible_point_count_;  // (1)
+  gpu::Buffer camera_;               // (Camera)
+  gpu::Buffer camera_stage_;         // (Camera)
 
   // Variable
-  std::shared_ptr<gpu::Buffer> key_;            // (N)
-  std::shared_ptr<gpu::Buffer> index_;          // (N)
-  std::shared_ptr<gpu::Buffer> sort_storage_;   // (M)
-  std::shared_ptr<gpu::Buffer> inverse_index_;  // (N)
+  gpu::Buffer key_;            // (N)
+  gpu::Buffer index_;          // (N)
+  gpu::Buffer sort_storage_;   // (M)
+  gpu::Buffer inverse_index_;  // (N)
 };
 
 }  // namespace core

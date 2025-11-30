@@ -8,11 +8,7 @@
 namespace vkgs {
 namespace gpu {
 
-std::shared_ptr<Image> Image::Create(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage) {
-  return std::make_shared<Image>(format, width, height, usage);
-}
-
-Image::Image(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
+ImageImpl::ImageImpl(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
     : format_(format), width_(width), height_(height) {
   bool is_depth = false;
   switch (format) {
@@ -56,13 +52,15 @@ Image::Image(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags
   vkCreateImageView(*device_, &view_info, nullptr, &image_view_);
 }
 
-Image::~Image() {
+ImageImpl::~ImageImpl() {
   VmaAllocator allocator = static_cast<VmaAllocator>(device_->allocator());
   VmaAllocation allocation = static_cast<VmaAllocation>(allocation_);
 
   vkDestroyImageView(*device_, image_view_, nullptr);
   vmaDestroyImage(allocator, image_, allocation);
 }
+
+template class SharedAccessor<Image, ImageImpl>;
 
 }  // namespace gpu
 }  // namespace vkgs

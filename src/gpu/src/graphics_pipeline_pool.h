@@ -21,7 +21,7 @@ class GraphicsPipelinePool : public std::enable_shared_from_this<GraphicsPipelin
   GraphicsPipelinePool(VkDevice device);
   ~GraphicsPipelinePool();
 
-  std::shared_ptr<GraphicsPipeline> Allocate(const GraphicsPipelineCreateInfo& create_info);
+  GraphicsPipeline Allocate(const GraphicsPipelineCreateInfo& create_info);
   void Free(const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline);
 
  private:

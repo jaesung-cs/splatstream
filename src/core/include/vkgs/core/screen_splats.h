@@ -6,13 +6,9 @@
 
 #include "export_api.h"
 
+#include "vkgs/gpu/buffer.h"
+
 namespace vkgs {
-namespace gpu {
-
-class Buffer;
-
-}  // namespace gpu
-
 namespace core {
 
 class VKGS_CORE_API ScreenSplats {
@@ -29,10 +25,10 @@ class VKGS_CORE_API ScreenSplats {
   uint32_t point_count_ = 0;
 
   // Fixed
-  std::shared_ptr<gpu::Buffer> draw_indirect_;  // (DrawIndirect)
+  gpu::Buffer draw_indirect_;  // (DrawIndirect)
 
   // Variable
-  std::shared_ptr<gpu::Buffer> instances_;  // (N, 12)
+  gpu::Buffer instances_;  // (N, 12)
 };
 
 }  // namespace core

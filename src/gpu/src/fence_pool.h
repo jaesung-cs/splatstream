@@ -16,7 +16,7 @@ class FencePool : public std::enable_shared_from_this<FencePool> {
   explicit FencePool(VkDevice device);
   ~FencePool();
 
-  std::shared_ptr<Fence> Allocate();
+  Fence Allocate();
   void Free(VkFence fence);
 
  private:

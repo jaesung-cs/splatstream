@@ -15,7 +15,7 @@ SemaphorePool::~SemaphorePool() {
   }
 }
 
-std::shared_ptr<Semaphore> SemaphorePool::Allocate() {
+Semaphore SemaphorePool::Allocate() {
   std::pair<VkSemaphore, uint64_t> semaphore;
 
   if (semaphores_.empty()) {
@@ -32,7 +32,7 @@ std::shared_ptr<Semaphore> SemaphorePool::Allocate() {
     semaphores_.pop_back();
   }
 
-  return std::make_shared<Semaphore>(shared_from_this(), semaphore.first, semaphore.second);
+  return Semaphore::Create(shared_from_this(), semaphore.first, semaphore.second);
 }
 
 void SemaphorePool::Free(VkSemaphore semaphore, uint64_t value) { semaphores_.emplace_back(semaphore, value); }

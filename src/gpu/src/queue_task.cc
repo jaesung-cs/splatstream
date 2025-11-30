@@ -1,12 +1,12 @@
 #include "vkgs/gpu/queue_task.h"
 
-#include "fence.h"
+#include "vkgs/gpu/fence.h"
 
 namespace vkgs {
 namespace gpu {
 
-QueueTask::QueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
-                     std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback)
+QueueTask::QueueTask(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+                     std::function<void()> callback)
     : fence_(fence), command_(command), objects_(std::move(objects)), callback_(callback) {}
 
 QueueTask::~QueueTask() { Wait(); }

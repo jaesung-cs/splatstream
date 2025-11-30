@@ -4,13 +4,9 @@
 #include <memory>
 #include <cstdint>
 
+#include "vkgs/gpu/image.h"
+
 namespace vkgs {
-namespace gpu {
-
-class Image;
-
-}  // namespace gpu
-
 namespace core {
 
 class GraphicsStorage {
@@ -28,8 +24,8 @@ class GraphicsStorage {
   uint32_t height_ = 0;
 
   // Variable
-  std::shared_ptr<gpu::Image> image_;     // (H, W, 4) float32
-  std::shared_ptr<gpu::Image> image_u8_;  // (H, W, 4), UNORM
+  gpu::Image image_;     // (H, W, 4) float32
+  gpu::Image image_u8_;  // (H, W, 4), UNORM
 };
 
 }  // namespace core

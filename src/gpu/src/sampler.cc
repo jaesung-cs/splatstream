@@ -7,9 +7,7 @@
 namespace vkgs {
 namespace gpu {
 
-std::shared_ptr<Sampler> Sampler::Create() { return std::make_shared<Sampler>(); }
-
-Sampler::Sampler() {
+SamplerImpl::SamplerImpl() {
   VkSamplerCreateInfo create_info = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
   create_info.magFilter = VK_FILTER_LINEAR;
   create_info.minFilter = VK_FILTER_LINEAR;
@@ -22,7 +20,9 @@ Sampler::Sampler() {
   vkCreateSampler(*device_, &create_info, NULL, &sampler_);
 }
 
-Sampler::~Sampler() { vkDestroySampler(*device_, sampler_, NULL); }
+SamplerImpl::~SamplerImpl() { vkDestroySampler(*device_, sampler_, NULL); }
+
+template class SharedAccessor<Sampler, SamplerImpl>;
 
 }  // namespace gpu
 }  // namespace vkgs

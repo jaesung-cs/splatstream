@@ -1,13 +1,19 @@
 #ifndef VKGS_VIEWER_VIEWER_IMPL_H
 #define VKGS_VIEWER_VIEWER_IMPL_H
 
+#include "vkgs/viewer/viewer.h"
+
+#include <memory>
 #include <array>
 #include <vector>
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/viewer/viewer.h"
 #include "vkgs/gpu/swapchain.h"
+#include "vkgs/gpu/pipeline_layout.h"
+#include "vkgs/gpu/graphics_pipeline.h"
+#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/semaphore.h"
 
 #include "storage.h"
 #include "camera.h"
@@ -18,9 +24,6 @@ struct GLFWwindow;
 namespace vkgs {
 namespace gpu {
 class Swapchain;
-class PipelineLayout;
-class GraphicsPipeline;
-class Buffer;
 }  // namespace gpu
 
 namespace viewer {
@@ -53,7 +56,7 @@ class Viewer::Impl {
   VkFormat high_format_ = VK_FORMAT_R16G16B16A16_SFLOAT;
   VkFormat depth_image_format_ = VK_FORMAT_R16G16_SFLOAT;
   VkFormat depth_format_ = VK_FORMAT_D32_SFLOAT;
-  std::unique_ptr<gpu::Swapchain> swapchain_;
+  gpu::Swapchain swapchain_;
 
   struct ViewerOptions {
     glm::mat4 model;
@@ -78,13 +81,13 @@ class Viewer::Impl {
   std::shared_ptr<core::GaussianSplats> splats_;
   std::vector<CameraParams> camera_params_;
 
-  std::shared_ptr<gpu::PipelineLayout> color_pipeline_layout_;
-  std::shared_ptr<gpu::GraphicsPipeline> color_pipeline_;
-  std::shared_ptr<gpu::PipelineLayout> blend_pipeline_layout_;
-  std::shared_ptr<gpu::GraphicsPipeline> blend_pipeline_;
+  gpu::PipelineLayout color_pipeline_layout_;
+  gpu::GraphicsPipeline color_pipeline_;
+  gpu::PipelineLayout blend_pipeline_layout_;
+  gpu::GraphicsPipeline blend_pipeline_;
 
-  std::shared_ptr<gpu::Buffer> camera_vertices_;
-  std::shared_ptr<gpu::Buffer> camera_indices_;
+  gpu::Buffer camera_vertices_;
+  gpu::Buffer camera_indices_;
   uint32_t camera_index_size_ = 0;
 
   std::array<Storage, 2> ring_buffer_;

@@ -86,8 +86,8 @@ void Viewer::Impl::InitializeWindow() {
   auto instance = device->instance();
   glfwCreateWindowSurface(instance, window_, NULL, &surface_);
 
-  swapchain_ = std::make_unique<gpu::Swapchain>(surface_, swapchain_format_,
-                                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+  swapchain_ = gpu::Swapchain::Create(surface_, swapchain_format_,
+                                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
   auto gq = device->graphics_queue();
 
@@ -323,11 +323,12 @@ void Viewer::Impl::Run() {
   std::vector<VkFormat> formats = {swapchain_format_, high_format_, depth_image_format_};
 
   // Graphics pipelines
-  color_pipeline_layout_ =
-      gpu::PipelineLayout::Create({}, {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}});
+  color_pipeline_layout_ = gpu::PipelineLayout::Create(
+      std::vector<VkDescriptorSetLayoutBinding>{{}},
+      std::vector<VkPushConstantRange>{{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}});
 
   gpu::GraphicsPipelineCreateInfo color_pipeline_info = {};
-  color_pipeline_info.pipeline_layout = *color_pipeline_layout_;
+  color_pipeline_info.pipeline_layout = color_pipeline_layout_;
   color_pipeline_info.vertex_shader = gpu::ShaderCode(color_vert);
   color_pipeline_info.fragment_shader = gpu::ShaderCode(color_frag);
   color_pipeline_info.bindings = {
@@ -345,13 +346,14 @@ void Viewer::Impl::Run() {
   color_pipeline_info.depth_write = true;
   color_pipeline_ = gpu::GraphicsPipeline::Create(color_pipeline_info);
 
-  blend_pipeline_layout_ =
-      gpu::PipelineLayout::Create({{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
-                                   {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
-                                  {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlendPushConstants)}});
+  blend_pipeline_layout_ = gpu::PipelineLayout::Create(
+      std::vector<VkDescriptorSetLayoutBinding>{
+          {0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+          {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
+      std::vector<VkPushConstantRange>{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlendPushConstants)}});
 
   gpu::GraphicsPipelineCreateInfo blend_pipeline_info = {};
-  blend_pipeline_info.pipeline_layout = *blend_pipeline_layout_;
+  blend_pipeline_info.pipeline_layout = blend_pipeline_layout_;
   blend_pipeline_info.vertex_shader = gpu::ShaderCode(blend_vert);
   blend_pipeline_info.fragment_shader = gpu::ShaderCode(blend_frag);
   blend_pipeline_info.formats = formats;
@@ -400,9 +402,9 @@ void Viewer::Impl::Run() {
                                           indices.size() * sizeof(indices[0]));
 
     VkBufferCopy region = {0, 0, indices_stage->size()};
-    vkCmdCopyBuffer(cb, *indices_stage, *camera_indices_, 1, &region);
+    vkCmdCopyBuffer(cb, indices_stage, camera_indices_, 1, &region);
     region = {0, 0, vertices_stage->size()};
-    vkCmdCopyBuffer(cb, *vertices_stage, *camera_vertices_, 1, &region);
+    vkCmdCopyBuffer(cb, vertices_stage, camera_vertices_, 1, &region);
 
     gpu::cmd::Barrier()
         .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
@@ -520,12 +522,12 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     // Release
     gpu::cmd::Barrier()
         .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
-                 *screen_splats->instances())
+                 screen_splats->instances())
         .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
-                 *screen_splats->draw_indirect())
+                 screen_splats->draw_indirect())
         .Commit(cb);
 
-    task.Signal(*csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    task.Signal(csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
   }
 
   // Graphics queue
@@ -536,21 +538,21 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     gpu::cmd::Barrier()
         // Acquire
         .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq,
-                 *screen_splats->instances())
+                 screen_splats->instances())
         .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
-                 *screen_splats->draw_indirect())
+                 screen_splats->draw_indirect())
         // Image layout transition
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, *image)
+               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, image)
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image16)
+               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, image16)
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *depth_image)
+               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, depth_image)
         .Image(0, 0, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-               VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, *depth)
+               VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depth)
         .Commit(cb);
 
     // Rendering
@@ -601,9 +603,9 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     // render scene
     // TODO: draw scene to depth image
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *color_pipeline_layout_)
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
         .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, 1})
-        .Bind(*color_pipeline_)
+        .Bind(color_pipeline_)
         .Commit(cb);
 
     ColorPushConstants color_push_constants = {};
@@ -619,19 +621,19 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
                                    glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
                                    glm::mat4(glm::mat3(viewer_options_.camera_scale));
 
-      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *color_pipeline_layout_)
+      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
           .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
           .Commit(cb);
 
-      vkCmdBindIndexBuffer(cb, *camera_indices_, 0, VK_INDEX_TYPE_UINT32);
-      VkBuffer buffer = *camera_vertices_;
+      vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
+      VkBuffer buffer = camera_vertices_;
       VkDeviceSize offset = 0;
       vkCmdBindVertexBuffers(cb, 0, 1, &buffer, &offset);
       vkCmdDrawIndexed(cb, camera_index_size_, 1, 0, 0, 0);
     }
 
     // render splats
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *color_pipeline_layout_)
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
         .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, viewer_options_.render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED})
         .Commit(cb);
     renderer_->RenderScreenSplats(
@@ -647,11 +649,11 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     BlendPushConstants blend_push_constants = {};
     blend_push_constants.mode = viewer_options_.render_type;
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *blend_pipeline_layout_)
+    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
         .Input(0, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
         .Input(1, depth_image->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
         .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(blend_push_constants), &blend_push_constants)
-        .Bind(*blend_pipeline_)
+        .Bind(blend_pipeline_)
         .AttachmentLocations({0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED})
         .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0, 1})
         .Commit(cb);
@@ -664,7 +666,7 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     gpu::cmd::Barrier()
         .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *image)
+               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, image)
         .Commit(cb);
 
     VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -694,10 +696,10 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     depth->Keep();
 
     task.Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-    task.Wait(*csem, cval + 1,
+    task.Wait(csem, cval + 1,
               VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
                   VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
-    task.Signal(*gsem, gval + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+    task.Signal(gsem, gval + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     task.Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
   }
 

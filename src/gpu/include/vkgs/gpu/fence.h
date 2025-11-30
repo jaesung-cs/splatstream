@@ -5,15 +5,17 @@
 
 #include <vulkan/vulkan.h>
 
+#include "object.h"
+
 namespace vkgs {
 namespace gpu {
 
 class FencePool;
 
-class Fence {
+class FenceImpl : public Object {
  public:
-  Fence(VkDevice device, std::shared_ptr<FencePool> fence_pool, VkFence fence);
-  ~Fence();
+  FenceImpl(std::shared_ptr<FencePool> fence_pool, VkFence fence);
+  ~FenceImpl();
 
   operator VkFence() const noexcept { return fence_; }
 
@@ -21,10 +23,11 @@ class Fence {
   void Wait();
 
  private:
-  VkDevice device_;
   std::shared_ptr<FencePool> fence_pool_;
   VkFence fence_ = VK_NULL_HANDLE;
 };
+
+class Fence : public SharedAccessor<Fence, FenceImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -1,7 +1,5 @@
 #include "graphics_storage.h"
 
-#include "vkgs/gpu/image.h"
-
 namespace vkgs {
 namespace core {
 

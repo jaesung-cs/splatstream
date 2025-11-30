@@ -4,7 +4,6 @@
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/image.h"
-#include "vkgs/gpu/sampler.h"
 
 namespace vkgs {
 namespace viewer {
@@ -27,7 +26,7 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
   if (!image_ || image_->width() != width || image_->height() != height) {
     image_ = gpu::Image::Create(VK_FORMAT_B8G8R8A8_UNORM, width, height,
                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-    texture_ = ImGuiTexture::Create(*sampler_, image_->image_view());
+    texture_ = ImGuiTexture::Create(sampler_, image_->image_view());
   }
   if (!image16_ || image16_->width() != width || image16_->height() != height) {
     image16_ = gpu::Image::Create(VK_FORMAT_R16G16B16A16_SFLOAT, width, height,
@@ -46,15 +45,15 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
 }
 
 void Storage::Clear() {
-  screen_splats_ = nullptr;
-  image_ = nullptr;
-  image16_ = nullptr;
-  depth_image_ = nullptr;
-  depth_ = nullptr;
-  compute_semaphore_ = nullptr;
-  graphics_semaphore_ = nullptr;
-  sampler_ = nullptr;
-  texture_ = nullptr;
+  screen_splats_.reset();
+  image_.reset();
+  image16_.reset();
+  depth_image_.reset();
+  depth_.reset();
+  compute_semaphore_.reset();
+  graphics_semaphore_.reset();
+  sampler_.reset();
+  texture_.reset();
 }
 
 }  // namespace viewer

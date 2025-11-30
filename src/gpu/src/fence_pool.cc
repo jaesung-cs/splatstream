@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "fence.h"
+#include "vkgs/gpu/fence.h"
 
 namespace vkgs {
 namespace gpu {
@@ -15,7 +15,7 @@ FencePool::~FencePool() {
   }
 }
 
-std::shared_ptr<Fence> FencePool::Allocate() {
+Fence FencePool::Allocate() {
   VkFence fence;
   if (fences_.empty()) {
     VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
@@ -24,7 +24,7 @@ std::shared_ptr<Fence> FencePool::Allocate() {
     fence = fences_.back();
     fences_.pop_back();
   }
-  return std::make_shared<Fence>(device_, shared_from_this(), fence);
+  return Fence::Create(shared_from_this(), fence);
 }
 
 void FencePool::Free(VkFence fence) { fences_.push_back(fence); }

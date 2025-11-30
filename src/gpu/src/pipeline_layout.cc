@@ -7,13 +7,8 @@
 namespace vkgs {
 namespace gpu {
 
-std::shared_ptr<PipelineLayout> PipelineLayout::Create(const std::vector<VkDescriptorSetLayoutBinding>& bindings,
-                                                       const std::vector<VkPushConstantRange>& push_constants) {
-  return std::make_shared<PipelineLayout>(bindings, push_constants);
-}
-
-PipelineLayout::PipelineLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings,
-                               const std::vector<VkPushConstantRange>& push_constants) {
+PipelineLayoutImpl::PipelineLayoutImpl(const std::vector<VkDescriptorSetLayoutBinding>& bindings,
+                                       const std::vector<VkPushConstantRange>& push_constants) {
   VkDescriptorSetLayoutCreateInfo layout_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
   layout_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT;
   layout_info.bindingCount = bindings.size();
@@ -28,10 +23,12 @@ PipelineLayout::PipelineLayout(const std::vector<VkDescriptorSetLayoutBinding>& 
   vkCreatePipelineLayout(*device_, &pipeline_layout_info, nullptr, &pipeline_layout_);
 }
 
-PipelineLayout::~PipelineLayout() {
+PipelineLayoutImpl::~PipelineLayoutImpl() {
   vkDestroyPipelineLayout(*device_, pipeline_layout_, NULL);
   vkDestroyDescriptorSetLayout(*device_, descriptor_set_layout_, NULL);
 }
+
+template class SharedAccessor<PipelineLayout, PipelineLayoutImpl>;
 
 }  // namespace gpu
 }  // namespace vkgs
