@@ -60,7 +60,5 @@ ImageImpl::~ImageImpl() {
   vmaDestroyImage(allocator, image_, allocation);
 }
 
-template class SharedAccessor<Image, ImageImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

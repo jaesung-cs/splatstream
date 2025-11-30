@@ -28,7 +28,5 @@ PipelineLayoutImpl::~PipelineLayoutImpl() {
   vkDestroyDescriptorSetLayout(*device_, descriptor_set_layout_, NULL);
 }
 
-template class SharedAccessor<PipelineLayout, PipelineLayoutImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

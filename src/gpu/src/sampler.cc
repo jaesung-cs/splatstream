@@ -22,7 +22,5 @@ SamplerImpl::SamplerImpl() {
 
 SamplerImpl::~SamplerImpl() { vkDestroySampler(*device_, sampler_, NULL); }
 
-template class SharedAccessor<Sampler, SamplerImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

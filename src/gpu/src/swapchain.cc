@@ -156,7 +156,5 @@ void SwapchainImpl::GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swap
   swapchain_info->clipped = VK_TRUE;
 }
 
-template class SharedAccessor<Swapchain, SwapchainImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

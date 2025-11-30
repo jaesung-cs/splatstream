@@ -27,7 +27,5 @@ ComputePipelineImpl::ComputePipelineImpl(VkPipelineLayout pipeline_layout, const
 
 ComputePipelineImpl::~ComputePipelineImpl() { vkDestroyPipeline(*device_, pipeline_, NULL); }
 
-template class SharedAccessor<ComputePipeline, ComputePipelineImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

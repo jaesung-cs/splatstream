@@ -35,7 +35,5 @@ std::vector<uint64_t> TimerImpl::GetTimestamps() const {
   return timestamps;
 }
 
-template class SharedAccessor<Timer, TimerImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

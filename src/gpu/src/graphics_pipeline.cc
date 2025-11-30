@@ -19,7 +19,5 @@ GraphicsPipelineImpl::GraphicsPipelineImpl(std::shared_ptr<GraphicsPipelinePool>
 
 GraphicsPipelineImpl::~GraphicsPipelineImpl() { graphics_pipeline_pool_->Free(create_info_, pipeline_); }
 
-template class SharedAccessor<GraphicsPipeline, GraphicsPipelineImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

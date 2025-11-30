@@ -60,6 +60,7 @@ target_include_directories(vkgs_gpu
 target_link_libraries(vkgs_gpu
   PUBLIC
     Vulkan::Vulkan
+    vkgs::common
   PRIVATE
     volk::volk_headers
     GPUOpen::VulkanMemoryAllocator

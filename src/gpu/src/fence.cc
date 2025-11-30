@@ -24,7 +24,5 @@ bool FenceImpl::IsSignaled() {
 
 void FenceImpl::Wait() { vkWaitForFences(*device_, 1, &fence_, VK_TRUE, UINT64_MAX); }
 
-template class SharedAccessor<Fence, FenceImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs

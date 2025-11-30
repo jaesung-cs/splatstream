@@ -5,6 +5,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+
 #include "object.h"
 
 namespace vkgs {

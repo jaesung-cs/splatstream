@@ -27,7 +27,5 @@ void SemaphoreImpl::Wait() {
 
 void SemaphoreImpl::SetValue(uint64_t value) { value_ = value; }
 
-template class SharedAccessor<Semaphore, SemaphoreImpl>;
-
 }  // namespace gpu
 }  // namespace vkgs
