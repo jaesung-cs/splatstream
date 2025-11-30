@@ -2,7 +2,6 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/fence.h"
 #include "vkgs/gpu/queue_task.h"
@@ -13,7 +12,7 @@ namespace vkgs {
 namespace gpu {
 
 Task::Task(QueueType queue_type) {
-  device_ = gpu::GetDevice();
+  device_ = GetDevice();
   device_->SetCurrentTask(this);
 
   switch (queue_type) {
@@ -111,7 +110,7 @@ QueueTask Task::Submit() {
   submit.pCommandBufferInfos = &command_buffer_info;
   submit.signalSemaphoreInfoCount = signal_semaphore_infos_.size();
   submit.pSignalSemaphoreInfos = signal_semaphore_infos_.data();
-  vkQueueSubmit2(*queue_, 1, &submit, fence_);
+  vkQueueSubmit2(queue_, 1, &submit, fence_);
 
   auto task = device_->AddQueueTask(fence_, command_, std::move(objects_), callback_);
   submitted_ = true;

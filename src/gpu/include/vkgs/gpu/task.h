@@ -9,12 +9,12 @@
 #include "export_api.h"
 #include "device.h"
 #include "fence.h"
+#include "queue.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Object;
-class Queue;
 class Fence;
 class Command;
 
@@ -53,7 +53,7 @@ class VKGS_GPU_API Task {
 
  private:
   Device device_;
-  std::shared_ptr<Queue> queue_;
+  Queue queue_;
   Fence fence_;
   std::shared_ptr<Command> command_;
   std::vector<std::shared_ptr<Object>> objects_;

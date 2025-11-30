@@ -96,7 +96,7 @@ void SwapchainImpl::Present() {
   present_info.swapchainCount = 1;
   present_info.pSwapchains = &swapchain_;
   present_info.pImageIndices = &image_index_;
-  vkQueuePresentKHR(*device_->graphics_queue(), &present_info);
+  vkQueuePresentKHR(device_->graphics_queue(), &present_info);
 
   frame_index_ = (frame_index_ + 1) % kFrameCount;
 }

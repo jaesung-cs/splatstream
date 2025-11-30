@@ -5,6 +5,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+
 #include "export_api.h"
 
 namespace vkgs {
@@ -13,10 +15,10 @@ namespace gpu {
 class Command;
 class CommandPool;
 
-class VKGS_GPU_API Queue {
+class VKGS_GPU_API QueueImpl {
  public:
-  Queue(VkDevice device, VkQueue queue, uint32_t family_index);
-  ~Queue();
+  QueueImpl(VkDevice device, VkQueue queue, uint32_t family_index);
+  ~QueueImpl();
 
   operator VkQueue() const noexcept { return queue_; }
   operator uint32_t() const noexcept { return family_index_; }
@@ -32,6 +34,8 @@ class VKGS_GPU_API Queue {
 
   std::shared_ptr<CommandPool> command_pool_;
 };
+
+class VKGS_GPU_API Queue : public SharedAccessor<Queue, QueueImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

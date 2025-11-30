@@ -101,8 +101,8 @@ void Viewer::Impl::InitializeWindow() {
   init_info.Instance = device->instance();
   init_info.PhysicalDevice = device->physical_device();
   init_info.Device = device;
-  init_info.QueueFamily = *gq;
-  init_info.Queue = *gq;
+  init_info.QueueFamily = gq;
+  init_info.Queue = gq;
   init_info.DescriptorPoolSize = 1024;
   init_info.MinImageCount = 3;
   init_info.ImageCount = 3;
@@ -303,7 +303,7 @@ void Viewer::Impl::DrawUi() {
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
   storage.Update(splats_->size(), size.x, size.y);
 
-  ImGui::Image(static_cast<VkDescriptorSet>(*storage.texture()), size);
+  ImGui::Image(static_cast<VkDescriptorSet>(storage.texture()), size);
 
   if (!left_panel) {
     ImVec2 pos = {-5.f, size.y / 2.f};
@@ -521,9 +521,9 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     // Release
     gpu::cmd::Barrier()
-        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
+        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, cq, gq,
                  screen_splats->instances())
-        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, *cq, *gq,
+        .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, cq, gq,
                  screen_splats->draw_indirect())
         .Commit(cb);
 
@@ -537,9 +537,8 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     gpu::cmd::Barrier()
         // Acquire
-        .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, *cq, *gq,
-                 screen_splats->instances())
-        .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, *cq, *gq,
+        .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, cq, gq, screen_splats->instances())
+        .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, cq, gq,
                  screen_splats->draw_indirect())
         // Image layout transition
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,

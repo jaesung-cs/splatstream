@@ -56,7 +56,7 @@ class Storage {
 
   // For ImGui texture
   gpu::Sampler sampler_;
-  std::shared_ptr<ImGuiTexture> texture_;
+  ImGuiTexture texture_;
 };
 
 }  // namespace viewer

@@ -11,12 +11,12 @@
 #include "vkgs/common/shared_accessor.h"
 
 #include "export_api.h"
+#include "queue.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Object;
-class Queue;
 class Semaphore;
 class Fence;
 struct GraphicsPipelineCreateInfo;
@@ -79,9 +79,9 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
 
   void* allocator_ = VK_NULL_HANDLE;
 
-  std::shared_ptr<Queue> graphics_queue_;
-  std::shared_ptr<Queue> compute_queue_;
-  std::shared_ptr<Queue> transfer_queue_;
+  Queue graphics_queue_;
+  Queue compute_queue_;
+  Queue transfer_queue_;
   std::shared_ptr<SemaphorePool> semaphore_pool_;
   std::shared_ptr<FencePool> fence_pool_;
   std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool_;

@@ -233,9 +233,9 @@ DeviceImpl::DeviceImpl(const DeviceCreateInfo& create_info) {
   fence_pool_ = std::make_shared<FencePool>(device_);
   graphics_pipeline_pool_ = std::make_shared<GraphicsPipelinePool>(device_);
 
-  graphics_queue_ = std::make_shared<Queue>(device_, graphics_queue, graphics_queue_index);
-  compute_queue_ = std::make_shared<Queue>(device_, compute_queue, compute_queue_index);
-  transfer_queue_ = std::make_shared<Queue>(device_, transfer_queue, transfer_queue_index);
+  graphics_queue_ = Queue::Create(device_, graphics_queue, graphics_queue_index);
+  compute_queue_ = Queue::Create(device_, compute_queue, compute_queue_index);
+  transfer_queue_ = Queue::Create(device_, transfer_queue, transfer_queue_index);
 
   // Allocator
   VmaVulkanFunctions functions = {};
@@ -259,9 +259,9 @@ DeviceImpl::DeviceImpl(const DeviceCreateInfo& create_info) {
 DeviceImpl::~DeviceImpl() {
   WaitIdle();
 
-  graphics_queue_ = nullptr;
-  compute_queue_ = nullptr;
-  transfer_queue_ = nullptr;
+  graphics_queue_.reset();
+  compute_queue_.reset();
+  transfer_queue_.reset();
   semaphore_pool_ = nullptr;
   fence_pool_ = nullptr;
   graphics_pipeline_pool_ = nullptr;
