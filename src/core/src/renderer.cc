@@ -309,6 +309,7 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
   compute_push_constants.model = draw_options.model;
   compute_push_constants.point_count = N;
   compute_push_constants.eps2d = draw_options.eps2d;
+  compute_push_constants.confidence_radius = draw_options.confidence_radius;
   compute_push_constants.sh_degree_data = splats->sh_degree();
   compute_push_constants.sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree;
 

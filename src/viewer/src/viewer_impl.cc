@@ -267,13 +267,17 @@ void Viewer::Impl::DrawUi() {
 
       ImGui::SliderInt("SH degree", &viewer_options_.sh_degree, 0, splats_->sh_degree());
 
-      constexpr const char* render_types[] = {"Color", "Alpha", "Depth"};
+      constexpr const char* render_types[] = {"Color", "Alpha", "Depth (experimental)"};
       ImGui::Combo("Render type", &viewer_options_.render_type, render_types, IM_ARRAYSIZE(render_types));
 
       ImGui::ColorEdit3("Background", glm::value_ptr(viewer_options_.background));
 
+      ImGui::SliderFloat("eps2d", &viewer_options_.eps2d, 0.01f, 10.f, "%.3f", ImGuiSliderFlags_Logarithmic);
+      ImGui::SliderFloat("confidence radius", &viewer_options_.confidence_radius, 1.f, 5.f, "%.3f");
+
       if (!camera_params_.empty()) {
-        ImGui::SliderFloat("Camera Scale", &viewer_options_.camera_scale, 0.01f, 10.f, "%.3f",
+        ImGui::Checkbox("Show Camera Frames", &viewer_options_.show_camera_frames);
+        ImGui::SliderFloat("Camera Frame Scale", &viewer_options_.camera_frame_scale, 0.01f, 10.f, "%.3f",
                            ImGuiSliderFlags_Logarithmic);
 
         if (ImGui::SliderInt("Camera Index", &viewer_options_.camera_index, 0, camera_params_.size() - 1)) {
@@ -439,7 +443,10 @@ void Viewer::Impl::Run() {
   viewer_options_.sh_degree = splats_->sh_degree();
   viewer_options_.render_type = 0;
   viewer_options_.background = {0.f, 0.f, 0.f};
-  viewer_options_.camera_scale = 0.1f;
+  viewer_options_.eps2d = 0.01f;
+  viewer_options_.confidence_radius = 3.5f;
+  viewer_options_.show_camera_frames = true;
+  viewer_options_.camera_frame_scale = 0.1f;
   viewer_options_.camera_index = 0;
   viewer_options_.animation = false;
   viewer_options_.animation_time = 0.f;
@@ -513,7 +520,8 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   draw_options.width = texture_width;
   draw_options.height = texture_height;
   draw_options.background = {0.f, 0.f, 0.f};  // unused
-  draw_options.eps2d = 0.01f;
+  draw_options.eps2d = viewer_options_.eps2d;
+  draw_options.confidence_radius = viewer_options_.confidence_radius;
   draw_options.sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0;
 
   // Compute queue
@@ -612,28 +620,30 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .Bind(color_pipeline_)
         .Commit(cb);
 
-    ColorPushConstants color_push_constants = {};
-    color_push_constants.projection = camera_.ProjectionMatrix();
-    color_push_constants.view = camera_.ViewMatrix();
-    for (const auto& camera_param : camera_params_) {
-      glm::mat4 ndc_to_image = glm::mat4(1.f);
-      ndc_to_image[0][0] = 0.5f * camera_param.width;
-      ndc_to_image[1][1] = 0.5f * camera_param.height;
-      ndc_to_image[2][0] = 0.5f * camera_param.width;
-      ndc_to_image[2][1] = 0.5f * camera_param.height;
-      color_push_constants.model = viewer_options_.model * glm::inverse(camera_param.extrinsic) *
-                                   glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
-                                   glm::mat4(glm::mat3(viewer_options_.camera_scale));
+    if (viewer_options_.show_camera_frames) {
+      ColorPushConstants color_push_constants = {};
+      color_push_constants.projection = camera_.ProjectionMatrix();
+      color_push_constants.view = camera_.ViewMatrix();
+      for (const auto& camera_param : camera_params_) {
+        glm::mat4 ndc_to_image = glm::mat4(1.f);
+        ndc_to_image[0][0] = 0.5f * camera_param.width;
+        ndc_to_image[1][1] = 0.5f * camera_param.height;
+        ndc_to_image[2][0] = 0.5f * camera_param.width;
+        ndc_to_image[2][1] = 0.5f * camera_param.height;
+        color_push_constants.model = viewer_options_.model * glm::inverse(camera_param.extrinsic) *
+                                     glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
+                                     glm::mat4(glm::mat3(viewer_options_.camera_frame_scale));
 
-      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
-          .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
-          .Commit(cb);
+        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+            .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
+            .Commit(cb);
 
-      vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
-      VkBuffer buffer = camera_vertices_;
-      VkDeviceSize offset = 0;
-      vkCmdBindVertexBuffers(cb, 0, 1, &buffer, &offset);
-      vkCmdDrawIndexed(cb, camera_index_size_, 1, 0, 0, 0);
+        vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
+        VkBuffer buffer = camera_vertices_;
+        VkDeviceSize offset = 0;
+        vkCmdBindVertexBuffers(cb, 0, 1, &buffer, &offset);
+        vkCmdDrawIndexed(cb, camera_index_size_, 1, 0, 0, 0);
+      }
     }
 
     // render splats

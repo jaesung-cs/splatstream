@@ -6,6 +6,9 @@ layout(push_constant, std430) uniform PushConstants {
   mat4 model;
   uint point_count;
   float eps2d;
+  float confidence_radius;
+  uint sh_degree_data;
+  uint sh_degree_draw;
 };
 
 // TODO: use uniform buffer

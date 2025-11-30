@@ -61,7 +61,10 @@ class Viewer::Impl {
     int sh_degree;
     int render_type;
     glm::vec3 background;
-    float camera_scale;
+    float eps2d;
+    float confidence_radius;
+    bool show_camera_frames;
+    float camera_frame_scale;
     int camera_index;
     bool animation;
     float animation_time;
