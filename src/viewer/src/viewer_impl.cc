@@ -37,6 +37,7 @@
 #include "generated/blend_vert.h"
 #include "generated/blend_frag.h"
 #include "context.h"
+#include "imgui_texture.h"
 
 namespace vkgs {
 namespace viewer {
@@ -135,13 +136,14 @@ void Viewer::Impl::DrawUi() {
     ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, &dock_id_left, &dock_id_right);
     auto left_node = ImGui::DockBuilderGetNode(dock_id_left);
     left_node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+    auto right_node = ImGui::DockBuilderGetNode(dock_id_right);
+    right_node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
     ImGui::DockBuilderDockWindow("Left", dock_id_left);
     ImGui::DockBuilderDockWindow("Right", dock_id_right);
     ImGui::DockBuilderFinish(dockspace_id);
   }
 
-  ImGui::DockSpaceOverViewport(dockspace_id, NULL,
-                               ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingInCentralNode);
+  ImGui::DockSpaceOverViewport(dockspace_id);
 
   const ImGuiWindowFlags dock_flags =
       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
@@ -177,29 +179,12 @@ void Viewer::Impl::DrawUi() {
           viewer_options_.camera_modified = true;
         }
       }
-
-      if (viewer_options_.camera_modified) {
-        viewer_options_.animation = false;
-      }
     }
 
     if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
       if (ImGui::Checkbox("Animation##Button", &viewer_options_.animation)) {
         if (viewer_options_.animation) {
           viewer_options_.animation_time = viewer_options_.camera_index;
-        }
-      }
-
-      if (viewer_options_.animation) {
-        viewer_options_.animation_time += io.DeltaTime * viewer_options_.animation_speed;
-        viewer_options_.animation_time = std::fmod(viewer_options_.animation_time, camera_params_.size());
-
-        if (!camera_params_.empty()) {
-          auto pose = pose_spline_.Evaluate(viewer_options_.animation_time);
-          glm::mat4 w2c = glm::toMat4(pose.q);
-          w2c[3] = glm::vec4(pose.p, 1.f);
-          auto c2w = glm::inverse(w2c);
-          camera_.SetView(c2w);
         }
       }
 
@@ -215,7 +200,25 @@ void Viewer::Impl::DrawUi() {
     ImGui::End();
   }
 
-  ImGui::Begin("Right", NULL, dock_flags | ImGuiWindowFlags_NoBackground);
+  if (viewer_options_.camera_modified) {
+    viewer_options_.animation = false;
+  }
+
+  if (viewer_options_.animation) {
+    viewer_options_.animation_time += io.DeltaTime * viewer_options_.animation_speed;
+    viewer_options_.animation_time = std::fmod(viewer_options_.animation_time, camera_params_.size());
+
+    if (!camera_params_.empty()) {
+      auto pose = pose_spline_.Evaluate(viewer_options_.animation_time);
+      glm::mat4 w2c = glm::toMat4(pose.q);
+      w2c[3] = glm::vec4(pose.p, 1.f);
+      auto c2w = glm::inverse(w2c);
+      camera_.SetView(c2w);
+    }
+  }
+
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  ImGui::Begin("Right", NULL, dock_flags);
   auto size = ImGui::GetContentRegionAvail();
 
   viewer_options_.camera_modified = false;
@@ -297,6 +300,11 @@ void Viewer::Impl::DrawUi() {
 
   camera_.Update(io.DeltaTime);
 
+  auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
+  storage.Update(splats_->size(), size.x, size.y);
+
+  ImGui::Image(static_cast<VkDescriptorSet>(*storage.texture()), size);
+
   if (!left_panel) {
     ImVec2 pos = {-5.f, size.y / 2.f};
     ImGui::SetCursorPos(pos);
@@ -305,6 +313,7 @@ void Viewer::Impl::DrawUi() {
     }
   }
   ImGui::End();
+  ImGui::PopStyleVar();
 }
 
 void Viewer::Impl::Run() {
@@ -454,6 +463,8 @@ void Viewer::Impl::Run() {
 
   context_->device()->WaitIdle();
 
+  for (auto& storage : ring_buffer_) storage.Clear();
+
   FinalizeWindow();
 }
 
@@ -469,30 +480,34 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   auto width = present_image_info.extent.width;
   auto height = present_image_info.extent.height;
 
-  camera_.SetWindowSize(width, height);
-
-  core::DrawOptions draw_options = {};
-  draw_options.view = camera_.ViewMatrix();
-  draw_options.projection = camera_.ProjectionMatrix();
-  draw_options.model = viewer_options_.model;
-  draw_options.width = width;
-  draw_options.height = height;
-  draw_options.background = {0.f, 0.f, 0.f};  // unused
-  draw_options.eps2d = 0.01f;
-  draw_options.sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0;
-
   // ring buffer
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
-  storage.Update(splats_->size(), width, height);
   auto screen_splats = storage.screen_splats();
   auto csem = storage.compute_semaphore();
   auto cval = csem->value();
   auto gsem = storage.graphics_semaphore();
   auto gval = gsem->value();
-  auto image16 = storage.image();
+  auto texture = storage.texture();
+  auto image = storage.image();
+  auto image16 = storage.image16();
   auto depth = storage.depth();
   auto depth_image = storage.depth_image();
   frame_index_++;
+
+  auto texture_width = image->width();
+  auto texture_height = image->height();
+
+  camera_.SetWindowSize(texture_width, texture_height);
+
+  core::DrawOptions draw_options = {};
+  draw_options.view = camera_.ViewMatrix();
+  draw_options.projection = camera_.ProjectionMatrix();
+  draw_options.model = viewer_options_.model;
+  draw_options.width = texture_width;
+  draw_options.height = texture_height;
+  draw_options.background = {0.f, 0.f, 0.f};  // unused
+  draw_options.eps2d = 0.01f;
+  draw_options.sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0;
 
   // Compute queue
   {
@@ -528,6 +543,8 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, *image)
+        .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *image16)
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, *depth_image)
@@ -540,7 +557,7 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     std::array<VkRenderingAttachmentInfo, 3> color_attachments;
     // Swapchain image
     color_attachments[0] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    color_attachments[0].imageView = present_image_info.image_view;
+    color_attachments[0].imageView = image->image_view();
     color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     color_attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;  // TODO: don't clear, no blend
     color_attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -570,16 +587,16 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
     rendering_info.renderArea.offset = {0, 0};
-    rendering_info.renderArea.extent = present_image_info.extent;
+    rendering_info.renderArea.extent = {texture_width, texture_height};
     rendering_info.layerCount = 1;
     rendering_info.colorAttachmentCount = color_attachments.size();
     rendering_info.pColorAttachments = color_attachments.data();
     rendering_info.pDepthAttachment = &depth_attachment;
     vkCmdBeginRendering(cb, &rendering_info);
 
-    VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
+    VkViewport viewport = {0.f, 0.f, static_cast<float>(texture_width), static_cast<float>(texture_height), 0.f, 1.f};
     vkCmdSetViewport(cb, 0, 1, &viewport);
-    VkRect2D scissor = {0, 0, width, height};
+    VkRect2D scissor = {0, 0, texture_width, texture_height};
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
     // render scene
@@ -645,9 +662,9 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     // Rendering UI
     gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT)
+        .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+               VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *image)
         .Commit(cb);
 
     VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -670,6 +687,8 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, present_image_info.image)
         .Commit(cb);
 
+    texture->Keep();
+    image->Keep();
     image16->Keep();
     depth_image->Keep();
     depth->Keep();

@@ -27,6 +27,7 @@ FetchContent_MakeAvailable(glfw)
 add_library(vkgs_viewer SHARED
   src/camera.cc
   src/context.cc
+  src/imgui_texture.cc
   src/pose_spline.cc
   src/storage.cc
   src/util.cc

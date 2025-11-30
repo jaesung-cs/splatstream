@@ -11,8 +11,6 @@
 namespace vkgs {
 namespace gpu {
 
-class Device;
-
 class VKGS_GPU_API Buffer : public Object {
  public:
   static std::shared_ptr<Buffer> Create(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
