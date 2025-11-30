@@ -3,13 +3,17 @@
 
 #include <memory>
 
+#include "imgui_texture.h"
+
 namespace vkgs {
+
 namespace core {
 class ScreenSplats;
 }
 
 namespace gpu {
 class Image;
+class Sampler;
 class Semaphore;
 }  // namespace gpu
 
@@ -21,11 +25,18 @@ class Storage {
   ~Storage();
 
   void Update(uint32_t size, uint32_t width, uint32_t height);
+  void Clear();
 
   auto screen_splats() const noexcept { return screen_splats_; }
 
-  // Color image
+  // Texture for ImGui
+  auto texture() const noexcept { return texture_; }
+
+  // Final image
   auto image() const noexcept { return image_; }
+
+  // Intermediate color image
+  auto image16() const noexcept { return image16_; }
 
   // Depth image
   auto depth_image() const noexcept { return depth_image_; }
@@ -39,10 +50,15 @@ class Storage {
  private:
   std::shared_ptr<core::ScreenSplats> screen_splats_;
   std::shared_ptr<gpu::Image> image_;
+  std::shared_ptr<gpu::Image> image16_;
   std::shared_ptr<gpu::Image> depth_image_;
   std::shared_ptr<gpu::Image> depth_;
   std::shared_ptr<gpu::Semaphore> compute_semaphore_;
   std::shared_ptr<gpu::Semaphore> graphics_semaphore_;
+
+  // For ImGui texture
+  std::shared_ptr<gpu::Sampler> sampler_;
+  std::shared_ptr<ImGuiTexture> texture_;
 };
 
 }  // namespace viewer
