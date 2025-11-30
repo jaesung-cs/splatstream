@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/graphics_pipeline_pool.h"
+#include "vkgs/gpu/details/graphics_pipeline_pool.h"
 
 namespace vkgs {
 namespace gpu {

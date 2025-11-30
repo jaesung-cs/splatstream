@@ -1,5 +1,5 @@
-#ifndef VKGS_GPU_COMMAND_POOL_H
-#define VKGS_GPU_COMMAND_POOL_H
+#ifndef VKGS_GPU_DETAILS_COMMAND_POOL_H
+#define VKGS_GPU_DETAILS_COMMAND_POOL_H
 
 #include <memory>
 #include <vector>
@@ -37,4 +37,4 @@ class CommandPool : public SharedAccessor<CommandPool, CommandPoolImpl> {};
 }  // namespace gpu
 }  // namespace vkgs
 
-#endif  // VKGS_GPU_COMMAND_POOL_H
+#endif  // VKGS_GPU_DETAILS_COMMAND_POOL_H

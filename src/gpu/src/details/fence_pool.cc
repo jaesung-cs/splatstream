@@ -1,8 +1,8 @@
-#include "vkgs/gpu/fence_pool.h"
+#include "vkgs/gpu/details/fence_pool.h"
 
 #include <volk.h>
 
-#include "vkgs/gpu/fence.h"
+#include "vkgs/gpu/details/fence.h"
 
 namespace vkgs {
 namespace gpu {

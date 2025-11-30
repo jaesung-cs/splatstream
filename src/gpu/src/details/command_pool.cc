@@ -1,8 +1,8 @@
-#include "vkgs/gpu/command_pool.h"
+#include "vkgs/gpu/details/command_pool.h"
 
 #include <volk.h>
 
-#include "vkgs/gpu/command.h"
+#include "vkgs/gpu/details/command.h"
 
 namespace vkgs {
 namespace gpu {

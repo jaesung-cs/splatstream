@@ -7,8 +7,8 @@
 
 #include "vkgs/common/shared_accessor.h"
 
+#include "vkgs/gpu/details/command_pool.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/command_pool.h"
 
 namespace vkgs {
 namespace gpu {

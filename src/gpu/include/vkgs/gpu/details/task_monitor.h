@@ -1,5 +1,5 @@
-#ifndef VKGS_GPU_TASK_MONITOR_H
-#define VKGS_GPU_TASK_MONITOR_H
+#ifndef VKGS_GPU_DETAILS_TASK_MONITOR_H
+#define VKGS_GPU_DETAILS_TASK_MONITOR_H
 
 #include <memory>
 #include <vector>
@@ -37,4 +37,4 @@ class TaskMonitor : public SharedAccessor<TaskMonitor, TaskMonitorImpl> {};
 }  // namespace gpu
 }  // namespace vkgs
 
-#endif  // VKGS_GPU_TASK_MONITOR_H
+#endif  // VKGS_GPU_DETAILS_TASK_MONITOR_H

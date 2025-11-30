@@ -6,11 +6,11 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/gpu/details/fence.h"
+#include "vkgs/gpu/details/command.h"
 #include "vkgs/gpu/export_api.h"
 #include "vkgs/gpu/device.h"
-#include "vkgs/gpu/fence.h"
 #include "vkgs/gpu/queue.h"
-#include "vkgs/gpu/command.h"
 
 namespace vkgs {
 namespace gpu {

@@ -5,12 +5,12 @@
 #include <volk.h>
 #include <vk_mem_alloc.h>
 
+#include "vkgs/gpu/details/fence.h"
+#include "vkgs/gpu/details/command.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
-#include "vkgs/gpu/fence.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/queue_task.h"
-#include "vkgs/gpu/command.h"
 
 namespace {
 

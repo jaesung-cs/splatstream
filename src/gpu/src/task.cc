@@ -2,10 +2,10 @@
 
 #include <volk.h>
 
+#include "vkgs/gpu/details/fence.h"
+#include "vkgs/gpu/details/command.h"
 #include "vkgs/gpu/gpu.h"
-#include "vkgs/gpu/fence.h"
 #include "vkgs/gpu/queue_task.h"
-#include "vkgs/gpu/command.h"
 
 namespace vkgs {
 namespace gpu {

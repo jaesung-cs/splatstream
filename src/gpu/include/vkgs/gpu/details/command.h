@@ -1,11 +1,11 @@
-#ifndef VKGS_GPU_COMMAND_H
-#define VKGS_GPU_COMMAND_H
+#ifndef VKGS_GPU_DETAILS_COMMAND_H
+#define VKGS_GPU_DETAILS_COMMAND_H
 
 #include <memory>
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/gpu/command_pool.h"
+#include "vkgs/gpu/details/command_pool.h"
 
 namespace vkgs {
 namespace gpu {
@@ -27,4 +27,4 @@ class Command : public SharedAccessor<Command, CommandImpl> {};
 }  // namespace gpu
 }  // namespace vkgs
 
-#endif  // VKGS_GPU_COMMAND_H
+#endif  // VKGS_GPU_DETAILS_COMMAND_H

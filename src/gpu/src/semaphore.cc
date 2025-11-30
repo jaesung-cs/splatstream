@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/semaphore_pool.h"
+#include "vkgs/gpu/details/semaphore_pool.h"
 
 namespace vkgs {
 namespace gpu {

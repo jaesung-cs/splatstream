@@ -1,4 +1,4 @@
-#include "vkgs/gpu/task_monitor.h"
+#include "vkgs/gpu/details/task_monitor.h"
 
 #include "vkgs/gpu/queue_task.h"
 

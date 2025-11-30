@@ -23,15 +23,17 @@ FetchContent_MakeAvailable(vma)
 add_library(vkgs_gpu SHARED
   src/cmd/barrier.cc
   src/cmd/pipeline.cc
+  src/details/command_pool.cc
+  src/details/command.cc
+  src/details/fence_pool.cc
+  src/details/fence.cc
+  src/details/graphics_pipeline_pool.cc
+  src/details/semaphore_pool.cc
+  src/details/task_monitor.cc
   src/buffer.cc
-  src/command_pool.cc
-  src/command.cc
   src/compute_pipeline.cc
   src/device.cc
-  src/fence_pool.cc
-  src/fence.cc
   src/gpu.cc
-  src/graphics_pipeline_pool.cc
   src/graphics_pipeline.cc
   src/image.cc
   src/object.cc
@@ -39,10 +41,8 @@ add_library(vkgs_gpu SHARED
   src/queue_task.cc
   src/queue.cc
   src/sampler.cc
-  src/semaphore_pool.cc
   src/semaphore.cc
   src/swapchain.cc
-  src/task_monitor.cc
   src/task.cc
   src/timer.cc
   src/vma_impl.cc

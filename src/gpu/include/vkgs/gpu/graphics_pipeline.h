@@ -9,6 +9,7 @@
 #include "vkgs/common/shared_accessor.h"
 #include "vkgs/gpu/export_api.h"
 #include "vkgs/gpu/object.h"
+#include "vkgs/gpu/details/graphics_pipeline_pool.h"
 
 namespace vkgs {
 namespace gpu {
@@ -39,8 +40,6 @@ struct GraphicsPipelineCreateInfo {
   bool depth_test;
   bool depth_write;
 };
-
-class GraphicsPipelinePool;
 
 class VKGS_GPU_API GraphicsPipelineImpl : public Object {
  public:

@@ -1,5 +1,5 @@
-#ifndef VKGS_GPU_GRAPHICS_PIPELINE_POOL_H
-#define VKGS_GPU_GRAPHICS_PIPELINE_POOL_H
+#ifndef VKGS_GPU_DETAILS_GRAPHICS_PIPELINE_POOL_H
+#define VKGS_GPU_DETAILS_GRAPHICS_PIPELINE_POOL_H
 
 #include <memory>
 #include <map>
@@ -36,4 +36,4 @@ class GraphicsPipelinePool : public SharedAccessor<GraphicsPipelinePool, Graphic
 }  // namespace gpu
 }  // namespace vkgs
 
-#endif  // VKGS_GPU_GRAPHICS_PIPELINE_POOL_H
+#endif  // VKGS_GPU_DETAILS_GRAPHICS_PIPELINE_POOL_H

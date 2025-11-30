@@ -10,12 +10,12 @@
 
 #include "vkgs/common/shared_accessor.h"
 
+#include "vkgs/gpu/details/fence_pool.h"
+#include "vkgs/gpu/details/semaphore_pool.h"
+#include "vkgs/gpu/details/graphics_pipeline_pool.h"
+#include "vkgs/gpu/details/task_monitor.h"
 #include "vkgs/gpu/export_api.h"
 #include "vkgs/gpu/queue.h"
-#include "vkgs/gpu/semaphore_pool.h"
-#include "vkgs/gpu/fence_pool.h"
-#include "vkgs/gpu/graphics_pipeline_pool.h"
-#include "vkgs/gpu/task_monitor.h"
 
 namespace vkgs {
 namespace gpu {

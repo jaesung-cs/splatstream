@@ -1,5 +1,5 @@
-#ifndef VKGS_GPU_FENCE_H
-#define VKGS_GPU_FENCE_H
+#ifndef VKGS_GPU_DETAILS_FENCE_H
+#define VKGS_GPU_DETAILS_FENCE_H
 
 #include <memory>
 
@@ -33,4 +33,4 @@ class Fence : public SharedAccessor<Fence, FenceImpl> {};
 }  // namespace gpu
 }  // namespace vkgs
 
-#endif  // VKGS_GPU_FENCE_H
+#endif  // VKGS_GPU_DETAILS_FENCE_H

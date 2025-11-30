@@ -1,5 +1,5 @@
-#ifndef VKGS_GPU_SEMAPHORE_POOL_H
-#define VKGS_GPU_SEMAPHORE_POOL_H
+#ifndef VKGS_GPU_DETAILS_SEMAPHORE_POOL_H
+#define VKGS_GPU_DETAILS_SEMAPHORE_POOL_H
 
 #include <memory>
 #include <vector>
