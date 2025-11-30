@@ -42,7 +42,6 @@ class Viewer::Impl {
  private:
   void InitializeWindow();
   void FinalizeWindow();
-  void HandleEvents();
   void DrawUi();
   void Draw(const gpu::PresentImageInfo& present_image_info);
 

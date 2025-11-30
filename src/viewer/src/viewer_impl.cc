@@ -121,85 +121,6 @@ void Viewer::Impl::FinalizeWindow() {
   glfwDestroyWindow(window_);
 }
 
-void Viewer::Impl::HandleEvents() {
-  const auto& io = ImGui::GetIO();
-
-  viewer_options_.camera_modified = false;
-
-  // handle events
-  if (!io.WantCaptureMouse || (ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !ImGui::IsAnyItemActive())) {
-    bool left = io.MouseDown[ImGuiMouseButton_Left];
-    bool right = io.MouseDown[ImGuiMouseButton_Right];
-    bool ctrl = ImGui::IsKeyDown(ImGuiKey::ImGuiMod_Ctrl);
-    float dx = io.MouseDelta.x;
-    float dy = io.MouseDelta.y;
-
-    if (left && !right) {
-      // ctrl + drag for translation, otherwise rotate
-      if (ctrl) {
-        camera_.Translate(dx, dy);
-        if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
-      } else {
-        camera_.Rotate(dx, dy);
-        if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
-      }
-    } else if (!left && right) {
-      camera_.Translate(dx, dy);
-      if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
-    } else if (left && right) {
-      camera_.Zoom(dy);
-      if (dy != 0.f) viewer_options_.camera_modified = true;
-    }
-
-    if (io.MouseWheel != 0.f) {
-      if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-        camera_.DollyZoom(io.MouseWheel);
-      } else {
-        camera_.Zoom(io.MouseWheel * 10.f);
-        viewer_options_.camera_modified = true;
-      }
-    }
-  }
-
-  if (!io.WantCaptureKeyboard) {
-    constexpr float speed = 1000.f;
-    float dt = io.DeltaTime;
-    if (ImGui::IsKeyDown(ImGuiKey_W)) {
-      camera_.Translate(0.f, 0.f, speed * dt);
-      viewer_options_.camera_modified = true;
-    }
-    if (ImGui::IsKeyDown(ImGuiKey_S)) {
-      camera_.Translate(0.f, 0.f, -speed * dt);
-      viewer_options_.camera_modified = true;
-    }
-    if (ImGui::IsKeyDown(ImGuiKey_A)) {
-      camera_.Translate(speed * dt, 0.f);
-      viewer_options_.camera_modified = true;
-    }
-    if (ImGui::IsKeyDown(ImGuiKey_D)) {
-      camera_.Translate(-speed * dt, 0.f);
-      viewer_options_.camera_modified = true;
-    }
-    if (ImGui::IsKeyDown(ImGuiKey_Space)) {
-      camera_.Translate(0.f, speed * dt);
-      viewer_options_.camera_modified = true;
-    }
-
-    constexpr float pi = 3.14159265f;
-    constexpr float rolling_speed = pi;
-    if (ImGui::IsKeyDown(ImGuiKey_Q)) {
-      camera_.Roll(rolling_speed * dt);
-      viewer_options_.camera_modified = true;
-    }
-    if (ImGui::IsKeyDown(ImGuiKey_E)) {
-      camera_.Roll(-rolling_speed * dt);
-      viewer_options_.camera_modified = true;
-    }
-  }
-
-  camera_.Update(io.DeltaTime);
-}
-
 void Viewer::Impl::DrawUi() {
   const auto& io = ImGui::GetIO();
 
@@ -296,6 +217,86 @@ void Viewer::Impl::DrawUi() {
 
   ImGui::Begin("Right", NULL, dock_flags | ImGuiWindowFlags_NoBackground);
   auto size = ImGui::GetContentRegionAvail();
+
+  viewer_options_.camera_modified = false;
+
+  // handle events
+  // TODO: bool gizmo_over = ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !ImGui::IsAnyItemActive();
+  bool hovered = ImGui::IsItemActive();
+  bool focused = ImGui::IsItemFocused();
+  auto window_focused = ImGui::IsWindowFocused();
+  if (hovered || focused) {
+    bool left = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    bool right = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+    bool ctrl = ImGui::IsKeyDown(ImGuiKey::ImGuiMod_Ctrl);
+    float dx = io.MouseDelta.x;
+    float dy = io.MouseDelta.y;
+
+    if (left && !right) {
+      // ctrl + drag for translation, otherwise rotate
+      if (ctrl) {
+        camera_.Translate(dx, dy);
+        if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
+      } else {
+        camera_.Rotate(dx, dy);
+        if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
+      }
+    } else if (!left && right) {
+      camera_.Translate(dx, dy);
+      if (dx != 0.f || dy != 0.f) viewer_options_.camera_modified = true;
+    } else if (left && right) {
+      camera_.Zoom(dy);
+      if (dy != 0.f) viewer_options_.camera_modified = true;
+    }
+
+    if (io.MouseWheel != 0.f) {
+      if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+        camera_.DollyZoom(io.MouseWheel);
+      } else {
+        camera_.Zoom(io.MouseWheel * 10.f);
+        viewer_options_.camera_modified = true;
+      }
+    }
+  }
+
+  if (window_focused) {
+    constexpr float speed = 1000.f;
+    float dt = io.DeltaTime;
+    if (ImGui::IsKeyDown(ImGuiKey_W)) {
+      camera_.Translate(0.f, 0.f, speed * dt);
+      viewer_options_.camera_modified = true;
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_S)) {
+      camera_.Translate(0.f, 0.f, -speed * dt);
+      viewer_options_.camera_modified = true;
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_A)) {
+      camera_.Translate(speed * dt, 0.f);
+      viewer_options_.camera_modified = true;
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_D)) {
+      camera_.Translate(-speed * dt, 0.f);
+      viewer_options_.camera_modified = true;
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_Space)) {
+      camera_.Translate(0.f, speed * dt);
+      viewer_options_.camera_modified = true;
+    }
+
+    constexpr float pi = 3.14159265f;
+    constexpr float rolling_speed = pi;
+    if (ImGui::IsKeyDown(ImGuiKey_Q)) {
+      camera_.Roll(rolling_speed * dt);
+      viewer_options_.camera_modified = true;
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_E)) {
+      camera_.Roll(-rolling_speed * dt);
+      viewer_options_.camera_modified = true;
+    }
+  }
+
+  camera_.Update(io.DeltaTime);
+
   if (!left_panel) {
     ImVec2 pos = {-5.f, size.y / 2.f};
     ImGui::SetCursorPos(pos);
@@ -437,7 +438,6 @@ void Viewer::Impl::Run() {
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
 
-    HandleEvents();
     DrawUi();
 
     const auto& io = ImGui::GetIO();
