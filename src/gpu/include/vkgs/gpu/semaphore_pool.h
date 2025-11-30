@@ -6,15 +6,17 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+
 namespace vkgs {
 namespace gpu {
 
 class Semaphore;
 
-class SemaphorePool : public std::enable_shared_from_this<SemaphorePool> {
+class SemaphorePoolImpl : public std::enable_shared_from_this<SemaphorePoolImpl> {
  public:
-  explicit SemaphorePool(VkDevice device);
-  ~SemaphorePool();
+  explicit SemaphorePoolImpl(VkDevice device);
+  ~SemaphorePoolImpl();
 
   Semaphore Allocate();
   void Free(VkSemaphore semaphore, uint64_t value);
@@ -24,6 +26,8 @@ class SemaphorePool : public std::enable_shared_from_this<SemaphorePool> {
 
   std::vector<std::pair<VkSemaphore, uint64_t>> semaphores_;
 };
+
+class SemaphorePool : public SharedAccessor<SemaphorePool, SemaphorePoolImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

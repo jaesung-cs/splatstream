@@ -5,8 +5,7 @@
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/fence.h"
 #include "vkgs/gpu/queue_task.h"
-
-#include "command.h"
+#include "vkgs/gpu/command.h"
 
 namespace vkgs {
 namespace gpu {
@@ -32,7 +31,7 @@ Task::Task(QueueType queue_type) {
 
   VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(*command_, &begin_info);
+  vkBeginCommandBuffer(command_, &begin_info);
 }
 
 Task::~Task() {
@@ -41,7 +40,7 @@ Task::~Task() {
   }
 }
 
-VkCommandBuffer Task::command_buffer() const { return *command_; }
+VkCommandBuffer Task::command_buffer() const { return command_; }
 
 Task& Task::Keep(std::shared_ptr<Object> object) {
   objects_.push_back(object);
@@ -98,10 +97,10 @@ Task& Task::PostCallback(std::function<void()> callback) {
 }
 
 QueueTask Task::Submit() {
-  vkEndCommandBuffer(*command_);
+  vkEndCommandBuffer(command_);
 
   VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-  command_buffer_info.commandBuffer = *command_;
+  command_buffer_info.commandBuffer = command_;
 
   VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
   submit.waitSemaphoreInfoCount = wait_semaphore_infos_.size();

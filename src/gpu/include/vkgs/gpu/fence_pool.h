@@ -6,15 +6,17 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+
 namespace vkgs {
 namespace gpu {
 
 class Fence;
 
-class FencePool : public std::enable_shared_from_this<FencePool> {
+class FencePoolImpl : public std::enable_shared_from_this<FencePoolImpl> {
  public:
-  explicit FencePool(VkDevice device);
-  ~FencePool();
+  explicit FencePoolImpl(VkDevice device);
+  ~FencePoolImpl();
 
   Fence Allocate();
   void Free(VkFence fence);
@@ -23,6 +25,8 @@ class FencePool : public std::enable_shared_from_this<FencePool> {
   VkDevice device_;
   std::vector<VkFence> fences_;
 };
+
+class FencePool : public SharedAccessor<FencePool, FencePoolImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -3,8 +3,8 @@
 
 #include <memory>
 
-#include "export_api.h"
-#include "device.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/device.h"
 
 namespace vkgs {
 namespace gpu {

@@ -1,4 +1,4 @@
-#include "fence_pool.h"
+#include "vkgs/gpu/fence_pool.h"
 
 #include <volk.h>
 
@@ -7,15 +7,15 @@
 namespace vkgs {
 namespace gpu {
 
-FencePool::FencePool(VkDevice device) : device_(device) {}
+FencePoolImpl::FencePoolImpl(VkDevice device) : device_(device) {}
 
-FencePool::~FencePool() {
+FencePoolImpl::~FencePoolImpl() {
   for (auto fence : fences_) {
     vkDestroyFence(device_, fence, NULL);
   }
 }
 
-Fence FencePool::Allocate() {
+Fence FencePoolImpl::Allocate() {
   VkFence fence;
   if (fences_.empty()) {
     VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
@@ -24,10 +24,10 @@ Fence FencePool::Allocate() {
     fence = fences_.back();
     fences_.pop_back();
   }
-  return Fence::Create(shared_from_this(), fence);
+  return Fence::Create(FencePool::FromPtr(shared_from_this()), fence);
 }
 
-void FencePool::Free(VkFence fence) { fences_.push_back(fence); }
+void FencePoolImpl::Free(VkFence fence) { fences_.push_back(fence); }
 
 }  // namespace gpu
 }  // namespace vkgs

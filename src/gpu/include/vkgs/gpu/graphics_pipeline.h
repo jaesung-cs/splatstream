@@ -7,9 +7,8 @@
 #include <vulkan/vulkan.h>
 
 #include "vkgs/common/shared_accessor.h"
-
-#include "export_api.h"
-#include "object.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
@@ -47,15 +46,15 @@ class VKGS_GPU_API GraphicsPipelineImpl : public Object {
  public:
   GraphicsPipelineImpl(const GraphicsPipelineCreateInfo& create_info);
 
-  GraphicsPipelineImpl(std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool,
-                       const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline);
+  GraphicsPipelineImpl(GraphicsPipelinePool graphics_pipeline_pool, const GraphicsPipelineCreateInfo& create_info,
+                       VkPipeline pipeline);
 
   ~GraphicsPipelineImpl() override;
 
   operator VkPipeline() const noexcept { return pipeline_; }
 
  private:
-  std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool_;
+  GraphicsPipelinePool graphics_pipeline_pool_;
   GraphicsPipelineCreateInfo create_info_;
   VkPipeline pipeline_ = VK_NULL_HANDLE;
 };

@@ -7,13 +7,13 @@
 
 #include "vkgs/common/shared_accessor.h"
 
-#include "export_api.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/command_pool.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Command;
-class CommandPool;
 
 class VKGS_GPU_API QueueImpl {
  public:
@@ -24,7 +24,7 @@ class VKGS_GPU_API QueueImpl {
   operator uint32_t() const noexcept { return family_index_; }
   auto family_index() const noexcept { return family_index_; }
 
-  std::shared_ptr<Command> AllocateCommandBuffer();
+  Command AllocateCommandBuffer();
 
  private:
   VkDevice device_;
@@ -32,7 +32,7 @@ class VKGS_GPU_API QueueImpl {
   VkQueue queue_ = VK_NULL_HANDLE;
   uint32_t family_index_ = 0;
 
-  std::shared_ptr<CommandPool> command_pool_;
+  CommandPool command_pool_;
 };
 
 class VKGS_GPU_API Queue : public SharedAccessor<Queue, QueueImpl> {};

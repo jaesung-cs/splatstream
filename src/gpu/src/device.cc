@@ -10,12 +10,7 @@
 #include "vkgs/gpu/fence.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/queue_task.h"
-
-#include "semaphore_pool.h"
-#include "fence_pool.h"
-#include "graphics_pipeline_pool.h"
-#include "command.h"
-#include "task_monitor.h"
+#include "vkgs/gpu/command.h"
 
 namespace {
 
@@ -229,9 +224,9 @@ DeviceImpl::DeviceImpl(const DeviceCreateInfo& create_info) {
   vkGetPhysicalDeviceProperties(physical_device_, &device_properties);
   device_name_ = device_properties.deviceName;
 
-  semaphore_pool_ = std::make_shared<SemaphorePool>(device_);
-  fence_pool_ = std::make_shared<FencePool>(device_);
-  graphics_pipeline_pool_ = std::make_shared<GraphicsPipelinePool>(device_);
+  semaphore_pool_ = SemaphorePool::Create(device_);
+  fence_pool_ = FencePool::Create(device_);
+  graphics_pipeline_pool_ = GraphicsPipelinePool::Create(device_);
 
   graphics_queue_ = Queue::Create(device_, graphics_queue, graphics_queue_index);
   compute_queue_ = Queue::Create(device_, compute_queue, compute_queue_index);
@@ -253,7 +248,7 @@ DeviceImpl::DeviceImpl(const DeviceCreateInfo& create_info) {
   allocator_ = allocator;
 
   // Task monitor
-  task_monitor_ = std::make_shared<TaskMonitor>();
+  task_monitor_ = TaskMonitor::Create();
 }
 
 DeviceImpl::~DeviceImpl() {
@@ -262,10 +257,10 @@ DeviceImpl::~DeviceImpl() {
   graphics_queue_.reset();
   compute_queue_.reset();
   transfer_queue_.reset();
-  semaphore_pool_ = nullptr;
-  fence_pool_ = nullptr;
-  graphics_pipeline_pool_ = nullptr;
-  task_monitor_ = nullptr;
+  semaphore_pool_.reset();
+  fence_pool_.reset();
+  graphics_pipeline_pool_.reset();
+  task_monitor_.reset();
 
   VmaAllocator allocator = static_cast<VmaAllocator>(allocator_);
   vmaDestroyAllocator(allocator);
@@ -292,8 +287,8 @@ void DeviceImpl::WaitIdle() {
   vkDeviceWaitIdle(device_);
 }
 
-QueueTask DeviceImpl::AddQueueTask(Fence fence, std::shared_ptr<Command> command,
-                                   std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback) {
+QueueTask DeviceImpl::AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                                   std::function<void()> callback) {
   return task_monitor_->Add(fence, command, std::move(objects), callback);
 }
 

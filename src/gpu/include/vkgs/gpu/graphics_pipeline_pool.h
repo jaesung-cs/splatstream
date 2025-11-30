@@ -6,6 +6,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+
 namespace vkgs {
 namespace gpu {
 
@@ -16,10 +18,10 @@ struct GraphicsPipelineCreateInfoLess {
   bool operator()(const GraphicsPipelineCreateInfo& lhs, const GraphicsPipelineCreateInfo& rhs) const;
 };
 
-class GraphicsPipelinePool : public std::enable_shared_from_this<GraphicsPipelinePool> {
+class GraphicsPipelinePoolImpl : public std::enable_shared_from_this<GraphicsPipelinePoolImpl> {
  public:
-  GraphicsPipelinePool(VkDevice device);
-  ~GraphicsPipelinePool();
+  GraphicsPipelinePoolImpl(VkDevice device);
+  ~GraphicsPipelinePoolImpl();
 
   GraphicsPipeline Allocate(const GraphicsPipelineCreateInfo& create_info);
   void Free(const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline);
@@ -28,6 +30,8 @@ class GraphicsPipelinePool : public std::enable_shared_from_this<GraphicsPipelin
   VkDevice device_;
   std::map<GraphicsPipelineCreateInfo, VkPipeline, GraphicsPipelineCreateInfoLess> pipelines_;
 };
+
+class GraphicsPipelinePool : public SharedAccessor<GraphicsPipelinePool, GraphicsPipelinePoolImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -5,20 +5,18 @@
 #include <vector>
 #include <functional>
 
-#include "export_api.h"
-
-#include "fence.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/fence.h"
+#include "vkgs/gpu/command.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Object;
-class Fence;
-class Command;
 
 class VKGS_GPU_API QueueTaskImpl {
  public:
-  QueueTaskImpl(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+  QueueTaskImpl(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
                 std::function<void()> callback);
 
   ~QueueTaskImpl();
@@ -28,7 +26,7 @@ class VKGS_GPU_API QueueTaskImpl {
 
  private:
   Fence fence_;
-  std::shared_ptr<Command> command_;
+  Command command_;
   std::vector<std::shared_ptr<Object>> objects_;
   std::function<void()> callback_;
 };

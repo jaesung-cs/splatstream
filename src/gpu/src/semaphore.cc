@@ -2,12 +2,12 @@
 
 #include <volk.h>
 
-#include "semaphore_pool.h"
+#include "vkgs/gpu/semaphore_pool.h"
 
 namespace vkgs {
 namespace gpu {
 
-SemaphoreImpl::SemaphoreImpl(std::shared_ptr<SemaphorePool> semaphore_pool, VkSemaphore semaphore, uint64_t value)
+SemaphoreImpl::SemaphoreImpl(SemaphorePool semaphore_pool, VkSemaphore semaphore, uint64_t value)
     : semaphore_pool_(semaphore_pool), semaphore_(semaphore), value_(value) {}
 
 SemaphoreImpl::~SemaphoreImpl() {

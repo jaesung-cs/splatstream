@@ -1,4 +1,4 @@
-#include "semaphore_pool.h"
+#include "vkgs/gpu/semaphore_pool.h"
 
 #include <volk.h>
 
@@ -7,15 +7,15 @@
 namespace vkgs {
 namespace gpu {
 
-SemaphorePool::SemaphorePool(VkDevice device) : device_(device) {}
+SemaphorePoolImpl::SemaphorePoolImpl(VkDevice device) : device_(device) {}
 
-SemaphorePool::~SemaphorePool() {
+SemaphorePoolImpl::~SemaphorePoolImpl() {
   for (auto semaphore : semaphores_) {
     vkDestroySemaphore(device_, semaphore.first, NULL);
   }
 }
 
-Semaphore SemaphorePool::Allocate() {
+Semaphore SemaphorePoolImpl::Allocate() {
   std::pair<VkSemaphore, uint64_t> semaphore;
 
   if (semaphores_.empty()) {
@@ -32,10 +32,10 @@ Semaphore SemaphorePool::Allocate() {
     semaphores_.pop_back();
   }
 
-  return Semaphore::Create(shared_from_this(), semaphore.first, semaphore.second);
+  return Semaphore::Create(SemaphorePool::FromPtr(shared_from_this()), semaphore.first, semaphore.second);
 }
 
-void SemaphorePool::Free(VkSemaphore semaphore, uint64_t value) { semaphores_.emplace_back(semaphore, value); }
+void SemaphorePoolImpl::Free(VkSemaphore semaphore, uint64_t value) { semaphores_.emplace_back(semaphore, value); }
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -10,8 +10,12 @@
 
 #include "vkgs/common/shared_accessor.h"
 
-#include "export_api.h"
-#include "queue.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/queue.h"
+#include "vkgs/gpu/semaphore_pool.h"
+#include "vkgs/gpu/fence_pool.h"
+#include "vkgs/gpu/graphics_pipeline_pool.h"
+#include "vkgs/gpu/task_monitor.h"
 
 namespace vkgs {
 namespace gpu {
@@ -21,13 +25,9 @@ class Semaphore;
 class Fence;
 struct GraphicsPipelineCreateInfo;
 class GraphicsPipeline;
-class SemaphorePool;
-class FencePool;
-class TaskMonitor;
 class Command;
 class QueueTask;
 class Task;
-class GraphicsPipelinePool;
 
 struct DeviceCreateInfo {
   bool enable_viewer;
@@ -66,7 +66,7 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
   void ClearCurrentTask() { current_task_ = nullptr; }
   Task* CurrentTask() const { return current_task_; }
 
-  QueueTask AddQueueTask(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+  QueueTask AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
                          std::function<void()> callback);
 
  private:
@@ -82,10 +82,10 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
   Queue graphics_queue_;
   Queue compute_queue_;
   Queue transfer_queue_;
-  std::shared_ptr<SemaphorePool> semaphore_pool_;
-  std::shared_ptr<FencePool> fence_pool_;
-  std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool_;
-  std::shared_ptr<TaskMonitor> task_monitor_;
+  SemaphorePool semaphore_pool_;
+  FencePool fence_pool_;
+  GraphicsPipelinePool graphics_pipeline_pool_;
+  TaskMonitor task_monitor_;
 
   Task* current_task_ = nullptr;
 };

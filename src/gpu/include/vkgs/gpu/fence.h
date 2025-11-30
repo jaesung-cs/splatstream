@@ -6,8 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include "vkgs/common/shared_accessor.h"
-
-#include "object.h"
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
@@ -16,7 +15,7 @@ class FencePool;
 
 class FenceImpl : public Object {
  public:
-  FenceImpl(std::shared_ptr<FencePool> fence_pool, VkFence fence);
+  FenceImpl(FencePool fence_pool, VkFence fence);
   ~FenceImpl();
 
   operator VkFence() const noexcept { return fence_; }
@@ -25,7 +24,7 @@ class FenceImpl : public Object {
   void Wait();
 
  private:
-  std::shared_ptr<FencePool> fence_pool_;
+  FencePool fence_pool_;
   VkFence fence_ = VK_NULL_HANDLE;
 };
 

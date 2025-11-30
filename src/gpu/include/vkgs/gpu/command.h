@@ -5,22 +5,24 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/gpu/command_pool.h"
+
 namespace vkgs {
 namespace gpu {
 
-class CommandPool;
-
-class Command {
+class CommandImpl {
  public:
-  Command(std::shared_ptr<CommandPool> command_pool, VkCommandBuffer cb);
-  ~Command();
+  CommandImpl(CommandPool command_pool, VkCommandBuffer cb);
+  ~CommandImpl();
 
   operator VkCommandBuffer() const noexcept { return cb_; }
 
  private:
-  std::shared_ptr<CommandPool> command_pool_;
+  CommandPool command_pool_;
   VkCommandBuffer cb_ = VK_NULL_HANDLE;
 };
+
+class Command : public SharedAccessor<Command, CommandImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

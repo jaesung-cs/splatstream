@@ -1,21 +1,21 @@
-#include "task_monitor.h"
+#include "vkgs/gpu/task_monitor.h"
 
 #include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
 namespace gpu {
 
-TaskMonitor::TaskMonitor() = default;
+TaskMonitorImpl::TaskMonitorImpl() = default;
 
-TaskMonitor::~TaskMonitor() { FinishAllTasks(); }
+TaskMonitorImpl::~TaskMonitorImpl() { FinishAllTasks(); }
 
-void TaskMonitor::FinishAllTasks() {
+void TaskMonitorImpl::FinishAllTasks() {
   for (auto task : tasks_) task->Wait();
   tasks_.clear();
 }
 
-QueueTask TaskMonitor::Add(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
-                           std::function<void()> callback) {
+QueueTask TaskMonitorImpl::Add(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                               std::function<void()> callback) {
   gc();
 
   auto queue_task = QueueTask::Create(fence, command, std::move(objects), callback);
@@ -23,7 +23,7 @@ QueueTask TaskMonitor::Add(Fence fence, std::shared_ptr<Command> command, std::v
   return queue_task;
 }
 
-void TaskMonitor::gc() {
+void TaskMonitorImpl::gc() {
   constexpr int LOOP = 5;
 
   for (int i = 0; i < LOOP && i < tasks_.size(); ++i) {

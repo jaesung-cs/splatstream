@@ -5,22 +5,24 @@
 #include <vector>
 #include <functional>
 
-#include "vkgs/gpu/fence.h"
+#include "vkgs/common/shared_accessor.h"
 
 namespace vkgs {
 namespace gpu {
 
 class QueueTask;
 class Command;
+class Fence;
+class Object;
 
-class TaskMonitor {
+class TaskMonitorImpl {
  public:
-  TaskMonitor();
-  ~TaskMonitor();
+  TaskMonitorImpl();
+  ~TaskMonitorImpl();
 
   void FinishAllTasks();
 
-  QueueTask Add(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+  QueueTask Add(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
                 std::function<void()> callback);
 
  private:
@@ -29,6 +31,8 @@ class TaskMonitor {
   std::vector<QueueTask> tasks_;
   int rotation_index_ = 0;
 };
+
+class TaskMonitor : public SharedAccessor<TaskMonitor, TaskMonitorImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

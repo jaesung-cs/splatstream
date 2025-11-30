@@ -6,20 +6,22 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+
 namespace vkgs {
 namespace gpu {
 
 class Command;
 
-class CommandPool : public std::enable_shared_from_this<CommandPool> {
+class CommandPoolImpl : public std::enable_shared_from_this<CommandPoolImpl> {
  public:
-  explicit CommandPool(VkDevice device, uint32_t queue_family_index);
-  ~CommandPool();
+  explicit CommandPoolImpl(VkDevice device, uint32_t queue_family_index);
+  ~CommandPoolImpl();
 
   VkCommandPool command_pool() const noexcept { return command_pool_; }
   uint32_t queue_family_index() const noexcept { return queue_family_index_; }
 
-  std::shared_ptr<Command> Allocate();
+  Command Allocate();
   void Free(VkCommandBuffer command_buffer);
 
  private:
@@ -29,6 +31,8 @@ class CommandPool : public std::enable_shared_from_this<CommandPool> {
   VkCommandPool command_pool_ = VK_NULL_HANDLE;
   std::vector<VkCommandBuffer> command_buffers_;
 };
+
+class CommandPool : public SharedAccessor<CommandPool, CommandPoolImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

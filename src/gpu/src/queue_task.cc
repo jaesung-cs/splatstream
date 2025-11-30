@@ -5,8 +5,8 @@
 namespace vkgs {
 namespace gpu {
 
-QueueTaskImpl::QueueTaskImpl(Fence fence, std::shared_ptr<Command> command,
-                             std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback)
+QueueTaskImpl::QueueTaskImpl(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                             std::function<void()> callback)
     : fence_(fence), command_(command), objects_(std::move(objects)), callback_(callback) {}
 
 QueueTaskImpl::~QueueTaskImpl() { Wait(); }

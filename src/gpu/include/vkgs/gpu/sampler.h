@@ -6,9 +6,8 @@
 #include <vulkan/vulkan.h>
 
 #include "vkgs/common/shared_accessor.h"
-
-#include "export_api.h"
-#include "object.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {

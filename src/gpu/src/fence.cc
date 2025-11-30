@@ -3,13 +3,12 @@
 #include <volk.h>
 
 #include "vkgs/gpu/device.h"
-
-#include "fence_pool.h"
+#include "vkgs/gpu/fence_pool.h"
 
 namespace vkgs {
 namespace gpu {
 
-FenceImpl::FenceImpl(std::shared_ptr<FencePool> fence_pool, VkFence fence) : fence_pool_(fence_pool), fence_(fence) {}
+FenceImpl::FenceImpl(FencePool fence_pool, VkFence fence) : fence_pool_(fence_pool), fence_(fence) {}
 
 FenceImpl::~FenceImpl() {
   Wait();
