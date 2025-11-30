@@ -49,7 +49,7 @@ class VKGS_GPU_API Task {
 
   Task& PostCallback(std::function<void()> callback);
 
-  std::shared_ptr<QueueTask> Submit();
+  QueueTask Submit();
 
  private:
   std::shared_ptr<Device> device_;

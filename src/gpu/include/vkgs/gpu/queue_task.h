@@ -16,12 +16,12 @@ class Object;
 class Fence;
 class Command;
 
-class VKGS_GPU_API QueueTask {
+class VKGS_GPU_API QueueTaskImpl {
  public:
-  QueueTask(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
-            std::function<void()> callback);
+  QueueTaskImpl(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+                std::function<void()> callback);
 
-  ~QueueTask();
+  ~QueueTaskImpl();
 
   bool IsDone();
   void Wait();
@@ -32,6 +32,8 @@ class VKGS_GPU_API QueueTask {
   std::vector<std::shared_ptr<Object>> objects_;
   std::function<void()> callback_;
 };
+
+class VKGS_GPU_API QueueTask : public SharedAccessor<QueueTask, QueueTaskImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

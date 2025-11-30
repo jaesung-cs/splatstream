@@ -168,7 +168,7 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
   }
 
   // Compute queue: parse data
-  std::shared_ptr<gpu::QueueTask> queue_task;
+  gpu::QueueTask queue_task;
   {
     gpu::ComputeTask task;
     auto cb = task.command_buffer();
@@ -373,7 +373,7 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
   }
 
   // Compute queue: parse ply
-  std::shared_ptr<gpu::QueueTask> queue_task;
+  gpu::QueueTask queue_task;
   {
     gpu::ComputeTask task;
     auto cb = task.command_buffer();

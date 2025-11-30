@@ -1,12 +1,10 @@
 #include "vkgs/core/gaussian_splats.h"
 
-#include "vkgs/gpu/queue_task.h"
-
 namespace vkgs {
 namespace core {
 
 GaussianSplats::GaussianSplats(size_t size, uint32_t sh_degree, gpu::Buffer position, gpu::Buffer cov3d, gpu::Buffer sh,
-                               gpu::Buffer opacity, gpu::Buffer index_buffer, std::shared_ptr<gpu::QueueTask> task)
+                               gpu::Buffer opacity, gpu::Buffer index_buffer, gpu::QueueTask task)
     : size_(size),
       sh_degree_(sh_degree),
       position_(position),
@@ -21,7 +19,7 @@ GaussianSplats::~GaussianSplats() = default;
 void GaussianSplats::Wait() {
   if (task_) {
     task_->Wait();
-    task_ = nullptr;
+    task_.reset();
   }
 }
 

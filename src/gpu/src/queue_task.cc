@@ -5,13 +5,13 @@
 namespace vkgs {
 namespace gpu {
 
-QueueTask::QueueTask(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
-                     std::function<void()> callback)
+QueueTaskImpl::QueueTaskImpl(Fence fence, std::shared_ptr<Command> command,
+                             std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback)
     : fence_(fence), command_(command), objects_(std::move(objects)), callback_(callback) {}
 
-QueueTask::~QueueTask() { Wait(); }
+QueueTaskImpl::~QueueTaskImpl() { Wait(); }
 
-bool QueueTask::IsDone() {
+bool QueueTaskImpl::IsDone() {
   if (fence_->IsSignaled()) {
     if (callback_) {
       callback_();
@@ -22,7 +22,7 @@ bool QueueTask::IsDone() {
   return false;
 }
 
-void QueueTask::Wait() {
+void QueueTaskImpl::Wait() {
   fence_->Wait();
 
   if (callback_) {

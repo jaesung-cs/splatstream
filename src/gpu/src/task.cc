@@ -5,6 +5,7 @@
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/fence.h"
+#include "vkgs/gpu/queue_task.h"
 
 #include "command.h"
 
@@ -97,7 +98,7 @@ Task& Task::PostCallback(std::function<void()> callback) {
   return *this;
 }
 
-std::shared_ptr<QueueTask> Task::Submit() {
+QueueTask Task::Submit() {
   vkEndCommandBuffer(*command_);
 
   VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};

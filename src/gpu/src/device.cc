@@ -9,6 +9,7 @@
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/fence.h"
 #include "vkgs/gpu/graphics_pipeline.h"
+#include "vkgs/gpu/queue_task.h"
 
 #include "semaphore_pool.h"
 #include "fence_pool.h"
@@ -252,7 +253,7 @@ Device::Device(const DeviceCreateInfo& create_info) {
   allocator_ = allocator;
 
   // Task monitor
-  task_monitor_ = std::make_shared<gpu::TaskMonitor>();
+  task_monitor_ = std::make_shared<TaskMonitor>();
 }
 
 Device::~Device() {
@@ -291,9 +292,8 @@ void Device::WaitIdle() {
   vkDeviceWaitIdle(device_);
 }
 
-std::shared_ptr<QueueTask> Device::AddQueueTask(Fence fence, std::shared_ptr<Command> command,
-                                                std::vector<std::shared_ptr<Object>> objects,
-                                                std::function<void()> callback) {
+QueueTask Device::AddQueueTask(Fence fence, std::shared_ptr<Command> command,
+                               std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback) {
   return task_monitor_->Add(fence, command, std::move(objects), callback);
 }
 

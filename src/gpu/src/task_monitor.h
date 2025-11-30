@@ -20,13 +20,13 @@ class TaskMonitor {
 
   void FinishAllTasks();
 
-  std::shared_ptr<QueueTask> Add(Fence fence, std::shared_ptr<Command> command,
-                                 std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback);
+  QueueTask Add(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+                std::function<void()> callback);
 
  private:
   void gc();
 
-  std::vector<std::shared_ptr<QueueTask>> tasks_;
+  std::vector<QueueTask> tasks_;
   int rotation_index_ = 0;
 };
 

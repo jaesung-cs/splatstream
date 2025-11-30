@@ -6,14 +6,9 @@
 #include "export_api.h"
 
 #include "vkgs/core/draw_result.h"
+#include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
-namespace gpu {
-
-class QueueTask;
-
-}  // namespace gpu
-
 namespace core {
 
 class VKGS_CORE_API RenderingTask {
@@ -21,15 +16,15 @@ class VKGS_CORE_API RenderingTask {
   RenderingTask();
   ~RenderingTask();
 
-  void SetTask(std::shared_ptr<gpu::QueueTask> task);
-  void SetDrawResult(const DrawResult& result);
+  void SetTask(gpu::QueueTask task) { task_ = task; }
+  void SetDrawResult(const DrawResult& result) { result_ = result; }
 
   const auto& draw_result() const noexcept { return result_; }
 
   void Wait();
 
  private:
-  std::shared_ptr<gpu::QueueTask> task_;
+  gpu::QueueTask task_;
   DrawResult result_ = {};
 };
 

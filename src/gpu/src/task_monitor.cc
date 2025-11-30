@@ -14,12 +14,11 @@ void TaskMonitor::FinishAllTasks() {
   tasks_.clear();
 }
 
-std::shared_ptr<QueueTask> TaskMonitor::Add(Fence fence, std::shared_ptr<Command> command,
-                                            std::vector<std::shared_ptr<Object>> objects,
-                                            std::function<void()> callback) {
+QueueTask TaskMonitor::Add(Fence fence, std::shared_ptr<Command> command, std::vector<std::shared_ptr<Object>> objects,
+                           std::function<void()> callback) {
   gc();
 
-  auto queue_task = std::make_shared<QueueTask>(fence, command, std::move(objects), callback);
+  auto queue_task = QueueTask::Create(fence, command, std::move(objects), callback);
   tasks_.push_back(queue_task);
   return queue_task;
 }

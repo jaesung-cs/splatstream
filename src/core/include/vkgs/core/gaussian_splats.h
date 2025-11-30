@@ -6,18 +6,15 @@
 #include "export_api.h"
 
 #include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
-namespace gpu {
-class QueueTask;
-}  // namespace gpu
-
 namespace core {
 
 class VKGS_CORE_API GaussianSplats {
  public:
   GaussianSplats(size_t size, uint32_t sh_degree, gpu::Buffer position, gpu::Buffer cov3d, gpu::Buffer sh,
-                 gpu::Buffer opacity, gpu::Buffer index_buffer, std::shared_ptr<gpu::QueueTask> task);
+                 gpu::Buffer opacity, gpu::Buffer index_buffer, gpu::QueueTask task);
 
   ~GaussianSplats();
 
@@ -39,7 +36,7 @@ class VKGS_CORE_API GaussianSplats {
   gpu::Buffer sh_;            // (N, K) float16
   gpu::Buffer opacity_;       // (N)
   gpu::Buffer index_buffer_;  // (N, 6)
-  std::shared_ptr<gpu::QueueTask> task_;
+  gpu::QueueTask task_;
 };
 
 }  // namespace core

@@ -229,7 +229,7 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   }
 
   auto image_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
-  std::shared_ptr<gpu::QueueTask> queue_task;
+  gpu::QueueTask queue_task;
   {
     gpu::TransferTask task;
     auto cb = task.command_buffer();
