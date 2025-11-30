@@ -38,13 +38,13 @@ Python bindings for streamlined 3dgs rendering.
 - `python>=3.10`
 
 ## Installation
-- Install from pip
+- Install stable from pip
   ```bash
   $ pip install splatstream
   ```
-- Install from source
+- Install dev from source
   ```bash
-  $ pip install ./binding
+  $ pip install --no-build-isolation ./binding
   ```
 
 ## Usage
