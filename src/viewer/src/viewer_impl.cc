@@ -25,8 +25,6 @@
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/cmd/pipeline.h"
-#include "vkgs/gpu/pipeline_layout.h"
-#include "vkgs/gpu/graphics_pipeline.h"
 
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/screen_splats.h"
@@ -225,10 +223,11 @@ void Viewer::Impl::DrawUi() {
 
   // handle events
   // TODO: bool gizmo_over = ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !ImGui::IsAnyItemActive();
-  bool hovered = ImGui::IsItemActive();
-  bool focused = ImGui::IsItemFocused();
+  // TODO: drag outside of window
+  bool hovered = ImGui::IsWindowHovered();
   auto window_focused = ImGui::IsWindowFocused();
-  if (hovered || focused) {
+
+  if (hovered) {
     bool left = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool right = ImGui::IsMouseDown(ImGuiMouseButton_Right);
     bool ctrl = ImGui::IsKeyDown(ImGuiKey::ImGuiMod_Ctrl);
@@ -303,9 +302,14 @@ void Viewer::Impl::DrawUi() {
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
   storage.Update(splats_->size(), size.x, size.y);
 
+  ImGui::SetCursorPos({0.f, 0.f});
   ImGui::Image(static_cast<VkDescriptorSet>(storage.texture()), size);
 
   if (!left_panel) {
+    ImGui::SetCursorPos({0.f, 0.f});
+    ImGui::Text("FPS: %.2f", io.Framerate);
+    ImGui::Text("Resolution: %dx%d", (int)size.x, (int)size.y);
+
     ImVec2 pos = {-5.f, size.y / 2.f};
     ImGui::SetCursorPos(pos);
     if (ImGui::Button(">")) {
