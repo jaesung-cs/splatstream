@@ -4,9 +4,9 @@
 #include <memory>
 #include <cstdint>
 
-#include "export_api.h"
-
 #include "vkgs/gpu/buffer.h"
+
+#include "vkgs/core/export_api.h"
 
 namespace vkgs {
 namespace core {

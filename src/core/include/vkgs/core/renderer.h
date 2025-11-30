@@ -9,21 +9,15 @@
 
 #include <vulkan/vulkan.h>
 
-#include "export_api.h"
-
-#include "vkgs/core/draw_options.h"
-
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/timer.h"
 
+#include "vkgs/core/export_api.h"
+#include "vkgs/core/draw_options.h"
+
 namespace vkgs {
-namespace gpu {
-
-class Device;
-
-}  // namespace gpu
 
 namespace core {
 

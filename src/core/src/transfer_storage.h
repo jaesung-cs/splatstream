@@ -5,12 +5,6 @@
 #include <cstdint>
 
 namespace vkgs {
-namespace gpu {
-
-class Device;
-
-}  // namespace gpu
-
 namespace core {
 
 class TransferStorage {

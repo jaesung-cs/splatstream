@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "export_api.h"
+#include "vkgs/viewer/export_api.h"
 
 #include "camera_params.h"
 

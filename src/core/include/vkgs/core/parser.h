@@ -5,17 +5,12 @@
 #include <string>
 #include <cstdint>
 
-#include "export_api.h"
-
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/compute_pipeline.h"
 
+#include "vkgs/core/export_api.h"
+
 namespace vkgs {
-namespace gpu {
-
-class ComputePipeline;
-
-}  // namespace gpu
 
 namespace core {
 

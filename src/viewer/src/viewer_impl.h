@@ -22,9 +22,6 @@
 struct GLFWwindow;
 
 namespace vkgs {
-namespace gpu {
-class Swapchain;
-}  // namespace gpu
 
 namespace viewer {
 
