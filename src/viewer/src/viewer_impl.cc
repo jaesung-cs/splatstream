@@ -668,13 +668,22 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     }
 
     // render splats
+    std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, 0,
+                                       viewer_options_.render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED};
     gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
-        .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, viewer_options_.render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED})
+        .AttachmentLocations(locations)
         .Commit(cb);
-    renderer_->RenderScreenSplats(
-        cb, splats_, draw_options, screen_splats, formats,
-        {VK_ATTACHMENT_UNUSED, 0, viewer_options_.render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED}, depth_format_,
-        viewer_options_.render_type == 2);
+
+    core::RenderOptions render_options = {
+        .index_buffer = splats_->index_buffer(),
+        .screen_splats = screen_splats,
+        .draw_options = &draw_options,
+        .formats = formats,
+        .locations = locations,
+        .depth_format = depth_format_,
+        .render_depth = viewer_options_.render_type == 2,
+    };
+    renderer_->RenderScreenSplats(cb, render_options);
 
     // subpass 1:
     gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)

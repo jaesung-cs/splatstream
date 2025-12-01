@@ -8,7 +8,6 @@
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/cmd/pipeline.h"
-#include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/semaphore.h"
@@ -188,7 +187,14 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
     VkRect2D scissor = {0, 0, width, height};
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
-    RenderScreenSplats(cb, splats, draw_options, screen_splats, {VK_FORMAT_R16G16B16A16_SFLOAT}, {0});
+    RenderOptions render_options = {
+        .index_buffer = splats->index_buffer(),
+        .screen_splats = screen_splats,
+        .draw_options = &draw_options,
+        .formats = {VK_FORMAT_R16G16B16A16_SFLOAT},
+        .locations = {0},
+    };
+    RenderScreenSplats(cb, render_options);
 
     vkCmdEndRendering(cb);
 
@@ -407,33 +413,30 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
   instances->Keep();
 }
 
-void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
-                                  const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
-                                  std::vector<VkFormat> formats, std::vector<uint32_t> locations, VkFormat depth_format,
-                                  bool render_depth) {
+void Renderer::RenderScreenSplats(VkCommandBuffer cb, const RenderOptions& render_options) {
   auto splat_pipeline = gpu::GraphicsPipeline::Create({
       .pipeline_layout = graphics_pipeline_layout_,
-      .vertex_shader = render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert),
-      .fragment_shader = render_depth ? gpu::ShaderCode(splat_depth_frag) : gpu::ShaderCode(splat_frag),
-      .formats = std::move(formats),
-      .locations = std::move(locations),
-      .depth_format = depth_format,
-      .depth_test = depth_format != VK_FORMAT_UNDEFINED,
+      .vertex_shader = render_options.render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert),
+      .fragment_shader = render_options.render_depth ? gpu::ShaderCode(splat_depth_frag) : gpu::ShaderCode(splat_frag),
+      .formats = render_options.formats,
+      .locations = render_options.locations,
+      .depth_format = render_options.depth_format,
+      .depth_test = render_options.depth_format != VK_FORMAT_UNDEFINED,
   });
 
-  glm::mat4 projection_inverse = glm::inverse(draw_options.projection);
+  glm::mat4 projection_inverse = glm::inverse(render_options.draw_options->projection);
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
       .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(projection_inverse), &projection_inverse)
-      .Storage(0, screen_splats->instances())
+      .Storage(0, render_options.screen_splats->instances())
       .Bind(splat_pipeline)
       .Commit(cb);
 
-  vkCmdBindIndexBuffer(cb, splats->index_buffer(), 0, VK_INDEX_TYPE_UINT32);
-  vkCmdDrawIndexedIndirect(cb, screen_splats->draw_indirect(), 0, 1, 0);
+  vkCmdBindIndexBuffer(cb, render_options.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexedIndirect(cb, render_options.screen_splats->draw_indirect(), 0, 1, 0);
 
   splat_pipeline->Keep();
-  screen_splats->instances()->Keep();
-  screen_splats->draw_indirect()->Keep();
+  render_options.screen_splats->instances()->Keep();
+  render_options.screen_splats->draw_indirect()->Keep();
 }
 
 }  // namespace core

@@ -13,6 +13,7 @@
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/timer.h"
+#include "vkgs/gpu/buffer.h"
 
 #include "vkgs/core/export_api.h"
 #include "vkgs/core/draw_options.h"
@@ -28,6 +29,16 @@ class ComputeStorage;
 class ScreenSplats;
 class GraphicsStorage;
 class TransferStorage;
+
+struct RenderOptions {
+  gpu::Buffer index_buffer;
+  std::shared_ptr<ScreenSplats> screen_splats;
+  const DrawOptions* draw_options;
+  std::vector<VkFormat> formats;
+  std::vector<uint32_t> locations;
+  VkFormat depth_format;
+  bool render_depth;
+};
 
 class VKGS_CORE_API Renderer {
  public:
@@ -53,10 +64,7 @@ class VKGS_CORE_API Renderer {
   /**
    * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
    */
-  void RenderScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
-                          const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
-                          std::vector<VkFormat> formats, std::vector<uint32_t> locations,
-                          VkFormat depth_format = VK_FORMAT_UNDEFINED, bool render_depth = false);
+  void RenderScreenSplats(VkCommandBuffer command_buffer, const RenderOptions& render_options);
 
  private:
   std::string device_name_;
