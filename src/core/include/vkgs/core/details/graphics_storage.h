@@ -1,18 +1,19 @@
-#ifndef VKGS_CORE_GRAPHICS_STORAGE_H
-#define VKGS_CORE_GRAPHICS_STORAGE_H
+#ifndef VKGS_CORE_DETAILS_GRAPHICS_STORAGE_H
+#define VKGS_CORE_DETAILS_GRAPHICS_STORAGE_H
 
 #include <memory>
 #include <cstdint>
 
+#include "vkgs/common/shared_accessor.h"
 #include "vkgs/gpu/image.h"
 
 namespace vkgs {
 namespace core {
 
-class GraphicsStorage {
+class GraphicsStorageImpl {
  public:
-  GraphicsStorage();
-  ~GraphicsStorage();
+  GraphicsStorageImpl();
+  ~GraphicsStorageImpl();
 
   auto image() const noexcept { return image_; }
   auto image_u8() const noexcept { return image_u8_; }
@@ -28,7 +29,9 @@ class GraphicsStorage {
   gpu::Image image_u8_;  // (H, W, 4), UNORM
 };
 
+class GraphicsStorage : public SharedAccessor<GraphicsStorage, GraphicsStorageImpl> {};
+
 }  // namespace core
 }  // namespace vkgs
 
-#endif  // VKGS_CORE_GRAPHICS_STORAGE_H
+#endif  // VKGS_CORE_DETAILS_GRAPHICS_STORAGE_H

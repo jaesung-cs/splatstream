@@ -27,10 +27,6 @@
 #include "generated/splat_frag.h"
 #include "generated/splat_depth_vert.h"
 #include "generated/splat_depth_frag.h"
-#include "sorter.h"
-#include "compute_storage.h"
-#include "graphics_storage.h"
-#include "transfer_storage.h"
 #include "struct.h"
 
 namespace {
@@ -44,7 +40,7 @@ namespace core {
 
 Renderer::Renderer() {
   auto device = gpu::GetDevice();
-  sorter_ = std::make_shared<Sorter>(device, device->physical_device());
+  sorter_ = Sorter::Create(device, device->physical_device());
 
   device_name_ = device->device_name();
   graphics_queue_index_ = device->graphics_queue_index();
@@ -52,10 +48,9 @@ Renderer::Renderer() {
   transfer_queue_index_ = device->transfer_queue_index();
 
   for (auto& buffer : ring_buffer_) {
-    buffer.compute_storage = std::make_shared<ComputeStorage>();
+    buffer.compute_storage = ComputeStorage::Create();
     buffer.screen_splats = ScreenSplats::Create();
-    buffer.graphics_storage = std::make_shared<GraphicsStorage>();
-    buffer.transfer_storage = std::make_shared<TransferStorage>();
+    buffer.graphics_storage = GraphicsStorage::Create();
     buffer.compute_semaphore = device->AllocateSemaphore();
     buffer.graphics_semaphore = device->AllocateSemaphore();
     buffer.transfer_semaphore = device->AllocateSemaphore();
@@ -88,8 +83,8 @@ Renderer::Renderer() {
 
 Renderer::~Renderer() = default;
 
-std::shared_ptr<RenderingTask> Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
-  auto rendering_task = std::make_shared<RenderingTask>();
+RenderingTask Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
+  auto rendering_task = RenderingTask::Create();
 
   uint32_t width = draw_options.width;
   uint32_t height = draw_options.height;
@@ -101,7 +96,6 @@ std::shared_ptr<RenderingTask> Renderer::Draw(GaussianSplats splats, const DrawO
   auto compute_storage = ring_buffer.compute_storage;
   auto screen_splats = ring_buffer.screen_splats;
   auto graphics_storage = ring_buffer.graphics_storage;
-  auto transfer_storage = ring_buffer.transfer_storage;
   auto csem = ring_buffer.compute_semaphore;
   auto cval = csem->value();
   auto gsem = ring_buffer.graphics_semaphore;
@@ -115,7 +109,6 @@ std::shared_ptr<RenderingTask> Renderer::Draw(GaussianSplats splats, const DrawO
 
   screen_splats->Update(N);
   graphics_storage->Update(width, height);
-  transfer_storage->Update(width, height);
 
   auto timer = gpu::Timer::Create(3);
 

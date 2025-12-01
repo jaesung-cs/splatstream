@@ -3,11 +3,11 @@
 namespace vkgs {
 namespace core {
 
-RenderingTask::RenderingTask() = default;
+RenderingTaskImpl::RenderingTaskImpl() = default;
 
-RenderingTask::~RenderingTask() = default;
+RenderingTaskImpl::~RenderingTaskImpl() = default;
 
-void RenderingTask::Wait() {
+void RenderingTaskImpl::Wait() {
   if (task_) {
     task_->Wait();
     task_.reset();

@@ -18,6 +18,9 @@
 #include "vkgs/core/export_api.h"
 #include "vkgs/core/draw_options.h"
 #include "vkgs/core/screen_splats.h"
+#include "vkgs/core/details/compute_storage.h"
+#include "vkgs/core/details/graphics_storage.h"
+#include "vkgs/core/details/sorter.h"
 
 namespace vkgs {
 
@@ -25,10 +28,6 @@ namespace core {
 
 class GaussianSplats;
 class RenderingTask;
-class Sorter;
-class ComputeStorage;
-class GraphicsStorage;
-class TransferStorage;
 
 struct RenderOptions {
   gpu::Buffer index_buffer;
@@ -50,7 +49,7 @@ class VKGS_CORE_API Renderer {
   uint32_t compute_queue_index() const noexcept { return compute_queue_index_; }
   uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
 
-  std::shared_ptr<RenderingTask> Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
+  RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
   // Low-level API
   /**
@@ -70,7 +69,7 @@ class VKGS_CORE_API Renderer {
   uint32_t compute_queue_index_;
   uint32_t transfer_queue_index_;
 
-  std::shared_ptr<Sorter> sorter_;
+  Sorter sorter_;
 
   gpu::PipelineLayout compute_pipeline_layout_;
   gpu::ComputePipeline rank_pipeline_;
@@ -80,10 +79,9 @@ class VKGS_CORE_API Renderer {
   gpu::PipelineLayout graphics_pipeline_layout_;
 
   struct RingBuffer {
-    std::shared_ptr<ComputeStorage> compute_storage;
+    ComputeStorage compute_storage;
     ScreenSplats screen_splats;
-    std::shared_ptr<GraphicsStorage> graphics_storage;
-    std::shared_ptr<TransferStorage> transfer_storage;
+    GraphicsStorage graphics_storage;
     gpu::Semaphore compute_semaphore;
     gpu::Semaphore graphics_semaphore;
     gpu::Semaphore transfer_semaphore;

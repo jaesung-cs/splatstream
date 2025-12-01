@@ -1,20 +1,21 @@
-#ifndef VKGS_CORE_COMPUTE_STORAGE_H
-#define VKGS_CORE_COMPUTE_STORAGE_H
+#ifndef VKGS_CORE_DETAILS_COMPUTE_STORAGE_H
+#define VKGS_CORE_DETAILS_COMPUTE_STORAGE_H
 
 #include <memory>
 #include <cstdint>
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
 #include "vkgs/gpu/buffer.h"
 
 namespace vkgs {
 namespace core {
 
-class ComputeStorage {
+class ComputeStorageImpl {
  public:
-  ComputeStorage();
-  ~ComputeStorage();
+  ComputeStorageImpl();
+  ~ComputeStorageImpl();
 
   auto visible_point_count() const noexcept { return visible_point_count_; }
   auto camera() const noexcept { return camera_; }
@@ -41,7 +42,9 @@ class ComputeStorage {
   gpu::Buffer inverse_index_;  // (N)
 };
 
+class ComputeStorage : public SharedAccessor<ComputeStorage, ComputeStorageImpl> {};
+
 }  // namespace core
 }  // namespace vkgs
 
-#endif  // VKGS_CORE_COMPUTE_STORAGE_H
+#endif  // VKGS_CORE_DETAILS_COMPUTE_STORAGE_H
