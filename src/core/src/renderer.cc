@@ -172,12 +172,11 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .clearValue.color = {draw_options.background.r, draw_options.background.g, draw_options.background.b, 0.f},
+        .clearValue = {draw_options.background.r, draw_options.background.g, draw_options.background.b, 0.f},
     };
     VkRenderingInfo rendering_info = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea.offset = {0, 0},
-        .renderArea.extent = {width, height},
+        .renderArea = {{0, 0}, {width, height}},
         .layerCount = 1,
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment,
@@ -204,11 +203,9 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
 
     VkImageBlit image_region = {
         .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-        .srcOffsets[0] = {0, 0, 0},
-        .srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1},
+        .srcOffsets = {{0, 0, 0}, {static_cast<int>(width), static_cast<int>(height), 1}},
         .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-        .dstOffsets[0] = {0, 0, 0},
-        .dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1},
+        .dstOffsets = {{0, 0, 0}, {static_cast<int>(width), static_cast<int>(height), 1}},
     };
     vkCmdBlitImage(cb, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                    &image_region, VK_FILTER_NEAREST);

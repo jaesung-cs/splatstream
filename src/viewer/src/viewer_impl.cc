@@ -279,7 +279,7 @@ void Viewer::Impl::DrawUi() {
 
       ImGui::ColorEdit3("Background", glm::value_ptr(viewer_options_.background));
 
-      ImGui::SliderFloat("eps2d", &viewer_options_.eps2d, 0.01f, 10.f, "%.3f", ImGuiSliderFlags_Logarithmic);
+      ImGui::SliderFloat("eps2d", &viewer_options_.eps2d, 0.0001f, 10.f, "%.4f", ImGuiSliderFlags_Logarithmic);
       ImGui::SliderFloat("confidence radius", &viewer_options_.confidence_radius, 1.f, 5.f, "%.3f");
 
       if (!camera_params_.empty()) {
@@ -588,7 +588,7 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .clearValue.color = {0.f, 0.f, 0.f, 1.f},
+        .clearValue = {0.f, 0.f, 0.f, 1.f},
     };
     // Splats image
     color_attachments[1] = {
@@ -597,8 +597,7 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .clearValue.color = {viewer_options_.background.r, viewer_options_.background.g, viewer_options_.background.b,
-                             0.f},
+        .clearValue = {viewer_options_.background.r, viewer_options_.background.g, viewer_options_.background.b, 0.f},
     };
     // Depth image
     color_attachments[2] = {
@@ -607,7 +606,7 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .clearValue.color = {0.f, 0.f, 0.f, 0.f},
+        .clearValue = {0.f, 0.f, 0.f, 0.f},
     };
 
     VkRenderingAttachmentInfo depth_attachment = {
@@ -616,13 +615,12 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .clearValue.depthStencil = {1.f, 0},
+        .clearValue = {1.f, 0},
     };
 
     VkRenderingInfo rendering_info = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea.offset = {0, 0},
-        .renderArea.extent = {texture_width, texture_height},
+        .renderArea = {{0, 0}, {texture_width, texture_height}},
         .layerCount = 1,
         .colorAttachmentCount = color_attachments.size(),
         .pColorAttachments = color_attachments.data(),
@@ -716,8 +714,7 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     };
     rendering_info = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea.offset = {0, 0},
-        .renderArea.extent = present_image_info.extent,
+        .renderArea = {{0, 0}, present_image_info.extent},
         .layerCount = 1,
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment,
