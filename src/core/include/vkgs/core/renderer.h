@@ -17,6 +17,7 @@
 
 #include "vkgs/core/export_api.h"
 #include "vkgs/core/draw_options.h"
+#include "vkgs/core/screen_splats.h"
 
 namespace vkgs {
 
@@ -26,13 +27,12 @@ class GaussianSplats;
 class RenderingTask;
 class Sorter;
 class ComputeStorage;
-class ScreenSplats;
 class GraphicsStorage;
 class TransferStorage;
 
 struct RenderOptions {
   gpu::Buffer index_buffer;
-  std::shared_ptr<ScreenSplats> screen_splats;
+  ScreenSplats screen_splats;
   const DrawOptions* draw_options;
   std::vector<VkFormat> formats;
   std::vector<uint32_t> locations;
@@ -50,16 +50,14 @@ class VKGS_CORE_API Renderer {
   uint32_t compute_queue_index() const noexcept { return compute_queue_index_; }
   uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
 
-  std::shared_ptr<RenderingTask> Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
-                                      uint8_t* dst);
+  std::shared_ptr<RenderingTask> Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
   // Low-level API
   /**
    * @brief Compute screen splats in compute queue, and release to graphics queue.
    */
-  void ComputeScreenSplats(VkCommandBuffer command_buffer, std::shared_ptr<GaussianSplats> splats,
-                           const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
-                           gpu::Timer timer = {});
+  void ComputeScreenSplats(VkCommandBuffer command_buffer, GaussianSplats splats, const DrawOptions& draw_options,
+                           ScreenSplats screen_splats, gpu::Timer timer = {});
 
   /**
    * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
@@ -83,7 +81,7 @@ class VKGS_CORE_API Renderer {
 
   struct RingBuffer {
     std::shared_ptr<ComputeStorage> compute_storage;
-    std::shared_ptr<ScreenSplats> screen_splats;
+    ScreenSplats screen_splats;
     std::shared_ptr<GraphicsStorage> graphics_storage;
     std::shared_ptr<TransferStorage> transfer_storage;
     gpu::Semaphore compute_semaphore;

@@ -21,7 +21,7 @@ class VKGS_VIEWER_API Viewer {
   ~Viewer();
 
   void SetRenderer(std::shared_ptr<core::Renderer> renderer);
-  void SetSplats(std::shared_ptr<core::GaussianSplats> splats);
+  void SetSplats(core::GaussianSplats splats);
 
   void AddCamera(const CameraParams& camera_params);
 

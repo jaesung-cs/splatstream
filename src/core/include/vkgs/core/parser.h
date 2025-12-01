@@ -21,11 +21,10 @@ class VKGS_CORE_API Parser {
   Parser();
   ~Parser();
 
-  std::shared_ptr<GaussianSplats> CreateGaussianSplats(size_t size, const float* means, const float* quats,
-                                                       const float* scales, const float* opacities,
-                                                       const uint16_t* colors, int sh_degree);
+  GaussianSplats CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
+                                      const float* opacities, const uint16_t* colors, int sh_degree);
 
-  std::shared_ptr<GaussianSplats> LoadFromPly(const std::string& path, int sh_degree = -1);
+  GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
 
  private:
   gpu::PipelineLayout parse_pipeline_layout_;

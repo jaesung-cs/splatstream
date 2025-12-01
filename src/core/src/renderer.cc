@@ -53,7 +53,7 @@ Renderer::Renderer() {
 
   for (auto& buffer : ring_buffer_) {
     buffer.compute_storage = std::make_shared<ComputeStorage>();
-    buffer.screen_splats = std::make_shared<ScreenSplats>();
+    buffer.screen_splats = ScreenSplats::Create();
     buffer.graphics_storage = std::make_shared<GraphicsStorage>();
     buffer.transfer_storage = std::make_shared<TransferStorage>();
     buffer.compute_semaphore = device->AllocateSemaphore();
@@ -88,8 +88,7 @@ Renderer::Renderer() {
 
 Renderer::~Renderer() = default;
 
-std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> splats, const DrawOptions& draw_options,
-                                              uint8_t* dst) {
+std::shared_ptr<RenderingTask> Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
   auto rendering_task = std::make_shared<RenderingTask>();
 
   uint32_t width = draw_options.width;
@@ -292,9 +291,8 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
   return rendering_task;
 }
 
-void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSplats> splats,
-                                   const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
-                                   gpu::Timer timer) {
+void Renderer::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats, const DrawOptions& draw_options,
+                                   ScreenSplats screen_splats, gpu::Timer timer) {
   auto N = splats->size();
   auto position = splats->position();
   auto cov3d = splats->cov3d();

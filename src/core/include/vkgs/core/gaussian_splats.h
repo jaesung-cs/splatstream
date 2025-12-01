@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include "vkgs/common/shared_accessor.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/queue_task.h"
 
@@ -11,12 +12,12 @@
 namespace vkgs {
 namespace core {
 
-class VKGS_CORE_API GaussianSplats {
+class VKGS_CORE_API GaussianSplatsImpl {
  public:
-  GaussianSplats(size_t size, uint32_t sh_degree, gpu::Buffer position, gpu::Buffer cov3d, gpu::Buffer sh,
-                 gpu::Buffer opacity, gpu::Buffer index_buffer, gpu::QueueTask task);
+  GaussianSplatsImpl(size_t size, uint32_t sh_degree, gpu::Buffer position, gpu::Buffer cov3d, gpu::Buffer sh,
+                     gpu::Buffer opacity, gpu::Buffer index_buffer, gpu::QueueTask task);
 
-  ~GaussianSplats();
+  ~GaussianSplatsImpl();
 
   size_t size() const noexcept { return size_; }
   uint32_t sh_degree() const noexcept { return sh_degree_; }
@@ -38,6 +39,8 @@ class VKGS_CORE_API GaussianSplats {
   gpu::Buffer index_buffer_;  // (N, 6)
   gpu::QueueTask task_;
 };
+
+class VKGS_CORE_API GaussianSplats : public SharedAccessor<GaussianSplats, GaussianSplatsImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

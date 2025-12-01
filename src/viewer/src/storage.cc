@@ -15,7 +15,7 @@ Storage::~Storage() = default;
 void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
   auto device = gpu::GetDevice();
 
-  if (!screen_splats_) screen_splats_ = std::make_shared<core::ScreenSplats>();
+  if (!screen_splats_) screen_splats_ = core::ScreenSplats::Create();
   screen_splats_->Update(size);
 
   if (!compute_semaphore_) compute_semaphore_ = device->AllocateSemaphore();

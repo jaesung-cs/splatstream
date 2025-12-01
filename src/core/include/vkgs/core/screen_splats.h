@@ -4,6 +4,7 @@
 #include <memory>
 #include <cstdint>
 
+#include "vkgs/common/shared_accessor.h"
 #include "vkgs/gpu/buffer.h"
 
 #include "vkgs/core/export_api.h"
@@ -11,10 +12,10 @@
 namespace vkgs {
 namespace core {
 
-class VKGS_CORE_API ScreenSplats {
+class VKGS_CORE_API ScreenSplatsImpl {
  public:
-  ScreenSplats();
-  ~ScreenSplats();
+  ScreenSplatsImpl();
+  ~ScreenSplatsImpl();
 
   auto draw_indirect() const noexcept { return draw_indirect_; }
   auto instances() const noexcept { return instances_; }
@@ -30,6 +31,8 @@ class VKGS_CORE_API ScreenSplats {
   // Variable
   gpu::Buffer instances_;  // (N, 12)
 };
+
+class VKGS_CORE_API ScreenSplats : public SharedAccessor<ScreenSplats, ScreenSplatsImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

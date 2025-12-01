@@ -14,6 +14,7 @@
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/semaphore.h"
+#include "vkgs/core/gaussian_splats.h"
 
 #include "storage.h"
 #include "camera.h"
@@ -22,7 +23,6 @@
 struct GLFWwindow;
 
 namespace vkgs {
-
 namespace viewer {
 
 class Context;
@@ -33,7 +33,7 @@ class Viewer::Impl {
   ~Impl();
 
   void SetRenderer(std::shared_ptr<core::Renderer> renderer) { renderer_ = renderer; }
-  void SetSplats(std::shared_ptr<core::GaussianSplats> splats) { splats_ = splats; }
+  void SetSplats(core::GaussianSplats splats) { splats_ = splats; }
 
   void AddCamera(const CameraParams& camera_params) { camera_params_.push_back(camera_params); }
 
@@ -78,7 +78,7 @@ class Viewer::Impl {
   PoseSpline pose_spline_;
 
   std::shared_ptr<core::Renderer> renderer_;
-  std::shared_ptr<core::GaussianSplats> splats_;
+  core::GaussianSplats splats_;
   std::vector<CameraParams> camera_params_;
 
   gpu::PipelineLayout color_pipeline_layout_;

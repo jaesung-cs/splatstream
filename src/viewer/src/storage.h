@@ -5,6 +5,7 @@
 
 #include "imgui_texture.h"
 
+#include "vkgs/core/screen_splats.h"
 #include "vkgs/gpu/sampler.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/semaphore.h"
@@ -46,7 +47,7 @@ class Storage {
   auto graphics_semaphore() const noexcept { return graphics_semaphore_; }
 
  private:
-  std::shared_ptr<core::ScreenSplats> screen_splats_;
+  core::ScreenSplats screen_splats_;
   gpu::Image image_;
   gpu::Image image16_;
   gpu::Image depth_image_;

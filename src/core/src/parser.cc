@@ -62,10 +62,9 @@ Parser::Parser() {
 
 Parser::~Parser() = default;
 
-std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const float* means_ptr,
-                                                             const float* quats_ptr, const float* scales_ptr,
-                                                             const float* opacities_ptr, const uint16_t* colors_ptr,
-                                                             int sh_degree) {
+GaussianSplats Parser::CreateGaussianSplats(size_t size, const float* means_ptr, const float* quats_ptr,
+                                            const float* scales_ptr, const float* opacities_ptr,
+                                            const uint16_t* colors_ptr, int sh_degree) {
   std::vector<uint32_t> index_data = GetIndexData(size);
 
   int colors_size = 0;
@@ -222,10 +221,10 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
 
   sem->Increment();
 
-  return std::make_shared<GaussianSplats>(size, sh_degree, position, cov3d, sh, opacity, index_buffer, queue_task);
+  return GaussianSplats::Create(size, sh_degree, position, cov3d, sh, opacity, index_buffer, queue_task);
 }
 
-std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int sh_degree) {
+GaussianSplats Parser::LoadFromPly(const std::string& path, int sh_degree) {
   std::ifstream in(path, std::ios::binary);
 
   // parse header
@@ -423,8 +422,7 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
 
   sem->Increment();
 
-  return std::make_shared<GaussianSplats>(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer,
-                                          queue_task);
+  return GaussianSplats::Create(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer, queue_task);
 }
 
 }  // namespace core
