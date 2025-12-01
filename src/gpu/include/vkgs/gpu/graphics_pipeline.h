@@ -58,7 +58,11 @@ class VKGS_GPU_API GraphicsPipelineImpl : public Object {
   VkPipeline pipeline_ = VK_NULL_HANDLE;
 };
 
-class VKGS_GPU_API GraphicsPipeline : public SharedAccessor<GraphicsPipeline, GraphicsPipelineImpl> {};
+class VKGS_GPU_API GraphicsPipeline : public SharedAccessor<GraphicsPipeline, GraphicsPipelineImpl> {
+ public:
+  using Base::Create;
+  static GraphicsPipeline Create(const GraphicsPipelineCreateInfo& create_info) { return Base::Create(create_info); }
+};
 
 }  // namespace gpu
 }  // namespace vkgs

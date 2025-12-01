@@ -37,24 +37,27 @@ GaussianSplats Engine::CreateGaussianSplats(size_t size, const float* means, con
 }
 
 RenderingTask Engine::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
-  core::DrawOptions core_draw_options = {};
-  core_draw_options.view = glm::make_mat4(draw_options.view);
-  core_draw_options.projection = glm::make_mat4(draw_options.projection);
-  core_draw_options.model = glm::make_mat4(draw_options.model);
-  core_draw_options.width = draw_options.width;
-  core_draw_options.height = draw_options.height;
-  core_draw_options.background = glm::make_vec3(draw_options.background);
-  core_draw_options.eps2d = draw_options.eps2d;
-  core_draw_options.sh_degree = draw_options.sh_degree;
+  core::DrawOptions core_draw_options = {
+      .view = glm::make_mat4(draw_options.view),
+      .projection = glm::make_mat4(draw_options.projection),
+      .model = glm::make_mat4(draw_options.model),
+      .width = draw_options.width,
+      .height = draw_options.height,
+      .background = glm::make_vec3(draw_options.background),
+      .eps2d = draw_options.eps2d,
+      .confidence_radius = draw_options.confidence_radius,
+      .sh_degree = draw_options.sh_degree,
+  };
   return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, dst));
 }
 
 void Engine::AddCamera(const CameraParams& camera_params) {
-  viewer::CameraParams viewer_camera_params = {};
-  viewer_camera_params.extrinsic = glm::make_mat4(camera_params.extrinsic);
-  viewer_camera_params.intrinsic = glm::make_mat3(camera_params.intrinsic);
-  viewer_camera_params.width = camera_params.width;
-  viewer_camera_params.height = camera_params.height;
+  viewer::CameraParams viewer_camera_params = {
+      .extrinsic = glm::make_mat4(camera_params.extrinsic),
+      .intrinsic = glm::make_mat3(camera_params.intrinsic),
+      .width = camera_params.width,
+      .height = camera_params.height,
+  };
   viewer_->AddCamera(viewer_camera_params);
 }
 

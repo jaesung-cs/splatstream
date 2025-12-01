@@ -122,9 +122,10 @@ std::shared_ptr<GaussianSplats> Parser::CreateGaussianSplats(size_t size, const 
   std::memcpy(colors_stage->data(), colors_ptr, colors_stage->size());
   std::memcpy(index_stage->data(), index_data.data(), index_stage->size());
 
-  ParsePushConstants parse_data_push_constants = {};
-  parse_data_push_constants.point_count = size;
-  parse_data_push_constants.sh_degree = sh_degree;
+  ParsePushConstants parse_data_push_constants = {
+      .point_count = static_cast<uint32_t>(size),
+      .sh_degree = static_cast<uint32_t>(sh_degree),
+  };
 
   auto device = gpu::GetDevice();
   auto sem = device->AllocateSemaphore();
@@ -321,9 +322,10 @@ std::shared_ptr<GaussianSplats> Parser::LoadFromPly(const std::string& path, int
 
   std::vector<uint32_t> index_data = GetIndexData(point_count);
 
-  ParsePushConstants parse_ply_push_constants = {};
-  parse_ply_push_constants.point_count = point_count;
-  parse_ply_push_constants.sh_degree = sh_degree;
+  ParsePushConstants parse_ply_push_constants = {
+      .point_count = point_count,
+      .sh_degree = static_cast<uint32_t>(sh_degree),
+  };
 
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);

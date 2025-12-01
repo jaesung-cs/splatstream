@@ -18,9 +18,6 @@ class CommandPoolImpl : public std::enable_shared_from_this<CommandPoolImpl> {
   explicit CommandPoolImpl(VkDevice device, uint32_t queue_family_index);
   ~CommandPoolImpl();
 
-  VkCommandPool command_pool() const noexcept { return command_pool_; }
-  uint32_t queue_family_index() const noexcept { return queue_family_index_; }
-
   Command Allocate();
   void Free(VkCommandBuffer command_buffer);
 

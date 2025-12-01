@@ -12,9 +12,11 @@ void RenderingTask::Wait() {
   task_->Wait();
 
   auto result = task_->draw_result();
-  result_.compute_timestamp = result.compute_timestamp;
-  result_.graphics_timestamp = result.graphics_timestamp;
-  result_.transfer_timestamp = result.transfer_timestamp;
+  result_ = {
+      .compute_timestamp = result.compute_timestamp,
+      .graphics_timestamp = result.graphics_timestamp,
+      .transfer_timestamp = result.transfer_timestamp,
+  };
 }
 
 }  // namespace vkgs

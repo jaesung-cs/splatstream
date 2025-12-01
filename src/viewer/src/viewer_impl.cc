@@ -95,20 +95,27 @@ void Viewer::Impl::InitializeWindow() {
   ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   ImGui_ImplGlfw_InitForVulkan(window_, true);
-  ImGui_ImplVulkan_InitInfo init_info = {};
-  init_info.Instance = device->instance();
-  init_info.PhysicalDevice = device->physical_device();
-  init_info.Device = device;
-  init_info.QueueFamily = gq;
-  init_info.Queue = gq;
-  init_info.DescriptorPoolSize = 1024;
-  init_info.MinImageCount = 3;
-  init_info.ImageCount = 3;
-  init_info.PipelineInfoMain.PipelineRenderingCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
-  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapchain_format_;
-  init_info.UseDynamicRendering = true;
-  init_info.CheckVkResultFn = nullptr;
+  ImGui_ImplVulkan_InitInfo init_info = {
+      .Instance = device->instance(),
+      .PhysicalDevice = device->physical_device(),
+      .Device = device,
+      .QueueFamily = gq,
+      .Queue = gq,
+      .DescriptorPoolSize = 1024,
+      .MinImageCount = 3,
+      .ImageCount = 3,
+      .PipelineInfoMain =
+          {
+              .PipelineRenderingCreateInfo =
+                  {
+                      .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                      .colorAttachmentCount = 1,
+                      .pColorAttachmentFormats = &swapchain_format_,
+                  },
+          },
+      .UseDynamicRendering = true,
+      .CheckVkResultFn = nullptr,
+  };
   ImGui_ImplVulkan_Init(&init_info);
 }
 
@@ -336,24 +343,26 @@ void Viewer::Impl::Run() {
       .push_constants = {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}},
   });
 
-  gpu::GraphicsPipelineCreateInfo color_pipeline_info = {};
-  color_pipeline_info.pipeline_layout = color_pipeline_layout_;
-  color_pipeline_info.vertex_shader = gpu::ShaderCode(color_vert);
-  color_pipeline_info.fragment_shader = gpu::ShaderCode(color_frag);
-  color_pipeline_info.bindings = {
-      {0, sizeof(float) * 6, VK_VERTEX_INPUT_RATE_VERTEX},
-  };
-  color_pipeline_info.attributes = {
-      {0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0},
-      {1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3},
-  };
-  color_pipeline_info.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-  color_pipeline_info.formats = formats;
-  color_pipeline_info.locations = {VK_ATTACHMENT_UNUSED, 0, 1};
-  color_pipeline_info.depth_format = depth_format_;
-  color_pipeline_info.depth_test = true;
-  color_pipeline_info.depth_write = true;
-  color_pipeline_ = gpu::GraphicsPipeline::Create(color_pipeline_info);
+  color_pipeline_ = gpu::GraphicsPipeline::Create({
+      .pipeline_layout = color_pipeline_layout_,
+      .vertex_shader = gpu::ShaderCode(color_vert),
+      .fragment_shader = gpu::ShaderCode(color_frag),
+      .bindings =
+          {
+              {0, sizeof(float) * 6, VK_VERTEX_INPUT_RATE_VERTEX},
+          },
+      .attributes =
+          {
+              {0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0},
+              {1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3},
+          },
+      .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+      .formats = formats,
+      .locations = {VK_ATTACHMENT_UNUSED, 0, 1},
+      .depth_format = depth_format_,
+      .depth_test = true,
+      .depth_write = true,
+  });
 
   blend_pipeline_layout_ = gpu::PipelineLayout::Create({
       .bindings = {{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
@@ -361,15 +370,15 @@ void Viewer::Impl::Run() {
       .push_constants = {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlendPushConstants)}},
   });
 
-  gpu::GraphicsPipelineCreateInfo blend_pipeline_info = {};
-  blend_pipeline_info.pipeline_layout = blend_pipeline_layout_;
-  blend_pipeline_info.vertex_shader = gpu::ShaderCode(blend_vert);
-  blend_pipeline_info.fragment_shader = gpu::ShaderCode(blend_frag);
-  blend_pipeline_info.formats = formats;
-  blend_pipeline_info.locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED};
-  blend_pipeline_info.input_indices = {VK_ATTACHMENT_UNUSED, 0, 1};
-  blend_pipeline_info.depth_format = depth_format_;
-  blend_pipeline_ = gpu::GraphicsPipeline::Create(blend_pipeline_info);
+  blend_pipeline_ = gpu::GraphicsPipeline::Create({
+      .pipeline_layout = blend_pipeline_layout_,
+      .vertex_shader = gpu::ShaderCode(blend_vert),
+      .fragment_shader = gpu::ShaderCode(blend_frag),
+      .formats = formats,
+      .locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED},
+      .input_indices = {VK_ATTACHMENT_UNUSED, 0, 1},
+      .depth_format = depth_format_,
+  });
 
   // Camera
   if (!camera_params_.empty()) {
@@ -438,20 +447,22 @@ void Viewer::Impl::Run() {
   if (!renderer_) renderer_ = std::make_shared<core::Renderer>();
 
   // Viewer options
-  viewer_options_.model = glm::mat4{1.f};
-  viewer_options_.vsync = true;
-  viewer_options_.sh_degree = splats_->sh_degree();
-  viewer_options_.render_type = 0;
-  viewer_options_.background = {0.f, 0.f, 0.f};
-  viewer_options_.eps2d = 0.01f;
-  viewer_options_.confidence_radius = 3.5f;
-  viewer_options_.show_camera_frames = true;
-  viewer_options_.camera_frame_scale = 0.1f;
-  viewer_options_.camera_index = 0;
-  viewer_options_.animation = false;
-  viewer_options_.animation_time = 0.f;
-  viewer_options_.animation_speed = 30.f;
-  viewer_options_.left_panel = true;
+  viewer_options_ = {
+      .model = glm::mat4{1.f},
+      .vsync = true,
+      .sh_degree = static_cast<int>(splats_->sh_degree()),
+      .render_type = 0,
+      .background = {0.f, 0.f, 0.f},
+      .eps2d = 0.01f,
+      .confidence_radius = 3.5f,
+      .show_camera_frames = true,
+      .camera_frame_scale = 0.1f,
+      .camera_index = 0,
+      .animation = false,
+      .animation_time = 0.f,
+      .animation_speed = 30.f,
+      .left_panel = true,
+  };
 
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
@@ -513,16 +524,17 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
   camera_.SetWindowSize(texture_width, texture_height);
 
-  core::DrawOptions draw_options = {};
-  draw_options.view = camera_.ViewMatrix();
-  draw_options.projection = camera_.ProjectionMatrix();
-  draw_options.model = viewer_options_.model;
-  draw_options.width = texture_width;
-  draw_options.height = texture_height;
-  draw_options.background = {0.f, 0.f, 0.f};  // unused
-  draw_options.eps2d = viewer_options_.eps2d;
-  draw_options.confidence_radius = viewer_options_.confidence_radius;
-  draw_options.sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0;
+  core::DrawOptions draw_options = {
+      .view = camera_.ViewMatrix(),
+      .projection = camera_.ProjectionMatrix(),
+      .model = viewer_options_.model,
+      .width = texture_width,
+      .height = texture_height,
+      .background = {0.f, 0.f, 0.f},  // unused
+      .eps2d = viewer_options_.eps2d,
+      .confidence_radius = viewer_options_.confidence_radius,
+      .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
+  };
 
   // Compute queue
   {
@@ -570,42 +582,52 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     // Rendering
     std::array<VkRenderingAttachmentInfo, 3> color_attachments;
     // Swapchain image
-    color_attachments[0] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    color_attachments[0].imageView = image->image_view();
-    color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    color_attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;  // TODO: don't clear, no blend
-    color_attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachments[0].clearValue.color = {0.f, 0.f, 0.f, 1.f};
+    color_attachments[0] = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = image->image_view(),
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue.color = {0.f, 0.f, 0.f, 1.f},
+    };
     // Splats image
-    color_attachments[1] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    color_attachments[1].imageView = image16->image_view();
-    color_attachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    color_attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachments[1].clearValue.color = {viewer_options_.background.r, viewer_options_.background.g,
-                                             viewer_options_.background.b, 0.f};
+    color_attachments[1] = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = image16->image_view(),
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .clearValue.color = {viewer_options_.background.r, viewer_options_.background.g, viewer_options_.background.b,
+                             0.f},
+    };
     // Depth image
-    color_attachments[2] = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    color_attachments[2].imageView = depth_image->image_view();
-    color_attachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    color_attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachments[2].clearValue.color = {0.f, 0.f, 0.f, 0.f};
+    color_attachments[2] = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = depth_image->image_view(),
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .clearValue.color = {0.f, 0.f, 0.f, 0.f},
+    };
 
-    VkRenderingAttachmentInfo depth_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    depth_attachment.imageView = depth->image_view();
-    depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depth_attachment.clearValue.depthStencil = {1.f, 0};
+    VkRenderingAttachmentInfo depth_attachment = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = depth->image_view(),
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .clearValue.depthStencil = {1.f, 0},
+    };
 
-    VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-    rendering_info.renderArea.offset = {0, 0};
-    rendering_info.renderArea.extent = {texture_width, texture_height};
-    rendering_info.layerCount = 1;
-    rendering_info.colorAttachmentCount = color_attachments.size();
-    rendering_info.pColorAttachments = color_attachments.data();
-    rendering_info.pDepthAttachment = &depth_attachment;
+    VkRenderingInfo rendering_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea.offset = {0, 0},
+        .renderArea.extent = {texture_width, texture_height},
+        .layerCount = 1,
+        .colorAttachmentCount = color_attachments.size(),
+        .pColorAttachments = color_attachments.data(),
+        .pDepthAttachment = &depth_attachment,
+    };
     vkCmdBeginRendering(cb, &rendering_info);
 
     VkViewport viewport = {0.f, 0.f, static_cast<float>(texture_width), static_cast<float>(texture_height), 0.f, 1.f};
@@ -621,9 +643,10 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .Commit(cb);
 
     if (viewer_options_.show_camera_frames) {
-      ColorPushConstants color_push_constants = {};
-      color_push_constants.projection = camera_.ProjectionMatrix();
-      color_push_constants.view = camera_.ViewMatrix();
+      ColorPushConstants color_push_constants = {
+          .projection = camera_.ProjectionMatrix(),
+          .view = camera_.ViewMatrix(),
+      };
       for (const auto& camera_param : camera_params_) {
         glm::mat4 ndc_to_image = glm::mat4(1.f);
         ndc_to_image[0][0] = 0.5f * camera_param.width;
@@ -661,8 +684,9 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
         .Commit(cb);
 
-    BlendPushConstants blend_push_constants = {};
-    blend_push_constants.mode = viewer_options_.render_type;
+    BlendPushConstants blend_push_constants = {
+        .mode = viewer_options_.render_type,
+    };
     gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
         .Input(0, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
         .Input(1, depth_image->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
@@ -683,17 +707,21 @@ void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, image)
         .Commit(cb);
 
-    VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    color_attachment.imageView = present_image_info.image_view;
-    color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-    rendering_info.renderArea.offset = {0, 0};
-    rendering_info.renderArea.extent = present_image_info.extent;
-    rendering_info.layerCount = 1;
-    rendering_info.colorAttachmentCount = 1;
-    rendering_info.pColorAttachments = &color_attachment;
+    VkRenderingAttachmentInfo color_attachment = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = present_image_info.image_view,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+    rendering_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea.offset = {0, 0},
+        .renderArea.extent = present_image_info.extent,
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment,
+    };
     vkCmdBeginRendering(cb, &rendering_info);
     ImGui_ImplVulkan_RenderDrawData(draw_data, cb);
     vkCmdEndRendering(cb);

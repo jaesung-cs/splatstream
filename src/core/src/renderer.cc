@@ -166,19 +166,22 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         .Commit(cb);
 
     // Rendering
-    VkRenderingAttachmentInfo color_attachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    color_attachment.imageView = image->image_view();
-    color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.clearValue.color = {draw_options.background.r, draw_options.background.g,
-                                         draw_options.background.b, 0.f};
-    VkRenderingInfo rendering_info = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-    rendering_info.renderArea.offset = {0, 0};
-    rendering_info.renderArea.extent = {width, height};
-    rendering_info.layerCount = 1;
-    rendering_info.colorAttachmentCount = 1;
-    rendering_info.pColorAttachments = &color_attachment;
+    VkRenderingAttachmentInfo color_attachment = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = image->image_view(),
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue.color = {draw_options.background.r, draw_options.background.g, draw_options.background.b, 0.f},
+    };
+    VkRenderingInfo rendering_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea.offset = {0, 0},
+        .renderArea.extent = {width, height},
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment,
+    };
     vkCmdBeginRendering(cb, &rendering_info);
 
     VkViewport viewport = {0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f};
@@ -199,13 +202,14 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, image_u8)
         .Commit(cb);
 
-    VkImageBlit image_region = {};
-    image_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    image_region.srcOffsets[0] = {0, 0, 0};
-    image_region.srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
-    image_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    image_region.dstOffsets[0] = {0, 0, 0};
-    image_region.dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1};
+    VkImageBlit image_region = {
+        .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+        .srcOffsets[0] = {0, 0, 0},
+        .srcOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1},
+        .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+        .dstOffsets[0] = {0, 0, 0},
+        .dstOffsets[1] = {static_cast<int>(width), static_cast<int>(height), 1},
+    };
     vkCmdBlitImage(cb, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_u8, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                    &image_region, VK_FILTER_NEAREST);
 
@@ -243,13 +247,14 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
         .Commit(cb);
 
     // Image to buffer
-    VkBufferImageCopy region;
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {width, height, 1};
+    VkBufferImageCopy region = {
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+        .imageOffset = {0, 0, 0},
+        .imageExtent = {width, height, 1},
+    };
     vkCmdCopyImageToBuffer(cb, image_u8, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_buffer, 1, &region);
 
     timer->Record(cb, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
@@ -258,10 +263,11 @@ std::shared_ptr<RenderingTask> Renderer::Draw(std::shared_ptr<GaussianSplats> sp
       std::memcpy(dst, image_buffer->data<uint8_t>(), width * height * 4);
 
       auto timestamps = timer->GetTimestamps();
-      DrawResult draw_result = {};
-      draw_result.compute_timestamp = timestamps[0];
-      draw_result.graphics_timestamp = timestamps[1];
-      draw_result.transfer_timestamp = timestamps[2];
+      DrawResult draw_result = {
+          .compute_timestamp = timestamps[0],
+          .graphics_timestamp = timestamps[1],
+          .transfer_timestamp = timestamps[2],
+      };
       rendering_task->SetDrawResult(draw_result);
     });
 
@@ -308,19 +314,21 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianS
   auto draw_indirect = screen_splats->draw_indirect();
   auto instances = screen_splats->instances();
 
-  ComputePushConstants compute_push_constants;
-  compute_push_constants.model = draw_options.model;
-  compute_push_constants.point_count = N;
-  compute_push_constants.eps2d = draw_options.eps2d;
-  compute_push_constants.confidence_radius = draw_options.confidence_radius;
-  compute_push_constants.sh_degree_data = splats->sh_degree();
-  compute_push_constants.sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree;
+  ComputePushConstants compute_push_constants = {
+      .model = draw_options.model,
+      .point_count = static_cast<uint32_t>(N),
+      .eps2d = draw_options.eps2d,
+      .confidence_radius = draw_options.confidence_radius,
+      .sh_degree_data = splats->sh_degree(),
+      .sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree,
+  };
 
-  Camera camera_data;
-  camera_data.projection = draw_options.projection;
-  camera_data.view = draw_options.view;
-  camera_data.camera_position = glm::inverse(draw_options.view)[3];
-  camera_data.screen_size = glm::uvec2(draw_options.width, draw_options.height);
+  Camera camera_data = {
+      .projection = draw_options.projection,
+      .view = draw_options.view,
+      .camera_position = glm::inverse(draw_options.view)[3],
+      .screen_size = glm::uvec2(draw_options.width, draw_options.height),
+  };
   std::memcpy(camera_stage->data(), &camera_data, sizeof(Camera));
 
   VkBufferCopy region = {0, 0, sizeof(Camera)};
@@ -406,17 +414,15 @@ void Renderer::RenderScreenSplats(VkCommandBuffer cb, std::shared_ptr<GaussianSp
                                   const DrawOptions& draw_options, std::shared_ptr<ScreenSplats> screen_splats,
                                   std::vector<VkFormat> formats, std::vector<uint32_t> locations, VkFormat depth_format,
                                   bool render_depth) {
-  gpu::GraphicsPipelineCreateInfo splat_pipeline_info = {};
-  splat_pipeline_info.pipeline_layout = graphics_pipeline_layout_;
-  splat_pipeline_info.vertex_shader = render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert);
-  splat_pipeline_info.fragment_shader = render_depth ? gpu::ShaderCode(splat_depth_frag) : gpu::ShaderCode(splat_frag);
-  splat_pipeline_info.formats = std::move(formats);
-  splat_pipeline_info.locations = std::move(locations);
-  if (depth_format != VK_FORMAT_UNDEFINED) {
-    splat_pipeline_info.depth_format = depth_format;
-    splat_pipeline_info.depth_test = true;
-  }
-  auto splat_pipeline = gpu::GraphicsPipeline::Create(splat_pipeline_info);
+  auto splat_pipeline = gpu::GraphicsPipeline::Create({
+      .pipeline_layout = graphics_pipeline_layout_,
+      .vertex_shader = render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert),
+      .fragment_shader = render_depth ? gpu::ShaderCode(splat_depth_frag) : gpu::ShaderCode(splat_frag),
+      .formats = std::move(formats),
+      .locations = std::move(locations),
+      .depth_format = depth_format,
+      .depth_test = depth_format != VK_FORMAT_UNDEFINED,
+  });
 
   glm::mat4 projection_inverse = glm::inverse(draw_options.projection);
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
