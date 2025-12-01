@@ -15,6 +15,7 @@
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/core/gaussian_splats.h"
+#include "vkgs/core/renderer.h"
 
 #include "storage.h"
 #include "camera.h"
@@ -27,12 +28,12 @@ namespace viewer {
 
 class Context;
 
-class Viewer::Impl {
+class ViewerImpl::Impl {
  public:
   Impl();
   ~Impl();
 
-  void SetRenderer(std::shared_ptr<core::Renderer> renderer) { renderer_ = renderer; }
+  void SetRenderer(core::Renderer renderer) { renderer_ = renderer; }
   void SetSplats(core::GaussianSplats splats) { splats_ = splats; }
 
   void AddCamera(const CameraParams& camera_params) { camera_params_.push_back(camera_params); }
@@ -77,7 +78,7 @@ class Viewer::Impl {
   Camera camera_;
   PoseSpline pose_spline_;
 
-  std::shared_ptr<core::Renderer> renderer_;
+  core::Renderer renderer_;
   core::GaussianSplats splats_;
   std::vector<CameraParams> camera_params_;
 

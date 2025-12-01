@@ -17,10 +17,7 @@ namespace vkgs {
 
 class Engine::Impl {
  public:
-  Impl()
-      : viewer_(std::make_shared<viewer::Viewer>()),
-        parser_(std::make_shared<core::Parser>()),
-        renderer_(std::make_shared<core::Renderer>()) {
+  Impl() : viewer_(viewer::Viewer::Create()), parser_(core::Parser::Create()), renderer_(core::Renderer::Create()) {
     viewer_->SetRenderer(renderer_);
   }
 
@@ -71,9 +68,9 @@ class Engine::Impl {
   }
 
  private:
-  std::shared_ptr<viewer::Viewer> viewer_;
-  std::shared_ptr<core::Parser> parser_;
-  std::shared_ptr<core::Renderer> renderer_;
+  viewer::Viewer viewer_;
+  core::Parser parser_;
+  core::Renderer renderer_;
 };
 
 Engine::Engine() : impl_(std::make_shared<Impl>()) {}

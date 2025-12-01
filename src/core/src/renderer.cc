@@ -38,7 +38,7 @@ auto WorkgroupSize(size_t count, uint32_t local_size) { return (count + local_si
 namespace vkgs {
 namespace core {
 
-Renderer::Renderer() {
+RendererImpl::RendererImpl() {
   auto device = gpu::GetDevice();
   sorter_ = Sorter::Create(device, device->physical_device());
 
@@ -81,9 +81,9 @@ Renderer::Renderer() {
   });
 }
 
-Renderer::~Renderer() = default;
+RendererImpl::~RendererImpl() = default;
 
-RenderingTask Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
+RenderingTask RendererImpl::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
   auto rendering_task = RenderingTask::Create();
 
   uint32_t width = draw_options.width;
@@ -284,8 +284,8 @@ RenderingTask Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_opti
   return rendering_task;
 }
 
-void Renderer::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats, const DrawOptions& draw_options,
-                                   ScreenSplats screen_splats, gpu::Timer timer) {
+void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats, const DrawOptions& draw_options,
+                                       ScreenSplats screen_splats, gpu::Timer timer) {
   auto N = splats->size();
   auto position = splats->position();
   auto cov3d = splats->cov3d();
@@ -404,7 +404,7 @@ void Renderer::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats, co
   instances->Keep();
 }
 
-void Renderer::RenderScreenSplats(VkCommandBuffer cb, const RenderOptions& render_options) {
+void RendererImpl::RenderScreenSplats(VkCommandBuffer cb, const RenderOptions& render_options) {
   auto splat_pipeline = gpu::GraphicsPipeline::Create({
       .pipeline_layout = graphics_pipeline_layout_,
       .vertex_shader = render_options.render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert),

@@ -44,7 +44,7 @@ auto GetIndexData(int size) {
 namespace vkgs {
 namespace core {
 
-Parser::Parser() {
+ParserImpl::ParserImpl() {
   parse_pipeline_layout_ = gpu::PipelineLayout::Create({
       .bindings =
           {
@@ -60,11 +60,11 @@ Parser::Parser() {
   parse_data_pipeline_ = gpu::ComputePipeline::Create(parse_pipeline_layout_, parse_data);
 }
 
-Parser::~Parser() = default;
+ParserImpl::~ParserImpl() = default;
 
-GaussianSplats Parser::CreateGaussianSplats(size_t size, const float* means_ptr, const float* quats_ptr,
-                                            const float* scales_ptr, const float* opacities_ptr,
-                                            const uint16_t* colors_ptr, int sh_degree) {
+GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_ptr, const float* quats_ptr,
+                                                const float* scales_ptr, const float* opacities_ptr,
+                                                const uint16_t* colors_ptr, int sh_degree) {
   std::vector<uint32_t> index_data = GetIndexData(size);
 
   int colors_size = 0;
@@ -224,7 +224,7 @@ GaussianSplats Parser::CreateGaussianSplats(size_t size, const float* means_ptr,
   return GaussianSplats::Create(size, sh_degree, position, cov3d, sh, opacity, index_buffer, queue_task);
 }
 
-GaussianSplats Parser::LoadFromPly(const std::string& path, int sh_degree) {
+GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
   std::ifstream in(path, std::ios::binary);
 
   // parse header

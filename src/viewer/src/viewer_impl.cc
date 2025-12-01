@@ -71,11 +71,11 @@ struct BlendPushConstants {
 
 }  // namespace
 
-Viewer::Impl::Impl() { context_ = GetContext(); }
+ViewerImpl::Impl::Impl() { context_ = GetContext(); }
 
-Viewer::Impl::~Impl() = default;
+ViewerImpl::Impl::~Impl() = default;
 
-void Viewer::Impl::InitializeWindow() {
+void ViewerImpl::Impl::InitializeWindow() {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   window_ = glfwCreateWindow(1280, 720, "vkgs", nullptr, nullptr);
   if (!window_) throw std::runtime_error("Failed to create window");
@@ -119,7 +119,7 @@ void Viewer::Impl::InitializeWindow() {
   ImGui_ImplVulkan_Init(&init_info);
 }
 
-void Viewer::Impl::FinalizeWindow() {
+void ViewerImpl::Impl::FinalizeWindow() {
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
@@ -127,7 +127,7 @@ void Viewer::Impl::FinalizeWindow() {
   glfwDestroyWindow(window_);
 }
 
-void Viewer::Impl::DrawUi() {
+void ViewerImpl::Impl::DrawUi() {
   const auto& io = ImGui::GetIO();
 
   // Dock panels
@@ -332,7 +332,7 @@ void Viewer::Impl::DrawUi() {
   }
 }
 
-void Viewer::Impl::Run() {
+void ViewerImpl::Impl::Run() {
   InitializeWindow();
 
   // Formats
@@ -444,7 +444,7 @@ void Viewer::Impl::Run() {
     pose_spline_.push_back(OpenCVExtrinsicToPose(camera_params.extrinsic));
   }
 
-  if (!renderer_) renderer_ = std::make_shared<core::Renderer>();
+  if (!renderer_) renderer_ = core::Renderer::Create();
 
   // Viewer options
   viewer_options_ = {
@@ -493,7 +493,7 @@ void Viewer::Impl::Run() {
   FinalizeWindow();
 }
 
-void Viewer::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
+void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   ImGui::Render();
   ImDrawData* draw_data = ImGui::GetDrawData();
 

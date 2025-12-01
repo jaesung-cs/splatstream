@@ -9,6 +9,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/semaphore.h"
@@ -39,10 +40,10 @@ struct RenderOptions {
   bool render_depth;
 };
 
-class VKGS_CORE_API Renderer {
+class VKGS_CORE_API RendererImpl {
  public:
-  Renderer();
-  ~Renderer();
+  RendererImpl();
+  ~RendererImpl();
 
   const std::string& device_name() const noexcept { return device_name_; }
   uint32_t graphics_queue_index() const noexcept { return graphics_queue_index_; }
@@ -90,6 +91,8 @@ class VKGS_CORE_API Renderer {
 
   uint64_t frame_index_ = 0;
 };
+
+class Renderer : public SharedAccessor<Renderer, RendererImpl> {};
 
 }  // namespace core
 }  // namespace vkgs
