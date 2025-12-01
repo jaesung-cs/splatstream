@@ -13,10 +13,14 @@
 namespace vkgs {
 namespace gpu {
 
+struct PipelineLayoutCreateInfo {
+  std::vector<VkDescriptorSetLayoutBinding> bindings;
+  std::vector<VkPushConstantRange> push_constants;
+};
+
 class VKGS_GPU_API PipelineLayoutImpl : public Object {
  public:
-  PipelineLayoutImpl(const std::vector<VkDescriptorSetLayoutBinding>& bindings,
-                     const std::vector<VkPushConstantRange>& push_constants);
+  PipelineLayoutImpl(const PipelineLayoutCreateInfo& create_info);
   ~PipelineLayoutImpl() override;
 
   operator VkPipelineLayout() const noexcept { return pipeline_layout_; }
@@ -26,7 +30,10 @@ class VKGS_GPU_API PipelineLayoutImpl : public Object {
   VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
 };
 
-class VKGS_GPU_API PipelineLayout : public SharedAccessor<PipelineLayout, PipelineLayoutImpl> {};
+class VKGS_GPU_API PipelineLayout : public SharedAccessor<PipelineLayout, PipelineLayoutImpl> {
+ public:
+  static PipelineLayout Create(const PipelineLayoutCreateInfo& create_info) { return Base::Create(create_info); }
+};
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -332,9 +332,9 @@ void Viewer::Impl::Run() {
   std::vector<VkFormat> formats = {swapchain_format_, high_format_, depth_image_format_};
 
   // Graphics pipelines
-  color_pipeline_layout_ = gpu::PipelineLayout::Create(
-      std::vector<VkDescriptorSetLayoutBinding>{{}},
-      std::vector<VkPushConstantRange>{{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}});
+  color_pipeline_layout_ = gpu::PipelineLayout::Create({
+      .push_constants = {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}},
+  });
 
   gpu::GraphicsPipelineCreateInfo color_pipeline_info = {};
   color_pipeline_info.pipeline_layout = color_pipeline_layout_;
@@ -355,11 +355,11 @@ void Viewer::Impl::Run() {
   color_pipeline_info.depth_write = true;
   color_pipeline_ = gpu::GraphicsPipeline::Create(color_pipeline_info);
 
-  blend_pipeline_layout_ = gpu::PipelineLayout::Create(
-      std::vector<VkDescriptorSetLayoutBinding>{
-          {0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
-          {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
-      std::vector<VkPushConstantRange>{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlendPushConstants)}});
+  blend_pipeline_layout_ = gpu::PipelineLayout::Create({
+      .bindings = {{0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+                   {1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
+      .push_constants = {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlendPushConstants)}},
+  });
 
   gpu::GraphicsPipelineCreateInfo blend_pipeline_info = {};
   blend_pipeline_info.pipeline_layout = blend_pipeline_layout_;
