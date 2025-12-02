@@ -23,8 +23,8 @@
 #include "generated/rank.h"
 #include "generated/inverse_index.h"
 #include "generated/projection.h"
-#include "generated/splat_vert.h"
-#include "generated/splat_frag.h"
+#include "generated/splat_color_vert.h"
+#include "generated/splat_color_frag.h"
 #include "generated/splat_depth_vert.h"
 #include "generated/splat_depth_frag.h"
 #include "struct.h"
@@ -186,7 +186,7 @@ RenderingTask RendererImpl::Draw(GaussianSplats splats, const DrawOptions& draw_
         .formats = {VK_FORMAT_R16G16B16A16_SFLOAT},
         .locations = {0},
     };
-    RenderScreenSplats(cb, render_options);
+    RenderScreenSplatsColor(cb, render_options);
 
     vkCmdEndRendering(cb);
 
@@ -404,11 +404,35 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   instances->Keep();
 }
 
-void RendererImpl::RenderScreenSplats(VkCommandBuffer cb, const RenderOptions& render_options) {
-  auto splat_pipeline = gpu::GraphicsPipeline::Create({
+void RendererImpl::RenderScreenSplatsColor(VkCommandBuffer cb, const RenderOptions& render_options) {
+  auto splat_color_pipeline = gpu::GraphicsPipeline::Create({
       .pipeline_layout = graphics_pipeline_layout_,
-      .vertex_shader = render_options.render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert),
-      .fragment_shader = render_options.render_depth ? gpu::ShaderCode(splat_depth_frag) : gpu::ShaderCode(splat_frag),
+      .vertex_shader = gpu::ShaderCode(splat_color_vert),
+      .fragment_shader = gpu::ShaderCode(splat_color_frag),
+      .formats = render_options.formats,
+      .locations = render_options.locations,
+      .depth_format = render_options.depth_format,
+      .depth_test = render_options.depth_format != VK_FORMAT_UNDEFINED,
+  });
+
+  gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
+      .Storage(0, render_options.screen_splats->instances())
+      .Bind(splat_color_pipeline)
+      .Commit(cb);
+
+  vkCmdBindIndexBuffer(cb, render_options.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexedIndirect(cb, render_options.screen_splats->draw_indirect(), 0, 1, 0);
+
+  splat_color_pipeline->Keep();
+  render_options.screen_splats->instances()->Keep();
+  render_options.screen_splats->draw_indirect()->Keep();
+}
+
+void RendererImpl::RenderScreenSplatsDepth(VkCommandBuffer cb, const RenderOptions& render_options) {
+  auto splat_depth_pipeline = gpu::GraphicsPipeline::Create({
+      .pipeline_layout = graphics_pipeline_layout_,
+      .vertex_shader = gpu::ShaderCode(splat_depth_vert),
+      .fragment_shader = gpu::ShaderCode(splat_depth_frag),
       .formats = render_options.formats,
       .locations = render_options.locations,
       .depth_format = render_options.depth_format,
@@ -419,13 +443,13 @@ void RendererImpl::RenderScreenSplats(VkCommandBuffer cb, const RenderOptions& r
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
       .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(projection_inverse), &projection_inverse)
       .Storage(0, render_options.screen_splats->instances())
-      .Bind(splat_pipeline)
+      .Bind(splat_depth_pipeline)
       .Commit(cb);
 
   vkCmdBindIndexBuffer(cb, render_options.index_buffer, 0, VK_INDEX_TYPE_UINT32);
   vkCmdDrawIndexedIndirect(cb, render_options.screen_splats->draw_indirect(), 0, 1, 0);
 
-  splat_pipeline->Keep();
+  splat_depth_pipeline->Keep();
   render_options.screen_splats->instances()->Keep();
   render_options.screen_splats->draw_indirect()->Keep();
 }

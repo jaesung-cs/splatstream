@@ -84,8 +84,10 @@ class ViewerImpl::Impl {
 
   gpu::PipelineLayout color_pipeline_layout_;
   gpu::GraphicsPipeline color_pipeline_;
+  gpu::GraphicsPipeline depth_pipeline_;
   gpu::PipelineLayout blend_pipeline_layout_;
-  gpu::GraphicsPipeline blend_pipeline_;
+  gpu::GraphicsPipeline blend_color_pipeline_;
+  gpu::GraphicsPipeline blend_depth_pipeline_;
 
   gpu::Buffer camera_vertices_;
   gpu::Buffer camera_indices_;

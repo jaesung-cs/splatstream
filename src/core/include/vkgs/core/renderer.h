@@ -37,7 +37,6 @@ struct RenderOptions {
   std::vector<VkFormat> formats;
   std::vector<uint32_t> locations;
   VkFormat depth_format;
-  bool render_depth;
 };
 
 class VKGS_CORE_API RendererImpl {
@@ -62,7 +61,8 @@ class VKGS_CORE_API RendererImpl {
   /**
    * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
    */
-  void RenderScreenSplats(VkCommandBuffer command_buffer, const RenderOptions& render_options);
+  void RenderScreenSplatsColor(VkCommandBuffer command_buffer, const RenderOptions& render_options);
+  void RenderScreenSplatsDepth(VkCommandBuffer command_buffer, const RenderOptions& render_options);
 
  private:
   std::string device_name_;
