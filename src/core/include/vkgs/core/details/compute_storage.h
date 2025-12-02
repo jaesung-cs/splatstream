@@ -1,25 +1,21 @@
-#ifndef VKGS_CORE_COMPUTE_STORAGE_H
-#define VKGS_CORE_COMPUTE_STORAGE_H
+#ifndef VKGS_CORE_DETAILS_COMPUTE_STORAGE_H
+#define VKGS_CORE_DETAILS_COMPUTE_STORAGE_H
 
 #include <memory>
 #include <cstdint>
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/buffer.h"
+
 namespace vkgs {
-namespace gpu {
-
-class Device;
-class Buffer;
-
-}  // namespace gpu
-
 namespace core {
 
-class ComputeStorage {
+class ComputeStorageImpl {
  public:
-  ComputeStorage();
-  ~ComputeStorage();
+  ComputeStorageImpl();
+  ~ComputeStorageImpl();
 
   auto visible_point_count() const noexcept { return visible_point_count_; }
   auto camera() const noexcept { return camera_; }
@@ -35,18 +31,20 @@ class ComputeStorage {
   uint32_t point_count_ = 0;
 
   // Fixed
-  std::shared_ptr<gpu::Buffer> visible_point_count_;  // (1)
-  std::shared_ptr<gpu::Buffer> camera_;               // (Camera)
-  std::shared_ptr<gpu::Buffer> camera_stage_;         // (Camera)
+  gpu::Buffer visible_point_count_;  // (1)
+  gpu::Buffer camera_;               // (Camera)
+  gpu::Buffer camera_stage_;         // (Camera)
 
   // Variable
-  std::shared_ptr<gpu::Buffer> key_;            // (N)
-  std::shared_ptr<gpu::Buffer> index_;          // (N)
-  std::shared_ptr<gpu::Buffer> sort_storage_;   // (M)
-  std::shared_ptr<gpu::Buffer> inverse_index_;  // (N)
+  gpu::Buffer key_;            // (N)
+  gpu::Buffer index_;          // (N)
+  gpu::Buffer sort_storage_;   // (M)
+  gpu::Buffer inverse_index_;  // (N)
 };
+
+class ComputeStorage : public SharedAccessor<ComputeStorage, ComputeStorageImpl> {};
 
 }  // namespace core
 }  // namespace vkgs
 
-#endif  // VKGS_CORE_COMPUTE_STORAGE_H
+#endif  // VKGS_CORE_DETAILS_COMPUTE_STORAGE_H

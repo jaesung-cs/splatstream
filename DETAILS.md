@@ -47,6 +47,67 @@ One of the biggest challenges of this design is that the object management syste
 Other design patterns for managing lifetime of Vulkan objects could be a single context having `unique_ptr`s of dependent resources, where public interface for the resources are available via handles or wrapper classes.
 This design is not adopted because it seemingly makes the design more complex and requires more lines of codes.
 
+## Shared Accessor
+`std::shared_ptr` is good for Vulkan resource lifetime management, but is too low-level, in that the users need to create with `std::make_shared` and manage the pointers by their own.
+
+How about having a wrapper class, from which an object is created behaving like `std::shared_ptr` but hold the 
+
+```cpp
+template <typename ObjectType, typename InstanceType>
+class SharedAccessor {
+ public:
+  // Empty object
+  SharedAccessor() = default;
+
+  // Actual instance is created by Create(...)
+  template <typename... Args>
+  static ObjectType Create(Args&&... args) {
+    auto instance = std::make_shared<InstanceType>(std::forward<Args>(args)...);
+    ObjectType object;
+    object.instance_ = instance;
+    return object;
+  }
+
+  // Use as if a variable has functions
+  auto operator->() const noexcept { return instance_.get(); }
+
+  // To "any" cast operator, if the implementation class has cast operation.
+  template <typename T> operator T() const noexcept { return static_cast<T>(*instance_.get()); }
+
+ private:
+  std::shared_ptr<InstanceType> instance_;
+};
+```
+
+This is the basic pattern:
+```cpp
+class FooImpl {  // Actual implementation
+ public:
+  FooImpl(int x, float y);
+  void Bar();
+};
+
+class Foo : public SharedAccessor<Foo, FooImpl> {};  // Object class
+
+{
+  Foo foo;                        // An empty object
+  Foo bar = Foo::Create(1, 2.f);  // Create concrete
+  bar->Boo();                     // Act like a shared ptr
+  Foo baz = bar;                  // An object points to the same one
+}                                 // Destructor ~FooImpl() is called once
+```
+
+For singleton, `std::weak_ptr<FooImpl>` points to the instance, and `Foo` is created with `Foo::FromPtr` if not expired, `Foo::Create` otherwise.
+For more details about this, see `vkgs/gpu/gpu.cc` for more details.
+
+I find this wrapper class very powerful in that the "pointer" concept can be completely hidden in the middle layer and to the end users.
+
+One of drawbacks is that to have shared accessors as member variable, the class is not just to be declared but must be defined, i.e. headers must be included.
+It will result in increase of compile time and the number of headers to expose.
+
+Pimpl idiom is also valid along with this shared accessor pattern.
+It is good for hiding implementation details and reducing compile time.
+
 ## Back-to-Front Rendering
 The splats are sorted back-to-front, like how general renderers draw transparent objects.
 

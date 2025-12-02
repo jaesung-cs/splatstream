@@ -3,35 +3,33 @@
 
 #include <memory>
 
-#include "export_api.h"
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/queue_task.h"
 
+#include "vkgs/core/export_api.h"
 #include "vkgs/core/draw_result.h"
 
 namespace vkgs {
-namespace gpu {
-
-class QueueTask;
-
-}  // namespace gpu
-
 namespace core {
 
-class VKGS_CORE_API RenderingTask {
+class VKGS_CORE_API RenderingTaskImpl {
  public:
-  RenderingTask();
-  ~RenderingTask();
+  RenderingTaskImpl();
+  ~RenderingTaskImpl();
 
-  void SetTask(std::shared_ptr<gpu::QueueTask> task);
-  void SetDrawResult(const DrawResult& result);
+  void SetTask(gpu::QueueTask task) { task_ = task; }
+  void SetDrawResult(const DrawResult& result) { result_ = result; }
 
   const auto& draw_result() const noexcept { return result_; }
 
   void Wait();
 
  private:
-  std::shared_ptr<gpu::QueueTask> task_;
+  gpu::QueueTask task_;
   DrawResult result_ = {};
 };
+
+class VKGS_CORE_API RenderingTask : public SharedAccessor<RenderingTask, RenderingTaskImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

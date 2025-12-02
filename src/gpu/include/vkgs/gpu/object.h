@@ -3,12 +3,11 @@
 
 #include <memory>
 
-#include "export_api.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/device.h"
 
 namespace vkgs {
 namespace gpu {
-
-class Device;
 
 class VKGS_GPU_API Object : public std::enable_shared_from_this<Object> {
  public:
@@ -23,7 +22,7 @@ class VKGS_GPU_API Object : public std::enable_shared_from_this<Object> {
 
  protected:
   // Hold device so that device is not destroyed before objects are destroyed.
-  std::shared_ptr<Device> device_;
+  Device device_;
 };
 
 }  // namespace gpu

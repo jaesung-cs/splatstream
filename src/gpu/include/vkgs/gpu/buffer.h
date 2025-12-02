@@ -5,19 +5,17 @@
 
 #include <vulkan/vulkan.h>
 
-#include "export_api.h"
-#include "object.h"
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API Buffer : public Object {
+class VKGS_GPU_API BufferImpl : public Object {
  public:
-  static std::shared_ptr<Buffer> Create(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
-
- public:
-  Buffer(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
-  ~Buffer() override;
+  BufferImpl(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
+  ~BufferImpl() override;
 
   operator VkBuffer() const noexcept { return buffer_; }
 
@@ -41,6 +39,8 @@ class VKGS_GPU_API Buffer : public Object {
   void* allocation_ = VK_NULL_HANDLE;
   void* ptr_ = nullptr;
 };
+
+class VKGS_GPU_API Buffer : public SharedAccessor<Buffer, BufferImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

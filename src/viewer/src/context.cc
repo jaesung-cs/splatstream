@@ -27,10 +27,10 @@ Context::Context() {
   uint32_t count;
   const char** instance_extensions = glfwGetRequiredInstanceExtensions(&count);
 
-  gpu::DeviceCreateInfo device_info;
-  device_info.enable_viewer = true;
-  device_info.instance_extensions.assign(instance_extensions, instance_extensions + count);
-  gpu::Init(device_info);
+  gpu::Init({
+      .enable_viewer = true,
+      .instance_extensions = {instance_extensions, instance_extensions + count},
+  });
   device_ = gpu::GetDevice();
 }
 

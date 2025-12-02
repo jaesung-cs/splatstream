@@ -15,16 +15,16 @@ class RenderingTask;
 
 class VKGS_API RenderingTask {
  public:
-  explicit RenderingTask(std::shared_ptr<core::RenderingTask> task);
+  explicit RenderingTask(core::RenderingTask task);
   ~RenderingTask();
 
   void Wait();
 
-  const auto& draw_result() const noexcept { return result_; }
+  const DrawResult& draw_result() const;
 
  private:
-  std::shared_ptr<core::RenderingTask> task_;
-  DrawResult result_ = {};
+  class Impl;
+  std::shared_ptr<Impl> impl_;
 };
 
 }  // namespace vkgs

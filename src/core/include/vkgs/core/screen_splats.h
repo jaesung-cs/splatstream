@@ -4,21 +4,18 @@
 #include <memory>
 #include <cstdint>
 
-#include "export_api.h"
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/buffer.h"
+
+#include "vkgs/core/export_api.h"
 
 namespace vkgs {
-namespace gpu {
-
-class Buffer;
-
-}  // namespace gpu
-
 namespace core {
 
-class VKGS_CORE_API ScreenSplats {
+class VKGS_CORE_API ScreenSplatsImpl {
  public:
-  ScreenSplats();
-  ~ScreenSplats();
+  ScreenSplatsImpl();
+  ~ScreenSplatsImpl();
 
   auto draw_indirect() const noexcept { return draw_indirect_; }
   auto instances() const noexcept { return instances_; }
@@ -29,11 +26,13 @@ class VKGS_CORE_API ScreenSplats {
   uint32_t point_count_ = 0;
 
   // Fixed
-  std::shared_ptr<gpu::Buffer> draw_indirect_;  // (DrawIndirect)
+  gpu::Buffer draw_indirect_;  // (DrawIndirect)
 
   // Variable
-  std::shared_ptr<gpu::Buffer> instances_;  // (N, 12)
+  gpu::Buffer instances_;  // (N, 12)
 };
+
+class VKGS_CORE_API ScreenSplats : public SharedAccessor<ScreenSplats, ScreenSplatsImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

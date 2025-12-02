@@ -6,8 +6,9 @@
 
 #include <vulkan/vulkan.h>
 
-#include "export_api.h"
-#include "object.h"
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
@@ -21,10 +22,10 @@ struct PresentImageInfo {
   VkSemaphore render_finished_semaphore;
 };
 
-class VKGS_GPU_API Swapchain : public Object {
+class VKGS_GPU_API SwapchainImpl : public Object {
  public:
-  Swapchain(VkSurfaceKHR surface, VkFormat format, VkImageUsageFlags usage);
-  ~Swapchain() override;
+  SwapchainImpl(VkSurfaceKHR surface, VkFormat format, VkImageUsageFlags usage);
+  ~SwapchainImpl() override;
 
   VkFormat format() const noexcept { return format_; }
 
@@ -58,6 +59,8 @@ class VKGS_GPU_API Swapchain : public Object {
   std::array<VkSemaphore, kFrameCount> render_finished_semaphores_;
   std::array<VkFence, kFrameCount> render_finished_fences_;
 };
+
+class VKGS_GPU_API Swapchain : public SharedAccessor<Swapchain, SwapchainImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

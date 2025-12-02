@@ -6,19 +6,17 @@
 
 #include <vulkan/vulkan.h>
 
-#include "export_api.h"
-#include "object.h"
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API Timer : public Object {
+class VKGS_GPU_API TimerImpl : public Object {
  public:
-  static std::shared_ptr<Timer> Create(uint32_t size);
-
- public:
-  Timer(uint32_t size);
-  ~Timer();
+  TimerImpl(uint32_t size);
+  ~TimerImpl() override;
 
   void Record(VkCommandBuffer cb, VkPipelineStageFlags2 stage);
   std::vector<uint64_t> GetTimestamps() const;
@@ -28,6 +26,8 @@ class VKGS_GPU_API Timer : public Object {
   uint32_t size_ = 0;
   uint32_t counter_ = 0;
 };
+
+class VKGS_GPU_API Timer : public SharedAccessor<Timer, TimerImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

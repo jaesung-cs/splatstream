@@ -50,6 +50,7 @@ PYBIND11_MODULE(_core, m) {
              draw_options.height = height;
              std::memcpy(draw_options.background, background_ptr, 3 * sizeof(float));
              draw_options.eps2d = eps2d;
+             draw_options.confidence_radius = 3.5f;
              draw_options.sh_degree = sh_degree;
              return engine.Draw(splats, draw_options, dst_ptr);
            })

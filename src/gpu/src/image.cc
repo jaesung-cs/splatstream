@@ -3,16 +3,10 @@
 #include <volk.h>
 #include <vk_mem_alloc.h>
 
-#include "vkgs/gpu/device.h"
-
 namespace vkgs {
 namespace gpu {
 
-std::shared_ptr<Image> Image::Create(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage) {
-  return std::make_shared<Image>(format, width, height, usage);
-}
-
-Image::Image(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
+ImageImpl::ImageImpl(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
     : format_(format), width_(width), height_(height) {
   bool is_depth = false;
   switch (format) {
@@ -53,14 +47,14 @@ Image::Image(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags
                             VK_COMPONENT_SWIZZLE_A};
     view_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
   }
-  vkCreateImageView(*device_, &view_info, nullptr, &image_view_);
+  vkCreateImageView(device_, &view_info, nullptr, &image_view_);
 }
 
-Image::~Image() {
+ImageImpl::~ImageImpl() {
   VmaAllocator allocator = static_cast<VmaAllocator>(device_->allocator());
   VmaAllocation allocation = static_cast<VmaAllocation>(allocation_);
 
-  vkDestroyImageView(*device_, image_view_, nullptr);
+  vkDestroyImageView(device_, image_view_, nullptr);
   vmaDestroyImage(allocator, image_, allocation);
 }
 

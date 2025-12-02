@@ -2,17 +2,15 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/device.h"
-
 namespace vkgs {
 namespace gpu {
 
-ComputePipeline::ComputePipeline(VkPipelineLayout pipeline_layout, const uint32_t* shader, size_t size) {
+ComputePipelineImpl::ComputePipelineImpl(VkPipelineLayout pipeline_layout, const uint32_t* shader, size_t size) {
   VkShaderModuleCreateInfo shader_module_info = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
   shader_module_info.codeSize = size * sizeof(uint32_t);
   shader_module_info.pCode = shader;
   VkShaderModule shader_module;
-  vkCreateShaderModule(*device_, &shader_module_info, NULL, &shader_module);
+  vkCreateShaderModule(device_, &shader_module_info, NULL, &shader_module);
 
   VkComputePipelineCreateInfo pipeline_info = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
   pipeline_info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -21,11 +19,11 @@ ComputePipeline::ComputePipeline(VkPipelineLayout pipeline_layout, const uint32_
   pipeline_info.stage.pName = "main";
   pipeline_info.layout = pipeline_layout;
 
-  vkCreateComputePipelines(*device_, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &pipeline_);
-  vkDestroyShaderModule(*device_, shader_module, NULL);
+  vkCreateComputePipelines(device_, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &pipeline_);
+  vkDestroyShaderModule(device_, shader_module, NULL);
 }
 
-ComputePipeline::~ComputePipeline() { vkDestroyPipeline(*device_, pipeline_, NULL); }
+ComputePipelineImpl::~ComputePipelineImpl() { vkDestroyPipeline(device_, pipeline_, NULL); }
 
 }  // namespace gpu
 }  // namespace vkgs

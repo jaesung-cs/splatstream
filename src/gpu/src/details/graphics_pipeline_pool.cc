@@ -1,4 +1,4 @@
-#include "graphics_pipeline_pool.h"
+#include "vkgs/gpu/details/graphics_pipeline_pool.h"
 
 #include <array>
 
@@ -65,18 +65,18 @@ bool GraphicsPipelineCreateInfoLess::operator()(const GraphicsPipelineCreateInfo
   return false;
 }
 
-GraphicsPipelinePool::GraphicsPipelinePool(VkDevice device) : device_(device) {}
+GraphicsPipelinePoolImpl::GraphicsPipelinePoolImpl(VkDevice device) : device_(device) {}
 
-GraphicsPipelinePool::~GraphicsPipelinePool() {
+GraphicsPipelinePoolImpl::~GraphicsPipelinePoolImpl() {
   for (auto& [_, pipeline] : pipelines_) {
     vkDestroyPipeline(device_, pipeline, NULL);
   }
 }
 
-std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsPipelineCreateInfo& create_info) {
+GraphicsPipeline GraphicsPipelinePoolImpl::Allocate(const GraphicsPipelineCreateInfo& create_info) {
   auto it = pipelines_.find(create_info);
   if (it != pipelines_.end()) {
-    return std::make_shared<GraphicsPipeline>(shared_from_this(), create_info, it->second);
+    return GraphicsPipeline::Create(GraphicsPipelinePool::FromPtr(shared_from_this()), create_info, it->second);
   }
 
   // TODO: pipeline cache.
@@ -201,10 +201,10 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelinePool::Allocate(const GraphicsP
   vkDestroyShaderModule(device_, fragment_shader_module, NULL);
 
   pipelines_[create_info] = pipeline;
-  return std::make_shared<GraphicsPipeline>(shared_from_this(), create_info, pipeline);
+  return GraphicsPipeline::Create(GraphicsPipelinePool::FromPtr(shared_from_this()), create_info, pipeline);
 }
 
-void GraphicsPipelinePool::Free(const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline) {
+void GraphicsPipelinePoolImpl::Free(const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline) {
   pipelines_[create_info] = pipeline;
 }
 

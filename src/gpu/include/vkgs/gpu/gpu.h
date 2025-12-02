@@ -3,17 +3,15 @@
 
 #include <memory>
 
-#include "export_api.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/device.h"
 
 namespace vkgs {
 namespace gpu {
 
-class Device;
-struct DeviceCreateInfo;
-
 void VKGS_GPU_API Init(const DeviceCreateInfo& device_info);
 
-std::shared_ptr<Device> VKGS_GPU_API GetDevice();
+Device VKGS_GPU_API GetDevice();
 
 }  // namespace gpu
 }  // namespace vkgs

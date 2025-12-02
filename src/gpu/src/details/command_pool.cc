@@ -1,13 +1,13 @@
-#include "command_pool.h"
+#include "vkgs/gpu/details/command_pool.h"
 
 #include <volk.h>
 
-#include "command.h"
+#include "vkgs/gpu/details/command.h"
 
 namespace vkgs {
 namespace gpu {
 
-CommandPool::CommandPool(VkDevice device, uint32_t queue_family_index)
+CommandPoolImpl::CommandPoolImpl(VkDevice device, uint32_t queue_family_index)
     : device_(device), queue_family_index_(queue_family_index) {
   VkCommandPoolCreateInfo command_pool_info = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
   command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -15,9 +15,9 @@ CommandPool::CommandPool(VkDevice device, uint32_t queue_family_index)
   vkCreateCommandPool(device_, &command_pool_info, NULL, &command_pool_);
 }
 
-CommandPool::~CommandPool() { vkDestroyCommandPool(device_, command_pool_, NULL); }
+CommandPoolImpl::~CommandPoolImpl() { vkDestroyCommandPool(device_, command_pool_, NULL); }
 
-std::shared_ptr<Command> CommandPool::Allocate() {
+Command CommandPoolImpl::Allocate() {
   VkCommandBuffer command_buffer;
 
   if (command_buffers_.empty()) {
@@ -31,10 +31,10 @@ std::shared_ptr<Command> CommandPool::Allocate() {
     command_buffers_.pop_back();
   }
 
-  return std::make_shared<Command>(shared_from_this(), command_buffer);
+  return Command::Create(CommandPool::FromPtr(shared_from_this()), command_buffer);
 }
 
-void CommandPool::Free(VkCommandBuffer command_buffer) { command_buffers_.push_back(command_buffer); }
+void CommandPoolImpl::Free(VkCommandBuffer command_buffer) { command_buffers_.push_back(command_buffer); }
 
 }  // namespace gpu
 }  // namespace vkgs

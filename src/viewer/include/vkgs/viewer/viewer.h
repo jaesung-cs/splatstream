@@ -3,9 +3,10 @@
 
 #include <memory>
 
-#include "export_api.h"
+#include "vkgs/common/shared_accessor.h"
 
-#include "camera_params.h"
+#include "vkgs/viewer/export_api.h"
+#include "vkgs/viewer/camera_params.h"
 
 namespace vkgs {
 namespace core {
@@ -15,13 +16,13 @@ class Renderer;
 
 namespace viewer {
 
-class VKGS_VIEWER_API Viewer {
+class VKGS_VIEWER_API ViewerImpl {
  public:
-  Viewer();
-  ~Viewer();
+  ViewerImpl();
+  ~ViewerImpl();
 
-  void SetRenderer(std::shared_ptr<core::Renderer> renderer);
-  void SetSplats(std::shared_ptr<core::GaussianSplats> splats);
+  void SetRenderer(core::Renderer renderer);
+  void SetSplats(core::GaussianSplats splats);
 
   void AddCamera(const CameraParams& camera_params);
 
@@ -31,6 +32,8 @@ class VKGS_VIEWER_API Viewer {
   class Impl;
   std::shared_ptr<Impl> impl_;
 };
+
+class Viewer : public SharedAccessor<Viewer, ViewerImpl> {};
 
 }  // namespace viewer
 }  // namespace vkgs

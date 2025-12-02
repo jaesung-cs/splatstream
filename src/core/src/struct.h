@@ -18,6 +18,7 @@ struct ComputePushConstants {
   alignas(16) glm::mat4 model;
   alignas(16) uint32_t point_count;
   float eps2d;
+  float confidence_radius;
   uint32_t sh_degree_data;
   uint32_t sh_degree_draw;
 };

@@ -1,13 +1,21 @@
 #ifndef VKGS_VIEWER_VIEWER_IMPL_H
 #define VKGS_VIEWER_VIEWER_IMPL_H
 
+#include "vkgs/viewer/viewer.h"
+
+#include <memory>
 #include <array>
 #include <vector>
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/viewer/viewer.h"
 #include "vkgs/gpu/swapchain.h"
+#include "vkgs/gpu/pipeline_layout.h"
+#include "vkgs/gpu/graphics_pipeline.h"
+#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/semaphore.h"
+#include "vkgs/core/gaussian_splats.h"
+#include "vkgs/core/renderer.h"
 
 #include "storage.h"
 #include "camera.h"
@@ -16,24 +24,17 @@
 struct GLFWwindow;
 
 namespace vkgs {
-namespace gpu {
-class Swapchain;
-class PipelineLayout;
-class GraphicsPipeline;
-class Buffer;
-}  // namespace gpu
-
 namespace viewer {
 
 class Context;
 
-class Viewer::Impl {
+class ViewerImpl::Impl {
  public:
   Impl();
   ~Impl();
 
-  void SetRenderer(std::shared_ptr<core::Renderer> renderer) { renderer_ = renderer; }
-  void SetSplats(std::shared_ptr<core::GaussianSplats> splats) { splats_ = splats; }
+  void SetRenderer(core::Renderer renderer) { renderer_ = renderer; }
+  void SetSplats(core::GaussianSplats splats) { splats_ = splats; }
 
   void AddCamera(const CameraParams& camera_params) { camera_params_.push_back(camera_params); }
 
@@ -53,7 +54,7 @@ class Viewer::Impl {
   VkFormat high_format_ = VK_FORMAT_R16G16B16A16_SFLOAT;
   VkFormat depth_image_format_ = VK_FORMAT_R16G16_SFLOAT;
   VkFormat depth_format_ = VK_FORMAT_D32_SFLOAT;
-  std::unique_ptr<gpu::Swapchain> swapchain_;
+  gpu::Swapchain swapchain_;
 
   struct ViewerOptions {
     glm::mat4 model;
@@ -61,7 +62,10 @@ class Viewer::Impl {
     int sh_degree;
     int render_type;
     glm::vec3 background;
-    float camera_scale;
+    float eps2d;
+    float confidence_radius;
+    bool show_camera_frames;
+    float camera_frame_scale;
     int camera_index;
     bool animation;
     float animation_time;
@@ -74,17 +78,17 @@ class Viewer::Impl {
   Camera camera_;
   PoseSpline pose_spline_;
 
-  std::shared_ptr<core::Renderer> renderer_;
-  std::shared_ptr<core::GaussianSplats> splats_;
+  core::Renderer renderer_;
+  core::GaussianSplats splats_;
   std::vector<CameraParams> camera_params_;
 
-  std::shared_ptr<gpu::PipelineLayout> color_pipeline_layout_;
-  std::shared_ptr<gpu::GraphicsPipeline> color_pipeline_;
-  std::shared_ptr<gpu::PipelineLayout> blend_pipeline_layout_;
-  std::shared_ptr<gpu::GraphicsPipeline> blend_pipeline_;
+  gpu::PipelineLayout color_pipeline_layout_;
+  gpu::GraphicsPipeline color_pipeline_;
+  gpu::PipelineLayout blend_pipeline_layout_;
+  gpu::GraphicsPipeline blend_pipeline_;
 
-  std::shared_ptr<gpu::Buffer> camera_vertices_;
-  std::shared_ptr<gpu::Buffer> camera_indices_;
+  gpu::Buffer camera_vertices_;
+  gpu::Buffer camera_indices_;
   uint32_t camera_index_size_ = 0;
 
   std::array<Storage, 2> ring_buffer_;

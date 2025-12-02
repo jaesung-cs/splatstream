@@ -1,4 +1,4 @@
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Vulkan REQUIRED)
@@ -20,15 +20,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(vk_radix_sort)
 
 add_library(vkgs_core SHARED
-  src/compute_storage.cc
+  src/details/compute_storage.cc
+  src/details/graphics_storage.cc
+  src/details/sorter.cc
   src/gaussian_splats.cc
-  src/graphics_storage.cc
   src/parser.cc
   src/renderer.cc
   src/rendering_task.cc
   src/screen_splats.cc
-  src/sorter.cc
-  src/transfer_storage.cc
   src/vrdx_impl.cc
 )
 add_library(vkgs::core ALIAS vkgs_core)
@@ -44,7 +43,6 @@ target_link_libraries(vkgs_core
   PUBLIC
     Vulkan::Vulkan
     glm::glm
-  PRIVATE
     vkgs::gpu
     vk_radix_sort
 )

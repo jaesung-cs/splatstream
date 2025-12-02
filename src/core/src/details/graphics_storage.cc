@@ -1,15 +1,13 @@
-#include "graphics_storage.h"
-
-#include "vkgs/gpu/image.h"
+#include "vkgs/core/details/graphics_storage.h"
 
 namespace vkgs {
 namespace core {
 
-GraphicsStorage::GraphicsStorage() {}
+GraphicsStorageImpl::GraphicsStorageImpl() {}
 
-GraphicsStorage::~GraphicsStorage() {}
+GraphicsStorageImpl::~GraphicsStorageImpl() {}
 
-void GraphicsStorage::Update(uint32_t width, uint32_t height) {
+void GraphicsStorageImpl::Update(uint32_t width, uint32_t height) {
   if (width_ != width || height_ != height) {
     image_ = gpu::Image::Create(VK_FORMAT_R16G16B16A16_SFLOAT, width, height,
                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);

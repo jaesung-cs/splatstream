@@ -5,15 +5,12 @@
 #include <volk.h>
 #include <vk_mem_alloc.h>
 
+#include "vkgs/gpu/details/fence.h"
+#include "vkgs/gpu/details/command.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
-
-#include "semaphore_pool.h"
-#include "fence_pool.h"
-#include "graphics_pipeline_pool.h"
-#include "fence.h"
-#include "command.h"
-#include "task_monitor.h"
+#include "vkgs/gpu/graphics_pipeline.h"
+#include "vkgs/gpu/queue_task.h"
 
 namespace {
 
@@ -63,7 +60,7 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 namespace vkgs {
 namespace gpu {
 
-Device::Device(const DeviceCreateInfo& create_info) {
+DeviceImpl::DeviceImpl(const DeviceCreateInfo& create_info) {
   volkInitialize();
 
   // Instance
@@ -227,13 +224,13 @@ Device::Device(const DeviceCreateInfo& create_info) {
   vkGetPhysicalDeviceProperties(physical_device_, &device_properties);
   device_name_ = device_properties.deviceName;
 
-  semaphore_pool_ = std::make_shared<SemaphorePool>(device_);
-  fence_pool_ = std::make_shared<FencePool>(device_);
-  graphics_pipeline_pool_ = std::make_shared<GraphicsPipelinePool>(device_);
+  semaphore_pool_ = SemaphorePool::Create(device_);
+  fence_pool_ = FencePool::Create(device_);
+  graphics_pipeline_pool_ = GraphicsPipelinePool::Create(device_);
 
-  graphics_queue_ = std::make_shared<Queue>(device_, graphics_queue, graphics_queue_index);
-  compute_queue_ = std::make_shared<Queue>(device_, compute_queue, compute_queue_index);
-  transfer_queue_ = std::make_shared<Queue>(device_, transfer_queue, transfer_queue_index);
+  graphics_queue_ = Queue::Create(device_, graphics_queue, graphics_queue_index);
+  compute_queue_ = Queue::Create(device_, compute_queue, compute_queue_index);
+  transfer_queue_ = Queue::Create(device_, transfer_queue, transfer_queue_index);
 
   // Allocator
   VmaVulkanFunctions functions = {};
@@ -251,19 +248,19 @@ Device::Device(const DeviceCreateInfo& create_info) {
   allocator_ = allocator;
 
   // Task monitor
-  task_monitor_ = std::make_shared<gpu::TaskMonitor>();
+  task_monitor_ = TaskMonitor::Create();
 }
 
-Device::~Device() {
+DeviceImpl::~DeviceImpl() {
   WaitIdle();
 
-  graphics_queue_ = nullptr;
-  compute_queue_ = nullptr;
-  transfer_queue_ = nullptr;
-  semaphore_pool_ = nullptr;
-  fence_pool_ = nullptr;
-  graphics_pipeline_pool_ = nullptr;
-  task_monitor_ = nullptr;
+  graphics_queue_.reset();
+  compute_queue_.reset();
+  transfer_queue_.reset();
+  semaphore_pool_.reset();
+  fence_pool_.reset();
+  graphics_pipeline_pool_.reset();
+  task_monitor_.reset();
 
   VmaAllocator allocator = static_cast<VmaAllocator>(allocator_);
   vmaDestroyAllocator(allocator);
@@ -274,21 +271,24 @@ Device::~Device() {
   volkFinalize();
 }
 
-uint32_t Device::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }
-uint32_t Device::compute_queue_index() const noexcept { return compute_queue_->family_index(); }
-uint32_t Device::transfer_queue_index() const noexcept { return transfer_queue_->family_index(); }
+uint32_t DeviceImpl::graphics_queue_index() const noexcept { return graphics_queue_->family_index(); }
+uint32_t DeviceImpl::compute_queue_index() const noexcept { return compute_queue_->family_index(); }
+uint32_t DeviceImpl::transfer_queue_index() const noexcept { return transfer_queue_->family_index(); }
 
-std::shared_ptr<Semaphore> Device::AllocateSemaphore() { return semaphore_pool_->Allocate(); }
-std::shared_ptr<Fence> Device::AllocateFence() { return fence_pool_->Allocate(); }
+Semaphore DeviceImpl::AllocateSemaphore() { return semaphore_pool_->Allocate(); }
+Fence DeviceImpl::AllocateFence() { return fence_pool_->Allocate(); }
 
-void Device::WaitIdle() {
+GraphicsPipeline DeviceImpl::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info) {
+  return graphics_pipeline_pool_->Allocate(create_info);
+}
+
+void DeviceImpl::WaitIdle() {
   task_monitor_->FinishAllTasks();
   vkDeviceWaitIdle(device_);
 }
 
-std::shared_ptr<QueueTask> Device::AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
-                                                std::vector<std::shared_ptr<Object>> objects,
-                                                std::function<void()> callback) {
+QueueTask DeviceImpl::AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                                   std::function<void()> callback) {
   return task_monitor_->Add(fence, command, std::move(objects), callback);
 }
 
