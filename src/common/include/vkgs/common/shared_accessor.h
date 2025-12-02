@@ -7,48 +7,57 @@
 namespace vkgs {
 
 /**
- * A wrapper class that provides a shared pointer to an object.
- * Object is created by Create() function.
- * Object is accessed through operator->().
- * For an object class Foo and an implementation class FooImpl,
- * Derive SharedAccessor<Foo, FooImpl> to create a shared accessor.
- * Example:
- *   ```cpp
- *   class FooImpl {
- *    public:
- *     FooImpl(int x, float y);
- *     void bar();
- *   };
+ * @brief A wrapper class that provides a shared pointer to an object.
  *
- *   class Foo : public SharedAccessor<Foo, FooImpl> {};
+ * @details This class provides a convenient way to wrap an implementation class
+ *          with a shared pointer. Objects are created using the Create() function
+ *          and accessed through operator->().
  *
- *   Foo foo = Foo::Create(1, 2.0f);
- *   foo->bar();
- *   ```
+ *          For an object class Foo and an implementation class FooImpl,
+ *          derive SharedAccessor<Foo, FooImpl> to create a shared accessor.
  *
- * The Create will fail to deduce type if a user wants to create with initializer_list or designated initialized struct.
- * To make it able to deduce types,
- * Example:
- *   ```cpp
- *   struct FooCreateInfo { int x; float y; };
+ * @tparam ObjectType The public-facing object type that users interact with.
+ * @tparam InstanceType The implementation type that contains the actual logic.
  *
- *   class FooImpl {
- *    public:
- *     FooImpl(int x, float y);
- *     FooImpl(const FooCreateInfo& create_info);
- *   };
+ * @par Basic Usage Example:
+ * @code{.cpp}
+ * class FooImpl {
+ *  public:
+ *   FooImpl(int x, float y);
+ *   void bar();
+ * };
  *
- *   class Foo : public SharedAccessor<Foo, FooImpl> {
- *    public:
- *     using Base::Create;                                    // To expose automatically
- *     static Foo Create(const FooCreateInfo& create_info) {  // To explicitly deduce FooCreateInfo
- *       Base::Create(create_info);
- *     }
- *   };
+ * class Foo : public SharedAccessor<Foo, FooImpl> {};
  *
- *   Foo foo = Foo::Create(1, 2.f);              // Exposed implicitly by FooImpl
- *   Foo bar = Foo::Create({.x = 1, .y = 2.f});  // Exposed explicitly by Foo
- *   ```
+ * Foo foo = Foo::Create(1, 2.0f);
+ * foo->bar();
+ * @endcode
+ *
+ * @par Advanced Usage with Type Deduction:
+ * The Create() function will fail to deduce types when using initializer_list
+ * or designated initialized structs. To enable type deduction for these cases,
+ * explicitly define a Create() overload:
+ *
+ * @code{.cpp}
+ * struct FooCreateInfo { int x; float y; };
+ *
+ * class FooImpl {
+ *  public:
+ *   FooImpl(int x, float y);
+ *   FooImpl(const FooCreateInfo& create_info);
+ * };
+ *
+ * class Foo : public SharedAccessor<Foo, FooImpl> {
+ *  public:
+ *   using Base::Create;                                    // To expose automatically
+ *   static Foo Create(const FooCreateInfo& create_info) {  // To explicitly deduce FooCreateInfo
+ *     Base::Create(create_info);
+ *   }
+ * };
+ *
+ * Foo foo = Foo::Create(1, 2.f);              // Exposed implicitly by FooImpl
+ * Foo bar = Foo::Create({.x = 1, .y = 2.f});  // Exposed explicitly by Foo
+ * @endcode
  */
 template <typename ObjectType, typename InstanceType>
 class SharedAccessor {
