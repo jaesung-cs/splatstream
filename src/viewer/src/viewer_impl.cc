@@ -549,7 +549,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       .height = texture_height,
       .background = {0.f, 0.f, 0.f},  // unused
       .eps2d = viewer_options_.eps2d,
-      .confidence_radius = viewer_options_.confidence_radius,
       .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
   };
 
@@ -729,18 +728,18 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .AttachmentLocations(locations)
         .Commit(cb);
 
-    core::RenderOptions render_options = {
-        .index_buffer = splats_->index_buffer(),
-        .screen_splats = screen_splats,
-        .draw_options = &draw_options,
+    core::ScreenSplatOptions screen_splat_options = {
+        .confidence_radius = viewer_options_.confidence_radius,
+    };
+    core::RenderTargetOptions render_target_options = {
         .formats = formats,
         .locations = locations,
         .depth_format = depth_format_,
     };
     if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
-      renderer_->RenderScreenSplatsColor(cb, render_options);
+      renderer_->RenderScreenSplatsColor(cb, screen_splats, screen_splat_options, render_target_options);
     } else if (viewer_options_.render_type == 2) {
-      renderer_->RenderScreenSplatsDepth(cb, render_options);
+      renderer_->RenderScreenSplatsDepth(cb, screen_splats, screen_splat_options, render_target_options);
     }
 
     // subpass 1:

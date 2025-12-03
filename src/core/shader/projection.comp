@@ -4,11 +4,10 @@
 
 layout(local_size_x = 256) in;
 
-layout(push_constant, std430) uniform PushConstants {
+layout(push_constant, std430) uniform ProjectionPushConstants {
   mat4 model;
   uint point_count;
   float eps2d;
-  float confidence_radius;
   uint sh_degree_data;
   uint sh_degree_draw;
 };
@@ -203,9 +202,7 @@ void main() {
   // translation and clip
   color = max(color + 0.5f, 0.f);
 
-  float radius = sqrt(max(confidence_radius * confidence_radius + 2.f * log(opacity * compensation), 0.f));
-
-  instances[inverse_id * 3 + 0] = vec4(pos.xyz, radius);
+  instances[inverse_id * 3 + 0] = vec4(pos.xyz, 1.f);  // TODO: delete w component
   instances[inverse_id * 3 + 1] = vec4(rot_scale[0], rot_scale[1]);
   instances[inverse_id * 3 + 2] = vec4(color, opacity * compensation);
 }

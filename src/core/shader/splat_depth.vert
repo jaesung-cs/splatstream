@@ -1,12 +1,14 @@
 #version 460 core
 
-layout(std430, push_constant) uniform PushConstant {
+layout(std430, push_constant) uniform SplatPushConstants {
   mat4 projection_inverse;
+  float confidence_radius;
 };
 
 layout(std430, binding = 0) readonly buffer Instances {
   // TODO: use (N, 9); rgb not needed.
-  vec4 instances[];  // (N, 12). 3 for ndc position, 1 radius, 4 for rot scale, 4 for color.
+  // TODO: delete dummy
+  vec4 instances[];  // (N, 12). 3 for ndc position, 1 dummy, 4 for rot scale, 4 for color.
 };
 
 layout(location = 0) out vec4 out_color;
@@ -23,7 +25,7 @@ const vec2 positions[4] = vec2[4](
 void main() {
   // index [0,1,2,0,2,3], 4 vertices for a splat.
   int index = gl_VertexIndex / 4;
-  vec4 ndc_position = instances[index * 3 + 0];  // xyz, radius
+  vec3 ndc_position = instances[index * 3 + 0].xyz;
   vec4 rot_scale_vec = instances[index * 3 + 1];
   vec4 color = instances[index * 3 + 2];
 
@@ -32,9 +34,11 @@ void main() {
   // circle positions (-1, 0), (0, 1), (1, 0), (0, -1), ccw in screen space.
   vec2 position = positions[gl_VertexIndex % 4];
 
-  gl_Position = vec4(ndc_position.xyz + vec3(rot_scale * position * ndc_position.w, 0.f), 1.f);
-  out_color = color;
-  out_position = position * ndc_position.w;
+  float radius = sqrt(max(confidence_radius * confidence_radius + 2.f * log(color.a), 0.f));
 
-  out_view_position = projection_inverse * vec4(ndc_position.xyz, 1.f);
+  gl_Position = vec4(ndc_position + vec3(rot_scale * position * radius, 0.f), 1.f);
+  out_color = color;
+  out_position = position * radius;
+
+  out_view_position = projection_inverse * vec4(ndc_position, 1.f);
 }
