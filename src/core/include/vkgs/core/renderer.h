@@ -79,6 +79,7 @@ class VKGS_CORE_API RendererImpl {
   gpu::ComputePipeline rank_pipeline_;
   gpu::ComputePipeline inverse_index_pipeline_;
   gpu::ComputePipeline projection_pipeline_;
+  gpu::ComputePipeline projection_float_pipeline_;
 
   gpu::PipelineLayout graphics_pipeline_layout_;
 

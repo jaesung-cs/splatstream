@@ -296,6 +296,8 @@ void ViewerImpl::Impl::DrawUi() {
           viewer_options_.camera_modified = true;
         }
       }
+
+      ImGui::Checkbox("Use vec4 array for instances", &viewer_options_.instance_vec4);
     }
 
     if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -481,6 +483,7 @@ void ViewerImpl::Impl::Run() {
       .animation_time = 0.f,
       .animation_speed = 30.f,
       .left_panel = true,
+      .instance_vec4 = true,
   };
 
   while (!glfwWindowShouldClose(window_)) {
@@ -550,6 +553,7 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       .background = {0.f, 0.f, 0.f},  // unused
       .eps2d = viewer_options_.eps2d,
       .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
+      .instance_vec4 = viewer_options_.instance_vec4,
   };
 
   // Compute queue
