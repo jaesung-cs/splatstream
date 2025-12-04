@@ -6,7 +6,6 @@
 #include "vkgs/gaussian_splats.h"
 #include "vkgs/rendering_task.h"
 
-#include "vkgs/core/draw_options.h"
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/parser.h"
 #include "vkgs/core/gaussian_splats.h"
@@ -46,10 +45,13 @@ class Engine::Impl {
         .height = draw_options.height,
         .background = glm::make_vec3(draw_options.background),
         .eps2d = draw_options.eps2d,
-        .confidence_radius = draw_options.confidence_radius,
         .sh_degree = draw_options.sh_degree,
+        .instance_vec4 = true,
     };
-    return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, dst));
+    core::ScreenSplatOptions core_screen_splat_options = {
+        .confidence_radius = draw_options.confidence_radius,
+    };
+    return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, core_screen_splat_options, dst));
   }
 
   void AddCamera(const CameraParams& camera_params) {

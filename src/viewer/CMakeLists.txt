@@ -69,10 +69,13 @@ target_compile_definitions(vkgs_viewer
     VKGS_VIEWER_EXPORTS
 )
 
-add_shader(vkgs_viewer shader/blend.frag blend_frag)
-add_shader(vkgs_viewer shader/blend.vert blend_vert)
-add_shader(vkgs_viewer shader/color.frag color_frag)
+add_shader(vkgs_viewer shader/screen.vert screen_vert)
+add_shader(vkgs_viewer shader/blend_color.frag blend_color_frag)
+add_shader(vkgs_viewer shader/blend_depth.frag blend_depth_frag)
 add_shader(vkgs_viewer shader/color.vert color_vert)
+add_shader(vkgs_viewer shader/color.frag color_frag)
+add_shader(vkgs_viewer shader/depth.vert depth_vert)
+add_shader(vkgs_viewer shader/depth.frag depth_frag)
 
 set_target_properties(vkgs_viewer PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

@@ -266,3 +266,27 @@ One crucial point is that we need at least float16 image for the image quality o
 
 ImGui's dynamic rendering is partially supported, in that multiple attachments are not available for now.
 So, UI is rendered to the swapchain image in a separate render pass.
+
+### Memory Access Pattern
+When it comes to calculation and memory costs, Gaussian splatting is leaned toward memory-bound operation, i.e. the number of operations are not so much compared to the number of memory reads/writes.
+
+Considering memory coalescing is as import as the global memory size and read/write count.
+
+It turns out that writing to screen splat instances into (N, 12) tensor, 12 elements of each row aggregated with 3 `vec4`s, is faster by 10% FPS in "garden" scene than into (N, 11) tensor with 11 `float`s.
+Even the memory consumption is approximately 10% more, the end-to-end frame rate is faster by 10% (FPS 400 vs. 360)
+This is probably because of cache flush cost on write operations. The former requires 3 writes, whiel the latter requires 11 writes.
+
+Because writing operation is more vulnerable to random access pattern, I also tested the "sequential gaussian splat read + random screen splat write" vs. "random gaussian splat read + sequential screen splat write."
+
+SH coefficients are (N, 48) `float16` tensor which is equivalent to 24 `float`s, and is still large.
+Other tensors are position (N, 3), cov3d (N, 6), and opacity (N, 1).
+
+With the current sequential read + random write scheme, FPS was 400.
+With random read + sequential write, FPS was dropped significantly to 300.
+This can be simply tested by using inversed index in `projection.comp`.
+Having On/Off flag for this makes code too complicated to just test the rendering speed.
+
+My conclusion is that sequential read + random write is the best so far, but there is still more room for improvement.
+Current implementation has many inactivate invocations for splats that are not visible.
+
+Shared memory could be a key to improve the rendering speed further.

@@ -32,8 +32,11 @@
 
 #include "generated/color_vert.h"
 #include "generated/color_frag.h"
-#include "generated/blend_vert.h"
-#include "generated/blend_frag.h"
+#include "generated/depth_vert.h"
+#include "generated/depth_frag.h"
+#include "generated/screen_vert.h"
+#include "generated/blend_color_frag.h"
+#include "generated/blend_depth_frag.h"
 #include "context.h"
 #include "imgui_texture.h"
 
@@ -293,6 +296,8 @@ void ViewerImpl::Impl::DrawUi() {
           viewer_options_.camera_modified = true;
         }
       }
+
+      ImGui::Checkbox("Use vec4 array for instances", &viewer_options_.instance_vec4);
     }
 
     if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -335,9 +340,6 @@ void ViewerImpl::Impl::DrawUi() {
 void ViewerImpl::Impl::Run() {
   InitializeWindow();
 
-  // Formats
-  std::vector<VkFormat> formats = {swapchain_format_, high_format_, depth_image_format_};
-
   // Graphics pipelines
   color_pipeline_layout_ = gpu::PipelineLayout::Create({
       .push_constants = {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}},
@@ -347,18 +349,28 @@ void ViewerImpl::Impl::Run() {
       .pipeline_layout = color_pipeline_layout_,
       .vertex_shader = gpu::ShaderCode(color_vert),
       .fragment_shader = gpu::ShaderCode(color_frag),
-      .bindings =
-          {
-              {0, sizeof(float) * 6, VK_VERTEX_INPUT_RATE_VERTEX},
-          },
+      .bindings = {{0, sizeof(float) * 6, VK_VERTEX_INPUT_RATE_VERTEX}},
       .attributes =
           {
               {0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0},
               {1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3},
           },
       .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-      .formats = formats,
-      .locations = {VK_ATTACHMENT_UNUSED, 0, 1},
+      .formats = {swapchain_format_, high_format_},
+      .locations = {VK_ATTACHMENT_UNUSED, 0},
+      .depth_format = depth_format_,
+      .depth_test = true,
+      .depth_write = true,
+  });
+  depth_pipeline_ = gpu::GraphicsPipeline::Create({
+      .pipeline_layout = color_pipeline_layout_,
+      .vertex_shader = gpu::ShaderCode(depth_vert),
+      .fragment_shader = gpu::ShaderCode(depth_frag),
+      .bindings = {{0, sizeof(float) * 6, VK_VERTEX_INPUT_RATE_VERTEX}},
+      .attributes = {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0}},
+      .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+      .formats = {swapchain_format_, depth_image_format_},
+      .locations = {VK_ATTACHMENT_UNUSED, 0},
       .depth_format = depth_format_,
       .depth_test = true,
       .depth_write = true,
@@ -370,13 +382,22 @@ void ViewerImpl::Impl::Run() {
       .push_constants = {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BlendPushConstants)}},
   });
 
-  blend_pipeline_ = gpu::GraphicsPipeline::Create({
+  blend_color_pipeline_ = gpu::GraphicsPipeline::Create({
       .pipeline_layout = blend_pipeline_layout_,
-      .vertex_shader = gpu::ShaderCode(blend_vert),
-      .fragment_shader = gpu::ShaderCode(blend_frag),
-      .formats = formats,
-      .locations = {0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED},
-      .input_indices = {VK_ATTACHMENT_UNUSED, 0, 1},
+      .vertex_shader = gpu::ShaderCode(screen_vert),
+      .fragment_shader = gpu::ShaderCode(blend_color_frag),
+      .formats = {swapchain_format_, high_format_},
+      .locations = {0, VK_ATTACHMENT_UNUSED},
+      .input_indices = {VK_ATTACHMENT_UNUSED, 0},
+      .depth_format = depth_format_,
+  });
+  blend_depth_pipeline_ = gpu::GraphicsPipeline::Create({
+      .pipeline_layout = blend_pipeline_layout_,
+      .vertex_shader = gpu::ShaderCode(screen_vert),
+      .fragment_shader = gpu::ShaderCode(blend_depth_frag),
+      .formats = {swapchain_format_, depth_image_format_},
+      .locations = {0, VK_ATTACHMENT_UNUSED},
+      .input_indices = {VK_ATTACHMENT_UNUSED, 0},
       .depth_format = depth_format_,
   });
 
@@ -462,6 +483,7 @@ void ViewerImpl::Impl::Run() {
       .animation_time = 0.f,
       .animation_speed = 30.f,
       .left_panel = true,
+      .instance_vec4 = true,
   };
 
   while (!glfwWindowShouldClose(window_)) {
@@ -497,8 +519,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   ImGui::Render();
   ImDrawData* draw_data = ImGui::GetDrawData();
 
-  std::vector<VkFormat> formats = {swapchain_format_, high_format_, depth_image_format_};
-
   auto cq = context_->device()->compute_queue();
   auto gq = context_->device()->graphics_queue();
 
@@ -532,8 +552,8 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       .height = texture_height,
       .background = {0.f, 0.f, 0.f},  // unused
       .eps2d = viewer_options_.eps2d,
-      .confidence_radius = viewer_options_.confidence_radius,
       .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
+      .instance_vec4 = viewer_options_.instance_vec4,
   };
 
   // Compute queue
@@ -580,7 +600,8 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .Commit(cb);
 
     // Rendering
-    std::array<VkRenderingAttachmentInfo, 3> color_attachments;
+    std::vector<VkFormat> formats;
+    std::array<VkRenderingAttachmentInfo, 2> color_attachments;
     // Swapchain image
     color_attachments[0] = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -590,24 +611,29 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .clearValue = {0.f, 0.f, 0.f, 1.f},
     };
-    // Splats image
-    color_attachments[1] = {
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = image16->image_view(),
-        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .clearValue = {viewer_options_.background.r, viewer_options_.background.g, viewer_options_.background.b, 0.f},
-    };
-    // Depth image
-    color_attachments[2] = {
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = depth_image->image_view(),
-        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .clearValue = {0.f, 0.f, 0.f, 0.f},
-    };
+    if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
+      // Splats image
+      formats = {image->format(), image16->format()};
+      color_attachments[1] = {
+          .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+          .imageView = image16->image_view(),
+          .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+          .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+          .clearValue = {viewer_options_.background.r, viewer_options_.background.g, viewer_options_.background.b, 0.f},
+      };
+    } else if (viewer_options_.render_type == 2) {
+      // Depth image
+      formats = {image->format(), depth_image->format()};
+      color_attachments[1] = {
+          .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+          .imageView = depth_image->image_view(),
+          .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+          .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+          .clearValue = {0.f, 0.f, 0.f, 0.f},
+      };
+    }
 
     VkRenderingAttachmentInfo depth_attachment = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -634,56 +660,91 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
     // render scene
-    // TODO: draw scene to depth image
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
-        .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0, 1})
-        .Bind(color_pipeline_)
-        .Commit(cb);
+    if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
+      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+          .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0})
+          .Bind(color_pipeline_)
+          .Commit(cb);
 
-    if (viewer_options_.show_camera_frames) {
-      ColorPushConstants color_push_constants = {
-          .projection = camera_.ProjectionMatrix(),
-          .view = camera_.ViewMatrix(),
-      };
-      for (const auto& camera_param : camera_params_) {
-        glm::mat4 ndc_to_image = glm::mat4(1.f);
-        ndc_to_image[0][0] = 0.5f * camera_param.width;
-        ndc_to_image[1][1] = 0.5f * camera_param.height;
-        ndc_to_image[2][0] = 0.5f * camera_param.width;
-        ndc_to_image[2][1] = 0.5f * camera_param.height;
-        color_push_constants.model = viewer_options_.model * glm::inverse(camera_param.extrinsic) *
-                                     glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
-                                     glm::mat4(glm::mat3(viewer_options_.camera_frame_scale));
+      if (viewer_options_.show_camera_frames) {
+        ColorPushConstants color_push_constants = {
+            .projection = camera_.ProjectionMatrix(),
+            .view = camera_.ViewMatrix(),
+        };
+        for (const auto& camera_param : camera_params_) {
+          glm::mat4 ndc_to_image = glm::mat4(1.f);
+          ndc_to_image[0][0] = 0.5f * camera_param.width;
+          ndc_to_image[1][1] = 0.5f * camera_param.height;
+          ndc_to_image[2][0] = 0.5f * camera_param.width;
+          ndc_to_image[2][1] = 0.5f * camera_param.height;
+          color_push_constants.model = viewer_options_.model * glm::inverse(camera_param.extrinsic) *
+                                       glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
+                                       glm::mat4(glm::mat3(viewer_options_.camera_frame_scale));
 
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
-            .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
-            .Commit(cb);
+          gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+              .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
+              .Commit(cb);
 
-        vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
-        VkBuffer buffer = camera_vertices_;
-        VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(cb, 0, 1, &buffer, &offset);
-        vkCmdDrawIndexed(cb, camera_index_size_, 1, 0, 0, 0);
+          vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
+          VkBuffer buffer = camera_vertices_;
+          VkDeviceSize offset = 0;
+          vkCmdBindVertexBuffers(cb, 0, 1, &buffer, &offset);
+          vkCmdDrawIndexed(cb, camera_index_size_, 1, 0, 0, 0);
+        }
+      }
+    } else if (viewer_options_.render_type == 2) {
+      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+          .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0})
+          .Bind(depth_pipeline_)
+          .Commit(cb);
+
+      if (viewer_options_.show_camera_frames) {
+        ColorPushConstants color_push_constants = {
+            .projection = camera_.ProjectionMatrix(),
+            .view = camera_.ViewMatrix(),
+        };
+        for (const auto& camera_param : camera_params_) {
+          glm::mat4 ndc_to_image = glm::mat4(1.f);
+          ndc_to_image[0][0] = 0.5f * camera_param.width;
+          ndc_to_image[1][1] = 0.5f * camera_param.height;
+          ndc_to_image[2][0] = 0.5f * camera_param.width;
+          ndc_to_image[2][1] = 0.5f * camera_param.height;
+          color_push_constants.model = viewer_options_.model * glm::inverse(camera_param.extrinsic) *
+                                       glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
+                                       glm::mat4(glm::mat3(viewer_options_.camera_frame_scale));
+
+          gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+              .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
+              .Commit(cb);
+
+          vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
+          VkBuffer buffer = camera_vertices_;
+          VkDeviceSize offset = 0;
+          vkCmdBindVertexBuffers(cb, 0, 1, &buffer, &offset);
+          vkCmdDrawIndexed(cb, camera_index_size_, 1, 0, 0, 0);
+        }
       }
     }
 
     // render splats
-    std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, 0,
-                                       viewer_options_.render_type == 2 ? 1 : VK_ATTACHMENT_UNUSED};
+    std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, 0};
     gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
         .AttachmentLocations(locations)
         .Commit(cb);
 
-    core::RenderOptions render_options = {
-        .index_buffer = splats_->index_buffer(),
-        .screen_splats = screen_splats,
-        .draw_options = &draw_options,
+    core::ScreenSplatOptions screen_splat_options = {
+        .confidence_radius = viewer_options_.confidence_radius,
+    };
+    core::RenderTargetOptions render_target_options = {
         .formats = formats,
         .locations = locations,
         .depth_format = depth_format_,
-        .render_depth = viewer_options_.render_type == 2,
     };
-    renderer_->RenderScreenSplats(cb, render_options);
+    if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
+      renderer_->RenderScreenSplatsColor(cb, screen_splats, screen_splat_options, render_target_options);
+    } else if (viewer_options_.render_type == 2) {
+      renderer_->RenderScreenSplatsDepth(cb, screen_splats, screen_splat_options, render_target_options);
+    }
 
     // subpass 1:
     gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
@@ -694,16 +755,24 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     BlendPushConstants blend_push_constants = {
         .mode = viewer_options_.render_type,
     };
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
-        .Input(0, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-        .Input(1, depth_image->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
-        .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(blend_push_constants), &blend_push_constants)
-        .Bind(blend_pipeline_)
-        .AttachmentLocations({0, VK_ATTACHMENT_UNUSED, VK_ATTACHMENT_UNUSED})
-        .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0, 1})
-        .Commit(cb);
-
-    vkCmdDraw(cb, 3, 1, 0, 0);
+    if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
+      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
+          .Input(0, image16->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
+          .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(blend_push_constants), &blend_push_constants)
+          .Bind(blend_color_pipeline_)
+          .AttachmentLocations({0, VK_ATTACHMENT_UNUSED})
+          .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0})
+          .Commit(cb);
+      vkCmdDraw(cb, 3, 1, 0, 0);
+    } else if (viewer_options_.render_type == 2) {
+      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
+          .Input(0, depth_image->image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
+          .Bind(blend_depth_pipeline_)
+          .AttachmentLocations({0, VK_ATTACHMENT_UNUSED})
+          .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0})
+          .Commit(cb);
+      vkCmdDraw(cb, 3, 1, 0, 0);
+    }
 
     vkCmdEndRendering(cb);
 

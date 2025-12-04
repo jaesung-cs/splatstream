@@ -18,6 +18,7 @@
 
 #include "vkgs/core/export_api.h"
 #include "vkgs/core/draw_options.h"
+#include "vkgs/core/screen_splat_options.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/details/compute_storage.h"
 #include "vkgs/core/details/graphics_storage.h"
@@ -30,14 +31,10 @@ namespace core {
 class GaussianSplats;
 class RenderingTask;
 
-struct RenderOptions {
-  gpu::Buffer index_buffer;
-  ScreenSplats screen_splats;
-  const DrawOptions* draw_options;
+struct RenderTargetOptions {
   std::vector<VkFormat> formats;
   std::vector<uint32_t> locations;
   VkFormat depth_format;
-  bool render_depth;
 };
 
 class VKGS_CORE_API RendererImpl {
@@ -50,7 +47,8 @@ class VKGS_CORE_API RendererImpl {
   uint32_t compute_queue_index() const noexcept { return compute_queue_index_; }
   uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
 
-  RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
+  RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options,
+                     const ScreenSplatOptions& screen_splat_options, uint8_t* dst);
 
   // Low-level API
   /**
@@ -62,7 +60,12 @@ class VKGS_CORE_API RendererImpl {
   /**
    * @brief Record rendering commands for screen splats in graphics queue, inside render pass.
    */
-  void RenderScreenSplats(VkCommandBuffer command_buffer, const RenderOptions& render_options);
+  void RenderScreenSplatsColor(VkCommandBuffer command_buffer, ScreenSplats screen_splats,
+                               const ScreenSplatOptions& screen_splat_options,
+                               const RenderTargetOptions& render_target_options);
+  void RenderScreenSplatsDepth(VkCommandBuffer command_buffer, ScreenSplats screen_splats,
+                               const ScreenSplatOptions& screen_splat_options,
+                               const RenderTargetOptions& render_target_options);
 
  private:
   std::string device_name_;
@@ -76,6 +79,7 @@ class VKGS_CORE_API RendererImpl {
   gpu::ComputePipeline rank_pipeline_;
   gpu::ComputePipeline inverse_index_pipeline_;
   gpu::ComputePipeline projection_pipeline_;
+  gpu::ComputePipeline projection_float_pipeline_;
 
   gpu::PipelineLayout graphics_pipeline_layout_;
 

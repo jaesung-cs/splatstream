@@ -14,8 +14,8 @@ struct DrawOptions {
   uint32_t height;
   glm::vec3 background;
   float eps2d;
-  float confidence_radius;
   int sh_degree;
+  bool instance_vec4;
 };
 
 }  // namespace core

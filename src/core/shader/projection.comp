@@ -4,11 +4,10 @@
 
 layout(local_size_x = 256) in;
 
-layout(push_constant, std430) uniform PushConstants {
+layout(push_constant, std430) uniform ProjectionPushConstants {
   mat4 model;
   uint point_count;
   float eps2d;
-  float confidence_radius;
   uint sh_degree_data;
   uint sh_degree_draw;
 };
@@ -51,9 +50,15 @@ layout(std430, binding = 7) writeonly buffer DrawIndirect {
   uint firstInstance;
 };
 
+#ifdef VKGS_SHADER_INSTANCES_VEC4
 layout(std430, binding = 8) writeonly buffer Instances {
   vec4 instances[];  // (N, 12). 3 for ndc position, 1 padding, 4 for rot scale, 4 for color.
 };
+#else
+layout(std430, binding = 8) writeonly buffer Instances {
+  float instances[];  // (N, 11). 3 for ndc position, 4 for rot scale, 4 for color.
+};
+#endif
 
 void main() {
   uint id = gl_GlobalInvocationID.x;
@@ -203,9 +208,21 @@ void main() {
   // translation and clip
   color = max(color + 0.5f, 0.f);
 
-  float radius = sqrt(max(confidence_radius * confidence_radius + 2.f * log(opacity * compensation), 0.f));
-
-  instances[inverse_id * 3 + 0] = vec4(pos.xyz, radius);
+#ifdef VKGS_SHADER_INSTANCES_VEC4
+  instances[inverse_id * 3 + 0] = vec4(pos.xyz, 1.f);  // TODO: delete w component
   instances[inverse_id * 3 + 1] = vec4(rot_scale[0], rot_scale[1]);
   instances[inverse_id * 3 + 2] = vec4(color, opacity * compensation);
+#else
+  instances[inverse_id * 11 + 0] = pos.x;
+  instances[inverse_id * 11 + 1] = pos.y;
+  instances[inverse_id * 11 + 2] = pos.z;
+  instances[inverse_id * 11 + 3] = rot_scale[0][0];
+  instances[inverse_id * 11 + 4] = rot_scale[0][1];
+  instances[inverse_id * 11 + 5] = rot_scale[1][0];
+  instances[inverse_id * 11 + 6] = rot_scale[1][1];
+  instances[inverse_id * 11 + 7] = color.x;
+  instances[inverse_id * 11 + 8] = color.y;
+  instances[inverse_id * 11 + 9] = color.z;
+  instances[inverse_id * 11 + 10] = opacity * compensation;
+#endif
 }

@@ -23,9 +23,12 @@
 #include "generated/rank.h"
 #include "generated/inverse_index.h"
 #include "generated/projection.h"
-#include "generated/splat_vert.h"
-#include "generated/splat_frag.h"
+#include "generated/projection_float.h"
+#include "generated/splat_color_vert.h"
+#include "generated/splat_color_float_vert.h"
+#include "generated/splat_color_frag.h"
 #include "generated/splat_depth_vert.h"
+#include "generated/splat_depth_float_vert.h"
 #include "generated/splat_depth_frag.h"
 #include "struct.h"
 
@@ -69,21 +72,23 @@ RendererImpl::RendererImpl() {
               {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           },
-      .push_constants = {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants)}},
+      .push_constants = {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ProjectionPushConstants)}},
   });
   rank_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, rank);
   inverse_index_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, inverse_index);
   projection_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, projection);
+  projection_float_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, projection_float);
 
   graphics_pipeline_layout_ = gpu::PipelineLayout::Create({
       .bindings = {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
-      .push_constants = {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)}},
+      .push_constants = {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SplatPushConstants)}},
   });
 }
 
 RendererImpl::~RendererImpl() = default;
 
-RenderingTask RendererImpl::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
+RenderingTask RendererImpl::Draw(GaussianSplats splats, const DrawOptions& draw_options,
+                                 const ScreenSplatOptions& screen_splat_options, uint8_t* dst) {
   auto rendering_task = RenderingTask::Create();
 
   uint32_t width = draw_options.width;
@@ -179,14 +184,11 @@ RenderingTask RendererImpl::Draw(GaussianSplats splats, const DrawOptions& draw_
     VkRect2D scissor = {0, 0, width, height};
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
-    RenderOptions render_options = {
-        .index_buffer = splats->index_buffer(),
-        .screen_splats = screen_splats,
-        .draw_options = &draw_options,
-        .formats = {VK_FORMAT_R16G16B16A16_SFLOAT},
+    RenderTargetOptions render_target_options = {
+        .formats = {image->format()},
         .locations = {0},
     };
-    RenderScreenSplats(cb, render_options);
+    RenderScreenSplatsColor(cb, screen_splats, screen_splat_options, render_target_options);
 
     vkCmdEndRendering(cb);
 
@@ -308,11 +310,10 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   auto draw_indirect = screen_splats->draw_indirect();
   auto instances = screen_splats->instances();
 
-  ComputePushConstants compute_push_constants = {
+  ProjectionPushConstants projection_push_constants = {
       .model = draw_options.model,
       .point_count = static_cast<uint32_t>(N),
       .eps2d = draw_options.eps2d,
-      .confidence_radius = draw_options.confidence_radius,
       .sh_degree_data = splats->sh_degree(),
       .sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree,
   };
@@ -342,7 +343,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Storage(2, visible_point_count)
       .Storage(3, key)
       .Storage(4, index)
-      .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+      .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(projection_push_constants), &projection_push_constants)
       .Bind(rank_pipeline_)
       .Commit(cb);
   vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
@@ -365,7 +366,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   pipeline.Storage(0, visible_point_count)
       .Storage(1, index)
       .Storage(2, inverse_index)
-      .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compute_push_constants), &compute_push_constants)
+      .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(projection_push_constants), &projection_push_constants)
       .Bind(inverse_index_pipeline_)
       .Commit(cb);
   vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
@@ -376,6 +377,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
               VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
       .Commit(cb);
 
+  auto projection_pipeline = draw_options.instance_vec4 ? projection_pipeline_ : projection_float_pipeline_;
   pipeline.Storage(0, camera)
       .Storage(1, position)
       .Storage(2, cov3d)
@@ -385,7 +387,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Storage(6, inverse_index)
       .Storage(7, draw_indirect)
       .Storage(8, instances)
-      .Bind(projection_pipeline_)
+      .Bind(projection_pipeline)
       .Commit(cb);
   vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
@@ -402,32 +404,75 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   camera_stage->Keep();
   draw_indirect->Keep();
   instances->Keep();
+
+  screen_splats->SetIndexBuffer(splats->index_buffer());
+  screen_splats->SetProjection(draw_options.projection);
+  screen_splats->SetInstanceVec4(draw_options.instance_vec4);
 }
 
-void RendererImpl::RenderScreenSplats(VkCommandBuffer cb, const RenderOptions& render_options) {
-  auto splat_pipeline = gpu::GraphicsPipeline::Create({
+void RendererImpl::RenderScreenSplatsColor(VkCommandBuffer cb, ScreenSplats screen_splats,
+                                           const ScreenSplatOptions& screen_splat_options,
+                                           const RenderTargetOptions& render_target_options) {
+  auto splat_color_pipeline = gpu::GraphicsPipeline::Create({
       .pipeline_layout = graphics_pipeline_layout_,
-      .vertex_shader = render_options.render_depth ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_vert),
-      .fragment_shader = render_options.render_depth ? gpu::ShaderCode(splat_depth_frag) : gpu::ShaderCode(splat_frag),
-      .formats = render_options.formats,
-      .locations = render_options.locations,
-      .depth_format = render_options.depth_format,
-      .depth_test = render_options.depth_format != VK_FORMAT_UNDEFINED,
+      .vertex_shader =
+          screen_splats->instance_vec4() ? gpu::ShaderCode(splat_color_vert) : gpu::ShaderCode(splat_color_float_vert),
+      .fragment_shader = gpu::ShaderCode(splat_color_frag),
+      .formats = render_target_options.formats,
+      .locations = render_target_options.locations,
+      .depth_format = render_target_options.depth_format,
+      .depth_test = render_target_options.depth_format != VK_FORMAT_UNDEFINED,
   });
 
-  glm::mat4 projection_inverse = glm::inverse(render_options.draw_options->projection);
+  SplatPushConstants splat_push_constants = {
+      .confidence_radius = screen_splat_options.confidence_radius,
+  };
   gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
-      .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(projection_inverse), &projection_inverse)
-      .Storage(0, render_options.screen_splats->instances())
-      .Bind(splat_pipeline)
+      .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(splat_push_constants), &splat_push_constants)
+      .Storage(0, screen_splats->instances())
+      .Bind(splat_color_pipeline)
       .Commit(cb);
 
-  vkCmdBindIndexBuffer(cb, render_options.index_buffer, 0, VK_INDEX_TYPE_UINT32);
-  vkCmdDrawIndexedIndirect(cb, render_options.screen_splats->draw_indirect(), 0, 1, 0);
+  vkCmdBindIndexBuffer(cb, screen_splats->index_buffer(), 0, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexedIndirect(cb, screen_splats->draw_indirect(), 0, 1, 0);
 
-  splat_pipeline->Keep();
-  render_options.screen_splats->instances()->Keep();
-  render_options.screen_splats->draw_indirect()->Keep();
+  splat_color_pipeline->Keep();
+  screen_splats->index_buffer()->Keep();
+  screen_splats->instances()->Keep();
+  screen_splats->draw_indirect()->Keep();
+}
+
+void RendererImpl::RenderScreenSplatsDepth(VkCommandBuffer cb, ScreenSplats screen_splats,
+                                           const ScreenSplatOptions& screen_splat_options,
+                                           const RenderTargetOptions& render_target_options) {
+  auto splat_depth_pipeline = gpu::GraphicsPipeline::Create({
+      .pipeline_layout = graphics_pipeline_layout_,
+      .vertex_shader =
+          screen_splats->instance_vec4() ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_depth_float_vert),
+      .fragment_shader = gpu::ShaderCode(splat_depth_frag),
+      .formats = render_target_options.formats,
+      .locations = render_target_options.locations,
+      .depth_format = render_target_options.depth_format,
+      .depth_test = render_target_options.depth_format != VK_FORMAT_UNDEFINED,
+  });
+
+  SplatPushConstants splat_push_constants = {
+      .projection_inverse = glm::inverse(screen_splats->projection()),
+      .confidence_radius = screen_splat_options.confidence_radius,
+  };
+  gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
+      .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(splat_push_constants), &splat_push_constants)
+      .Storage(0, screen_splats->instances())
+      .Bind(splat_depth_pipeline)
+      .Commit(cb);
+
+  vkCmdBindIndexBuffer(cb, screen_splats->index_buffer(), 0, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexedIndirect(cb, screen_splats->draw_indirect(), 0, 1, 0);
+
+  splat_depth_pipeline->Keep();
+  screen_splats->index_buffer()->Keep();
+  screen_splats->instances()->Keep();
+  screen_splats->draw_indirect()->Keep();
 }
 
 }  // namespace core
