@@ -34,7 +34,7 @@ class VKGS_CORE_API GaussianSplatsImpl {
   uint32_t sh_degree_;
   gpu::Buffer position_;      // (N, 3)
   gpu::Buffer cov3d_;         // (N, 6)
-  gpu::Buffer sh_;            // (N, K) float16
+  gpu::Buffer sh_;            // (M, K) float16, where M = RoundUp(N, 128)
   gpu::Buffer opacity_;       // (N)
   gpu::Buffer index_buffer_;  // (N, 6)
   gpu::QueueTask task_;

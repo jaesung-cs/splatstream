@@ -389,7 +389,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Storage(8, instances)
       .Bind(projection_pipeline)
       .Commit(cb);
-  vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
+  vkCmdDispatch(cb, WorkgroupSize(N, 128), 1, 1);
 
   if (timer) {
     timer->Record(cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);

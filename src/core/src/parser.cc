@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstring>
 
+#include "vkgs/common/round.h"
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/compute_pipeline.h"
@@ -65,6 +66,7 @@ ParserImpl::~ParserImpl() = default;
 GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_ptr, const float* quats_ptr,
                                                 const float* scales_ptr, const float* opacities_ptr,
                                                 const uint16_t* colors_ptr, int sh_degree) {
+  auto N = RoundUp(size, 128);
   std::vector<uint32_t> index_data = GetIndexData(size);
 
   int colors_size = 0;
@@ -110,7 +112,7 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
       gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, size * sizeof(float));
 
   auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * 6 * sizeof(float));
-  auto sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * sh_packed_size * 4 * sizeof(uint16_t));
+  auto sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sh_packed_size * 4 * sizeof(uint16_t));
   auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                           index_data.size() * sizeof(uint32_t));
 
@@ -326,6 +328,8 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
       .sh_degree = static_cast<uint32_t>(sh_degree),
   };
 
+  auto N = RoundUp(point_count, 128);
+
   // allocate buffers
   auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
   auto ply_stage =
@@ -335,8 +339,7 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
 
   auto position = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
   auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
-  auto sh =
-      gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sh_packed_size * 4 * sizeof(uint16_t));
+  auto sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, N * sh_packed_size * 4 * sizeof(uint16_t));
   auto opacity = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
   auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
