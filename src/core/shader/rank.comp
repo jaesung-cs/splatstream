@@ -5,9 +5,10 @@ layout(local_size_x = 256) in;
 layout(push_constant, std430) uniform ProjectionPushConstants {
   mat4 model;
   uint point_count;
-  float eps2d;
+  uint aligned_point_count;
   uint sh_degree_data;
   uint sh_degree_draw;
+  float eps2d;
 };
 
 // TODO: use uniform buffer
@@ -32,7 +33,7 @@ void main() {
   uint id = gl_GlobalInvocationID.x;
   if (id >= point_count) return;
 
-  vec4 pos = vec4(gaussian_position[id * 3 + 0], gaussian_position[id * 3 + 1], gaussian_position[id * 3 + 2], 1.f);
+  vec4 pos = vec4(gaussian_position[0 * aligned_point_count + id], gaussian_position[1 * aligned_point_count + id], gaussian_position[2 * aligned_point_count + id], 1.f);
   pos = projection * view * model * pos;
   pos = pos / pos.w;
 

@@ -289,6 +289,7 @@ RenderingTask RendererImpl::Draw(GaussianSplats splats, const DrawOptions& draw_
 void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats, const DrawOptions& draw_options,
                                        ScreenSplats screen_splats, gpu::Timer timer) {
   auto N = splats->size();
+  auto M = splats->aligned_size();
   auto position = splats->position();
   auto cov3d = splats->cov3d();
   auto sh = splats->sh();
@@ -313,9 +314,10 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   ProjectionPushConstants projection_push_constants = {
       .model = draw_options.model,
       .point_count = static_cast<uint32_t>(N),
-      .eps2d = draw_options.eps2d,
+      .aligned_point_count = static_cast<uint32_t>(M),
       .sh_degree_data = splats->sh_degree(),
       .sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree,
+      .eps2d = draw_options.eps2d,
   };
 
   Camera camera_data = {
@@ -389,7 +391,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Storage(8, instances)
       .Bind(projection_pipeline)
       .Commit(cb);
-  vkCmdDispatch(cb, WorkgroupSize(N, 128), 1, 1);
+  vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
   if (timer) {
     timer->Record(cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);

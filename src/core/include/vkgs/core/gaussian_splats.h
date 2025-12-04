@@ -14,12 +14,13 @@ namespace core {
 
 class VKGS_CORE_API GaussianSplatsImpl {
  public:
-  GaussianSplatsImpl(size_t size, uint32_t sh_degree, gpu::Buffer position, gpu::Buffer cov3d, gpu::Buffer sh,
-                     gpu::Buffer opacity, gpu::Buffer index_buffer, gpu::QueueTask task);
+  GaussianSplatsImpl(size_t size, size_t aligned_size, uint32_t sh_degree, gpu::Buffer position, gpu::Buffer cov3d,
+                     gpu::Buffer sh, gpu::Buffer opacity, gpu::Buffer index_buffer, gpu::QueueTask task);
 
   ~GaussianSplatsImpl();
 
   size_t size() const noexcept { return size_; }
+  size_t aligned_size() const noexcept { return aligned_size_; }
   uint32_t sh_degree() const noexcept { return sh_degree_; }
   auto position() const noexcept { return position_; }
   auto cov3d() const noexcept { return cov3d_; }
@@ -31,10 +32,11 @@ class VKGS_CORE_API GaussianSplatsImpl {
 
  private:
   size_t size_;
+  size_t aligned_size_;
   uint32_t sh_degree_;
   gpu::Buffer position_;      // (N, 3)
   gpu::Buffer cov3d_;         // (N, 6)
-  gpu::Buffer sh_;            // (M, K) float16, where M = RoundUp(N, 128)
+  gpu::Buffer sh_;            // (M, K) float16, where M = RoundUp(N, 256)
   gpu::Buffer opacity_;       // (N)
   gpu::Buffer index_buffer_;  // (N, 6)
   gpu::QueueTask task_;

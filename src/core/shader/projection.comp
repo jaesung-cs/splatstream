@@ -1,18 +1,16 @@
 #version 460 core
 
 #extension GL_EXT_shader_16bit_storage : require
-#extension GL_KHR_shader_subgroup_vote : require
 
-#define WORKGROUP_SIZE 128
-
-layout(local_size_x = WORKGROUP_SIZE) in;
+layout(local_size_x = 256) in;
 
 layout(push_constant, std430) uniform ProjectionPushConstants {
   mat4 model;
   uint point_count;
-  float eps2d;
+  uint aligned_point_count;
   uint sh_degree_data;
   uint sh_degree_draw;
+  float eps2d;
 };
 
 // TODO: use uniform buffer
@@ -63,71 +61,46 @@ layout(std430, binding = 8) writeonly buffer Instances {
 };
 #endif
 
-// TODO: use shared memory for coalescing read
-shared float sh[WORKGROUP_SIZE * 48];
-
-shared bool subgroup_values[WORKGROUP_SIZE / 32];  // subgroup size = 32 or 64, conservatively 32.
-bool workgroupAll(bool value) {
-  value = subgroupAll(value);
-  if (gl_SubgroupInvocationID == 0) subgroup_values[gl_SubgroupID] = value;
-  barrier();
-
-  if (gl_SubgroupID == 0 && gl_SubgroupInvocationID < gl_NumSubgroups) {
-    value = subgroup_values[gl_SubgroupInvocationID];
-    value = subgroupAll(value);
-    if (gl_SubgroupInvocationID == 0) subgroup_values[0] = value;
-  }
-  barrier();
-
-  return subgroup_values[0];
-}
-
 void main() {
-  uint global_id = gl_GlobalInvocationID.x;
-  uint global_base = gl_WorkGroupID.x * gl_WorkGroupSize.x;
-  uint local_id = gl_LocalInvocationID.x;  // 0..127
-
-  if (global_id == 0) {
+  uint id = gl_GlobalInvocationID.x;
+  if (id == 0) {
     indexCount = 6 * visible_point_count;
     instanceCount = 1;
     firstIndex = 0;
     vertexOffset = 0;
     firstInstance = 0;
   }
+  if (id >= point_count) return;
 
-  int inverse_id = inverse_map[global_id];
-  bool valid = inverse_id != -1;
+  int inverse_id = inverse_map[id];
+  if (inverse_id == -1) return;
 
-  // Early skip if invalid for all workgroup
-  bool all_invalid = workgroupAll(!valid);
-  if (all_invalid) return;
-
-  // TODO: (N, 48) linear memory to shared memory
+  uint N = aligned_point_count;
   mat3x4 sh0, sh1, sh2, sh3;
   vec3 rest;
   if (sh_degree_data == 0) {
     rest = vec4(gaussian_sh[id]).xyz;
   } else if (sh_degree_data == 1) {
-    sh0 = mat3x4(gaussian_sh[id * 3 + 0], gaussian_sh[id * 3 + 1], gaussian_sh[id * 3 + 2]);
+    sh0 = mat3x4(gaussian_sh[0 * N + id], gaussian_sh[1 * N + id], gaussian_sh[2 * N + id]);
   } else if (sh_degree_data == 2) {
-    sh0 = mat3x4(gaussian_sh[id * 7 + 0], gaussian_sh[id * 7 + 2], gaussian_sh[id * 7 + 4]);
-    sh1 = mat3x4(gaussian_sh[id * 7 + 1], gaussian_sh[id * 7 + 3], gaussian_sh[id * 7 + 5]);
-    rest = vec4(gaussian_sh[id * 7 + 6]).xyz;
+    sh0 = mat3x4(gaussian_sh[0 * N + id], gaussian_sh[2 * N + id], gaussian_sh[4 * N + id]);
+    sh1 = mat3x4(gaussian_sh[1 * N + id], gaussian_sh[3 * N + id], gaussian_sh[5 * N + id]);
+    rest = vec4(gaussian_sh[6 * N + id]).xyz;
   } else if (sh_degree_data == 3) {
-    sh0 = mat3x4(gaussian_sh[id * 12 + 0], gaussian_sh[id * 12 + 4], gaussian_sh[id * 12 + 8]);
-    sh1 = mat3x4(gaussian_sh[id * 12 + 1], gaussian_sh[id * 12 + 5], gaussian_sh[id * 12 + 9]);
-    sh2 = mat3x4(gaussian_sh[id * 12 + 2], gaussian_sh[id * 12 + 6], gaussian_sh[id * 12 + 10]);
-    sh3 = mat3x4(gaussian_sh[id * 12 + 3], gaussian_sh[id * 12 + 7], gaussian_sh[id * 12 + 11]);
+    sh0 = mat3x4(gaussian_sh[0 * N + id], gaussian_sh[4 * N + id], gaussian_sh[8 * N + id]);
+    sh1 = mat3x4(gaussian_sh[1 * N + id], gaussian_sh[5 * N + id], gaussian_sh[9 * N + id]);
+    sh2 = mat3x4(gaussian_sh[2 * N + id], gaussian_sh[6 * N + id], gaussian_sh[10 * N + id]);
+    sh3 = mat3x4(gaussian_sh[3 * N + id], gaussian_sh[7 * N + id], gaussian_sh[11 * N + id]);
   }
 
   vec3 v0 =
-      vec3(gaussian_cov3d[global_id * 6 + 0], gaussian_cov3d[global_id * 6 + 1], gaussian_cov3d[global_id * 6 + 2]);
+      vec3(gaussian_cov3d[0 * N + id], gaussian_cov3d[1 * N + id], gaussian_cov3d[2 * N + id]);
   vec3 v1 =
-      vec3(gaussian_cov3d[global_id * 6 + 3], gaussian_cov3d[global_id * 6 + 4], gaussian_cov3d[global_id * 6 + 5]);
-  vec4 pos = vec4(gaussian_position[global_id * 3 + 0], gaussian_position[global_id * 3 + 1],
-                  gaussian_position[global_id * 3 + 2], 1.f);
+      vec3(gaussian_cov3d[3 * N + id], gaussian_cov3d[4 * N + id], gaussian_cov3d[5 * N + id]);
+  vec4 pos = vec4(gaussian_position[0 * N + id], gaussian_position[1 * N + id],
+                  gaussian_position[2 * N + id], 1.f);
 
-  float opacity = gaussian_opacity[global_id];
+  float opacity = gaussian_opacity[id];
 
   // direction in model space for SH calculation
   vec4 camera_model_position = inverse(model) * camera_position;

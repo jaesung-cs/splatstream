@@ -12,14 +12,16 @@ namespace core {
 struct ParsePushConstants {
   alignas(16) uint32_t point_count;
   uint32_t sh_degree;
+  uint32_t aligned_point_count;
 };
 
 struct ProjectionPushConstants {
   alignas(16) glm::mat4 model;
   uint32_t point_count;
-  float eps2d;
+  uint32_t aligned_point_count;
   uint32_t sh_degree_data;
   uint32_t sh_degree_draw;
+  float eps2d;
 };
 
 struct Camera {

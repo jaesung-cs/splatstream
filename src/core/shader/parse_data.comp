@@ -7,25 +7,34 @@ layout(local_size_x = 256) in;
 layout(push_constant, std430) uniform ParsePushConstant {
   uint point_count;
   uint sh_degree;
+  uint aligned_point_count;  // point count round up to multiple of 256.
 };
 
-layout(std430, binding = 0) readonly buffer Quats {
+layout(std430, binding = 0) readonly buffer Positions {
+  float positions[];  // (N, 3)
+};
+
+layout(std430, binding = 1) readonly buffer Quats {
   float quats[];  // (N, 4)
 };
 
-layout(std430, binding = 1) readonly buffer Scales {
+layout(std430, binding = 2) readonly buffer Scales {
   float scales[];  // (N, 3)
-};
-
-layout(std430, binding = 2) writeonly buffer GaussianCov3d {
-  float gaussian_cov3d[];  // (N, 6)
 };
 
 layout(std430, binding = 3) readonly buffer Colors {
   float16_t colors[];  // (N, K, 3)
 };
 
-layout(std430, binding = 4) writeonly buffer GaussianSh {
+layout(std430, binding = 4) writeonly buffer GaussianPosition {
+  float gaussian_position[];  // (3, N)
+};
+
+layout(std430, binding = 5) writeonly buffer GaussianCov3d {
+  float gaussian_cov3d[];  // (N, 6)
+};
+
+layout(std430, binding = 6) writeonly buffer GaussianSh {
   f16vec4 gaussian_sh[];  // (N, X), packed.
 };
 
@@ -33,6 +42,8 @@ void main() {
   uint id = gl_GlobalInvocationID.x;
 
   if (id < point_count) {
+    vec3 p = vec3(positions[3 * id + 0], positions[3 * id + 1], positions[3 * id + 2]);
+
     // calculate covariance
     vec3 s = vec3(scales[3 * id + 0], scales[3 * id + 1], scales[3 * id + 2]);
 
@@ -66,40 +77,45 @@ void main() {
     ss[2][2] = s[2] * s[2];
     mat3 cov3d = rot * ss * transpose(rot);
 
-    gaussian_cov3d[6 * id + 0] = cov3d[0][0];
-    gaussian_cov3d[6 * id + 1] = cov3d[1][0];
-    gaussian_cov3d[6 * id + 2] = cov3d[2][0];
-    gaussian_cov3d[6 * id + 3] = cov3d[1][1];
-    gaussian_cov3d[6 * id + 4] = cov3d[2][1];
-    gaussian_cov3d[6 * id + 5] = cov3d[2][2];
+    uint N = aligned_point_count;
+    gaussian_position[0 * N + id] = p[0];
+    gaussian_position[1 * N + id] = p[1];
+    gaussian_position[2 * N + id] = p[2];
+
+    gaussian_cov3d[0 * N + id] = cov3d[0][0];
+    gaussian_cov3d[1 * N + id] = cov3d[1][0];
+    gaussian_cov3d[2 * N + id] = cov3d[2][0];
+    gaussian_cov3d[3 * N + id] = cov3d[1][1];
+    gaussian_cov3d[4 * N + id] = cov3d[2][1];
+    gaussian_cov3d[5 * N + id] = cov3d[2][2];
 
     if (sh_degree == 0) {
       gaussian_sh[id] = f16vec4(vec4(colors[3 * id + 0], colors[3 * id + 1], colors[3 * id + 2], 0.f));
     } else if (sh_degree == 1) {
-      gaussian_sh[3 * id + 0] = f16vec4(vec4(colors[12 * id + 0], colors[12 * id + 3], colors[12 * id + 6], colors[12 * id +  9]));
-      gaussian_sh[3 * id + 1] = f16vec4(vec4(colors[12 * id + 1], colors[12 * id + 4], colors[12 * id + 7], colors[12 * id + 10]));
-      gaussian_sh[3 * id + 2] = f16vec4(vec4(colors[12 * id + 2], colors[12 * id + 5], colors[12 * id + 8], colors[12 * id + 11]));
+      gaussian_sh[0 * N + id] = f16vec4(vec4(colors[12 * id + 0], colors[12 * id + 3], colors[12 * id + 6], colors[12 * id +  9]));
+      gaussian_sh[1 * N + id] = f16vec4(vec4(colors[12 * id + 1], colors[12 * id + 4], colors[12 * id + 7], colors[12 * id + 10]));
+      gaussian_sh[2 * N + id] = f16vec4(vec4(colors[12 * id + 2], colors[12 * id + 5], colors[12 * id + 8], colors[12 * id + 11]));
     } else if (sh_degree == 2) {
-      gaussian_sh[7 * id + 0] = f16vec4(vec4(colors[27 * id +  0], colors[27 * id +  3], colors[27 * id +  6], colors[27 * id +  9]));
-      gaussian_sh[7 * id + 1] = f16vec4(vec4(colors[27 * id + 12], colors[27 * id + 15], colors[27 * id + 18], colors[27 * id + 21]));
-      gaussian_sh[7 * id + 2] = f16vec4(vec4(colors[27 * id +  1], colors[27 * id +  4], colors[27 * id +  7], colors[27 * id + 10]));
-      gaussian_sh[7 * id + 3] = f16vec4(vec4(colors[27 * id + 13], colors[27 * id + 16], colors[27 * id + 19], colors[27 * id + 22]));
-      gaussian_sh[7 * id + 4] = f16vec4(vec4(colors[27 * id +  2], colors[27 * id +  5], colors[27 * id +  8], colors[27 * id + 11]));
-      gaussian_sh[7 * id + 5] = f16vec4(vec4(colors[27 * id + 14], colors[27 * id + 17], colors[27 * id + 20], colors[27 * id + 23]));
-      gaussian_sh[7 * id + 6] = f16vec4(vec4(colors[27 * id + 24], colors[27 * id + 25], colors[27 * id + 26], 0.f));
+      gaussian_sh[0 * N + id] = f16vec4(vec4(colors[27 * id +  0], colors[27 * id +  3], colors[27 * id +  6], colors[27 * id +  9]));
+      gaussian_sh[1 * N + id] = f16vec4(vec4(colors[27 * id + 12], colors[27 * id + 15], colors[27 * id + 18], colors[27 * id + 21]));
+      gaussian_sh[2 * N + id] = f16vec4(vec4(colors[27 * id +  1], colors[27 * id +  4], colors[27 * id +  7], colors[27 * id + 10]));
+      gaussian_sh[3 * N + id] = f16vec4(vec4(colors[27 * id + 13], colors[27 * id + 16], colors[27 * id + 19], colors[27 * id + 22]));
+      gaussian_sh[4 * N + id] = f16vec4(vec4(colors[27 * id +  2], colors[27 * id +  5], colors[27 * id +  8], colors[27 * id + 11]));
+      gaussian_sh[5 * N + id] = f16vec4(vec4(colors[27 * id + 14], colors[27 * id + 17], colors[27 * id + 20], colors[27 * id + 23]));
+      gaussian_sh[6 * N + id] = f16vec4(vec4(colors[27 * id + 24], colors[27 * id + 25], colors[27 * id + 26], 0.f));
     } else if (sh_degree == 3) {
-      gaussian_sh[12 * id +  0] = f16vec4(vec4(colors[48 * id +  0], colors[48 * id +  3], colors[48 * id +  6], colors[48 * id +  9]));
-      gaussian_sh[12 * id +  1] = f16vec4(vec4(colors[48 * id + 12], colors[48 * id + 15], colors[48 * id + 18], colors[48 * id + 21]));
-      gaussian_sh[12 * id +  2] = f16vec4(vec4(colors[48 * id + 24], colors[48 * id + 27], colors[48 * id + 30], colors[48 * id + 33]));
-      gaussian_sh[12 * id +  3] = f16vec4(vec4(colors[48 * id + 36], colors[48 * id + 39], colors[48 * id + 42], colors[48 * id + 45]));
-      gaussian_sh[12 * id +  4] = f16vec4(vec4(colors[48 * id +  1], colors[48 * id +  4], colors[48 * id +  7], colors[48 * id + 10]));
-      gaussian_sh[12 * id +  5] = f16vec4(vec4(colors[48 * id + 13], colors[48 * id + 16], colors[48 * id + 19], colors[48 * id + 22]));
-      gaussian_sh[12 * id +  6] = f16vec4(vec4(colors[48 * id + 25], colors[48 * id + 28], colors[48 * id + 31], colors[48 * id + 34]));
-      gaussian_sh[12 * id +  7] = f16vec4(vec4(colors[48 * id + 37], colors[48 * id + 40], colors[48 * id + 43], colors[48 * id + 46]));
-      gaussian_sh[12 * id +  8] = f16vec4(vec4(colors[48 * id +  2], colors[48 * id +  5], colors[48 * id +  8], colors[48 * id + 11]));
-      gaussian_sh[12 * id +  9] = f16vec4(vec4(colors[48 * id + 14], colors[48 * id + 17], colors[48 * id + 20], colors[48 * id + 23]));
-      gaussian_sh[12 * id + 10] = f16vec4(vec4(colors[48 * id + 26], colors[48 * id + 29], colors[48 * id + 32], colors[48 * id + 35]));
-      gaussian_sh[12 * id + 11] = f16vec4(vec4(colors[48 * id + 38], colors[48 * id + 41], colors[48 * id + 44], colors[48 * id + 47]));
+      gaussian_sh[ 0 * N + id] = f16vec4(vec4(colors[48 * id +  0], colors[48 * id +  3], colors[48 * id +  6], colors[48 * id +  9]));
+      gaussian_sh[ 1 * N + id] = f16vec4(vec4(colors[48 * id + 12], colors[48 * id + 15], colors[48 * id + 18], colors[48 * id + 21]));
+      gaussian_sh[ 2 * N + id] = f16vec4(vec4(colors[48 * id + 24], colors[48 * id + 27], colors[48 * id + 30], colors[48 * id + 33]));
+      gaussian_sh[ 3 * N + id] = f16vec4(vec4(colors[48 * id + 36], colors[48 * id + 39], colors[48 * id + 42], colors[48 * id + 45]));
+      gaussian_sh[ 4 * N + id] = f16vec4(vec4(colors[48 * id +  1], colors[48 * id +  4], colors[48 * id +  7], colors[48 * id + 10]));
+      gaussian_sh[ 5 * N + id] = f16vec4(vec4(colors[48 * id + 13], colors[48 * id + 16], colors[48 * id + 19], colors[48 * id + 22]));
+      gaussian_sh[ 6 * N + id] = f16vec4(vec4(colors[48 * id + 25], colors[48 * id + 28], colors[48 * id + 31], colors[48 * id + 34]));
+      gaussian_sh[ 7 * N + id] = f16vec4(vec4(colors[48 * id + 37], colors[48 * id + 40], colors[48 * id + 43], colors[48 * id + 46]));
+      gaussian_sh[ 8 * N + id] = f16vec4(vec4(colors[48 * id +  2], colors[48 * id +  5], colors[48 * id +  8], colors[48 * id + 11]));
+      gaussian_sh[ 9 * N + id] = f16vec4(vec4(colors[48 * id + 14], colors[48 * id + 17], colors[48 * id + 20], colors[48 * id + 23]));
+      gaussian_sh[10 * N + id] = f16vec4(vec4(colors[48 * id + 26], colors[48 * id + 29], colors[48 * id + 32], colors[48 * id + 35]));
+      gaussian_sh[11 * N + id] = f16vec4(vec4(colors[48 * id + 38], colors[48 * id + 41], colors[48 * id + 44], colors[48 * id + 47]));
     }
   }
 }
