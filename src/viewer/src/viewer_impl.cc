@@ -29,6 +29,7 @@
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/gaussian_splats.h"
+#include "vkgs/core/stats.h"
 
 #include "generated/color_vert.h"
 #include "generated/color_frag.h"
@@ -243,6 +244,9 @@ void ViewerImpl::Impl::DrawUi() {
 
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
   storage.Update(splats_->size(), image_size.x, image_size.y);
+  storage.Wait();
+  auto point_count = static_cast<int>(splats_->size());
+  auto visible_point_count = static_cast<int>(storage.visible_point_count());
 
   ImGui::SetCursorPos({0.f, 0.f});
   ImGui::Image(static_cast<VkDescriptorSet>(storage.texture()), image_size);
@@ -251,6 +255,9 @@ void ViewerImpl::Impl::DrawUi() {
     ImGui::SetCursorPos({0.f, 0.f});
     ImGui::Text("FPS: %.2f", io.Framerate);
     ImGui::Text("Resolution: %dx%d", (int)image_size.x, (int)image_size.y);
+    ImGui::Text("Point count   : %d", point_count);
+    ImGui::Text("Visible points: %d (%.2f%%)", visible_point_count,
+                static_cast<float>(visible_point_count) / point_count * 100.f);
 
     ImVec2 pos = {-5.f, image_size.y / 2.f};
     ImGui::SetCursorPos(pos);
@@ -267,6 +274,11 @@ void ViewerImpl::Impl::DrawUi() {
 
     ImGui::Text("FPS: %.2f", io.Framerate);
     ImGui::Text("Resolution: %dx%d", (int)image_size.x, (int)image_size.y);
+
+    ImGui::Text("Point count   : %d", point_count);
+    ImGui::Text("Visible points: %d (%.2f%%)", visible_point_count,
+                static_cast<float>(visible_point_count) / point_count * 100.f);
+
     if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
       if (ImGui::Checkbox("vsync", &viewer_options_.vsync)) {
         if (viewer_options_.vsync)
@@ -522,9 +534,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   auto cq = context_->device()->compute_queue();
   auto gq = context_->device()->graphics_queue();
 
-  auto width = present_image_info.extent.width;
-  auto height = present_image_info.extent.height;
-
   // ring buffer
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
   auto screen_splats = storage.screen_splats();
@@ -537,6 +546,9 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   auto image16 = storage.image16();
   auto depth = storage.depth();
   auto depth_image = storage.depth_image();
+  auto visible_point_count_stage = storage.visible_point_count_stage();
+  auto stats_stage = storage.stats_stage();
+  auto& stats = storage.stats();
   frame_index_++;
 
   auto texture_width = image->width();
@@ -554,6 +566,7 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       .eps2d = viewer_options_.eps2d,
       .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
       .instance_vec4 = viewer_options_.instance_vec4,
+      .record_stat = true,
   };
 
   // Compute queue
@@ -561,8 +574,20 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     gpu::ComputeTask task;
     auto cb = task.command_buffer();
 
-    // Compute
     renderer_->ComputeScreenSplats(cb, splats_, draw_options, screen_splats);
+
+    // Get stats to stage buffer
+    gpu::cmd::Barrier()
+        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                VK_ACCESS_2_TRANSFER_READ_BIT)
+        .Commit(cb);
+
+    VkBufferCopy region = {0, 0, sizeof(uint32_t)};
+    vkCmdCopyBuffer(cb, screen_splats->visible_point_count(), visible_point_count_stage, 1, &region);
+    if (draw_options.record_stat) {
+      region = {0, 0, sizeof(core::Stats)};
+      vkCmdCopyBuffer(cb, screen_splats->stats(), stats_stage, 1, &region);
+    }
 
     // Release
     gpu::cmd::Barrier()
@@ -572,7 +597,27 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
                  screen_splats->draw_indirect())
         .Commit(cb);
 
+    screen_splats->visible_point_count()->Keep();
+    visible_point_count_stage->Keep();
+    screen_splats->stats()->Keep();
+    stats_stage->Keep();
+
     task.Signal(csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+
+    task.PostCallback([visible_point_count_stage, stats_stage, &stats, &storage, &draw_options] {
+      uint32_t visible_point_count;
+      std::memcpy(&visible_point_count, visible_point_count_stage->data(), sizeof(uint32_t));
+      storage.SetVisiblePointCount(visible_point_count);
+
+      if (draw_options.record_stat) {
+        std::memcpy(&stats, stats_stage->data(), sizeof(core::Stats));
+      } else {
+        std::memset(&stats, 0, sizeof(core::Stats));
+      }
+    });
+
+    auto compute_task = task.Submit();
+    storage.SetTask(compute_task);
   }
 
   // Graphics queue

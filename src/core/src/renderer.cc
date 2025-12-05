@@ -71,6 +71,7 @@ RendererImpl::RendererImpl() {
               {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+              {9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           },
       .push_constants = {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ProjectionPushConstants)}},
   });
@@ -299,7 +300,6 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   auto requirements = sorter_->GetStorageRequirements(N);
   compute_storage->Update(N, requirements.usage, requirements.size);
 
-  auto visible_point_count = compute_storage->visible_point_count();
   auto key = compute_storage->key();
   auto index = compute_storage->index();
   auto sort_storage = compute_storage->sort_storage();
@@ -307,8 +307,10 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   auto camera = compute_storage->camera();
   auto camera_stage = compute_storage->camera_stage();
 
+  auto visible_point_count = screen_splats->visible_point_count();
   auto draw_indirect = screen_splats->draw_indirect();
   auto instances = screen_splats->instances();
+  auto stats = screen_splats->stats();
 
   ProjectionPushConstants projection_push_constants = {
       .model = draw_options.model,
@@ -316,6 +318,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .eps2d = draw_options.eps2d,
       .sh_degree_data = splats->sh_degree(),
       .sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree,
+      .record_stat = draw_options.record_stat,
   };
 
   Camera camera_data = {
@@ -330,10 +333,11 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   vkCmdCopyBuffer(cb, camera_stage, camera, 1, &region);
   vkCmdFillBuffer(cb, visible_point_count, 0, sizeof(uint32_t), 0);
   vkCmdFillBuffer(cb, inverse_index, 0, N * sizeof(uint32_t), -1);
+  if (draw_options.record_stat) vkCmdFillBuffer(cb, stats, 0, stats->size(), 0);
 
   gpu::cmd::Barrier()
       .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-              VK_ACCESS_2_SHADER_READ_BIT)
+              VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT)
       .Commit(cb);
 
   // Rank
@@ -387,12 +391,16 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Storage(6, inverse_index)
       .Storage(7, draw_indirect)
       .Storage(8, instances)
+      .Storage(9, stats)
       .Bind(projection_pipeline)
       .Commit(cb);
   vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
   if (timer) {
     timer->Record(cb, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+  }
+
+  if (draw_options.record_stat) {
   }
 
   visible_point_count->Keep();
@@ -404,6 +412,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   camera_stage->Keep();
   draw_indirect->Keep();
   instances->Keep();
+  if (draw_options.record_stat) stats->Keep();
 
   screen_splats->SetIndexBuffer(splats->index_buffer());
   screen_splats->SetProjection(draw_options.projection);

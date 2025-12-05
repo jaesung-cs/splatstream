@@ -1,6 +1,7 @@
 #include "storage.h"
 
 #include "vkgs/core/screen_splats.h"
+#include "vkgs/core/stats.h"
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/image.h"
@@ -17,6 +18,10 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
 
   if (!screen_splats_) screen_splats_ = core::ScreenSplats::Create();
   screen_splats_->Update(size);
+
+  if (!visible_point_count_stage_)
+    visible_point_count_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(uint32_t), true);
+  if (!stats_stage_) stats_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(core::Stats), true);
 
   if (!compute_semaphore_) compute_semaphore_ = device->AllocateSemaphore();
   if (!graphics_semaphore_) graphics_semaphore_ = device->AllocateSemaphore();
@@ -46,6 +51,8 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
 
 void Storage::Clear() {
   screen_splats_.reset();
+  visible_point_count_stage_.reset();
+  stats_stage_.reset();
   image_.reset();
   image16_.reset();
   depth_image_.reset();
@@ -54,6 +61,7 @@ void Storage::Clear() {
   graphics_semaphore_.reset();
   sampler_.reset();
   texture_.reset();
+  task_.reset();
 }
 
 }  // namespace viewer

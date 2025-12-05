@@ -5,10 +5,12 @@
 
 #include "imgui_texture.h"
 
+#include "vkgs/core/stats.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/gpu/sampler.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/semaphore.h"
+#include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
 
@@ -28,6 +30,9 @@ class Storage {
 
   auto screen_splats() const noexcept { return screen_splats_; }
 
+  auto visible_point_count_stage() const noexcept { return visible_point_count_stage_; }
+  auto stats_stage() const noexcept { return stats_stage_; }
+
   // Texture for ImGui
   auto texture() const noexcept { return texture_; }
 
@@ -46,8 +51,21 @@ class Storage {
   auto compute_semaphore() const noexcept { return compute_semaphore_; }
   auto graphics_semaphore() const noexcept { return graphics_semaphore_; }
 
+  void SetTask(gpu::QueueTask task) { task_ = task; }
+  void Wait() {
+    if (task_) task_->Wait();
+  }
+
+  void SetVisiblePointCount(uint32_t visible_point_count) noexcept { visible_point_count_ = visible_point_count; }
+
+  auto visible_point_count() const noexcept { return visible_point_count_; }
+  const auto& stats() const noexcept { return stats_; }
+  auto& stats() noexcept { return stats_; }
+
  private:
   core::ScreenSplats screen_splats_;
+  gpu::Buffer visible_point_count_stage_;
+  gpu::Buffer stats_stage_;
   gpu::Image image_;
   gpu::Image image16_;
   gpu::Image depth_image_;
@@ -58,6 +76,11 @@ class Storage {
   // For ImGui texture
   gpu::Sampler sampler_;
   ImGuiTexture texture_;
+
+  // Draw result
+  gpu::QueueTask task_;
+  uint32_t visible_point_count_ = 0;
+  core::Stats stats_{};
 };
 
 }  // namespace viewer
