@@ -17,7 +17,6 @@ class ComputeStorageImpl {
   ComputeStorageImpl();
   ~ComputeStorageImpl();
 
-  auto visible_point_count() const noexcept { return visible_point_count_; }
   auto camera() const noexcept { return camera_; }
   auto camera_stage() const noexcept { return camera_stage_; }
   auto key() const noexcept { return key_; }
@@ -31,9 +30,8 @@ class ComputeStorageImpl {
   uint32_t point_count_ = 0;
 
   // Fixed
-  gpu::Buffer visible_point_count_;  // (1)
-  gpu::Buffer camera_;               // (Camera)
-  gpu::Buffer camera_stage_;         // (Camera)
+  gpu::Buffer camera_;        // (Camera)
+  gpu::Buffer camera_stage_;  // (Camera)
 
   // Variable
   gpu::Buffer key_;            // (N)

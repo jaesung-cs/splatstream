@@ -1,14 +1,11 @@
 #include "vkgs/core/details/compute_storage.h"
 
-#include "struct.h"
+#include "../struct.h"
 
 namespace vkgs {
 namespace core {
 
 ComputeStorageImpl::ComputeStorageImpl() {
-  visible_point_count_ = gpu::Buffer::Create(
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-      sizeof(uint32_t));
   camera_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Camera));
 }
 

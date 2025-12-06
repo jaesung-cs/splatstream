@@ -16,6 +16,7 @@ struct DrawOptions {
   float eps2d;
   int sh_degree;
   bool instance_vec4;
+  bool record_stat;
 };
 
 }  // namespace core

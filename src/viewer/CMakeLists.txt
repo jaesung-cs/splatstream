@@ -18,6 +18,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(imguizmo)
 
 FetchContent_Declare(
+  implot
+  GIT_REPOSITORY https://github.com/epezent/implot.git
+  GIT_TAG        4707b245fbcd69075b1a8a74fa8d2435561b3134  # v0.17
+)
+FetchContent_MakeAvailable(implot)
+
+FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
   GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579  # 3.4
@@ -44,6 +51,8 @@ add_library(vkgs_viewer SHARED
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
   ${imguizmo_SOURCE_DIR}/ImGuizmo.cpp
+  ${implot_SOURCE_DIR}/implot.cpp
+  ${implot_SOURCE_DIR}/implot_items.cpp
 )
 add_library(vkgs::viewer ALIAS vkgs_viewer)
 
@@ -55,6 +64,7 @@ target_include_directories(vkgs_viewer
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
     ${imguizmo_SOURCE_DIR}
+    ${implot_SOURCE_DIR}
 )
 
 target_link_libraries(vkgs_viewer

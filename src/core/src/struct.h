@@ -20,6 +20,7 @@ struct ProjectionPushConstants {
   float eps2d;
   uint32_t sh_degree_data;
   uint32_t sh_degree_draw;
+  uint32_t record_stat;
 };
 
 struct Camera {
