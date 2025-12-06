@@ -7,7 +7,7 @@ namespace vkgs {
 namespace core {
 
 struct Stats {
-  uint32_t histogram_alpha[256];
+  uint32_t histogram_alpha[50];
 };
 
 }  // namespace core

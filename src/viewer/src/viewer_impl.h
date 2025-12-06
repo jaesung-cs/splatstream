@@ -73,6 +73,7 @@ class ViewerImpl::Impl {
     bool camera_modified;
     bool left_panel;
     bool instance_vec4;
+    bool show_stat;
   };
   ViewerOptions viewer_options_ = {};
 

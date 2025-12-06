@@ -9,6 +9,7 @@
 #include "imgui_impl_vulkan.h"
 #include "imgui_internal.h"  // dock
 #include "ImGuizmo.h"
+#include "implot.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -97,6 +98,7 @@ void ViewerImpl::Impl::InitializeWindow() {
   ImGui::CreateContext();
   ImGui::StyleColorsDark();
   ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+  ImPlot::CreateContext();
 
   ImGui_ImplGlfw_InitForVulkan(window_, true);
   ImGui_ImplVulkan_InitInfo init_info = {
@@ -124,6 +126,7 @@ void ViewerImpl::Impl::InitializeWindow() {
 }
 
 void ViewerImpl::Impl::FinalizeWindow() {
+  ImPlot::DestroyContext();
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
@@ -247,6 +250,7 @@ void ViewerImpl::Impl::DrawUi() {
   storage.Wait();
   auto point_count = static_cast<int>(splats_->size());
   auto visible_point_count = static_cast<int>(storage.visible_point_count());
+  const auto& stats = storage.stats();
 
   ImGui::SetCursorPos({0.f, 0.f});
   ImGui::Image(static_cast<VkDescriptorSet>(storage.texture()), image_size);
@@ -319,7 +323,23 @@ void ViewerImpl::Impl::DrawUi() {
         }
       }
 
-      ImGui::SliderFloat("Animation Speed (FPS)", &viewer_options_.animation_speed, 1.f, 60.f, "%.2f");
+      ImGui::SliderFloat("Animation Speed (FPS)", &viewer_options_.animation_speed, 1.f, 30.f, "%.2f");
+    }
+
+    if (ImGui::CollapsingHeader("Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
+      ImGui::Checkbox("Show statistics", &viewer_options_.show_stat);
+      if (viewer_options_.show_stat) {
+        if (ImPlot::BeginPlot("Splat Alpha Histogram")) {
+          std::array<float, 50> labels;
+          for (int i = 0; i < 50; ++i) labels[i] = i / 50.f;
+          std::array<float, 50> values;
+          for (int i = 0; i < 50; ++i) values[i] = stats.histogram_alpha[i];
+          ImPlot::SetupAxis(ImAxis_X1, "Alpha", ImPlotAxisFlags_AutoFit);
+          ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
+          ImPlot::PlotBars("Splat Alpha", labels.data(), values.data(), labels.size(), 1.f / labels.size() * 0.67f);
+          ImPlot::EndPlot();
+        }
+      }
     }
 
     ImVec2 pos = {size.x + 5.f, size.y / 2.f};
@@ -493,9 +513,10 @@ void ViewerImpl::Impl::Run() {
       .camera_index = 0,
       .animation = false,
       .animation_time = 0.f,
-      .animation_speed = 30.f,
+      .animation_speed = 1.f,
       .left_panel = true,
       .instance_vec4 = true,
+      .show_stat = true,
   };
 
   while (!glfwWindowShouldClose(window_)) {
@@ -566,7 +587,7 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       .eps2d = viewer_options_.eps2d,
       .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
       .instance_vec4 = viewer_options_.instance_vec4,
-      .record_stat = true,
+      .record_stat = viewer_options_.show_stat,
   };
 
   // Compute queue
@@ -604,15 +625,16 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     task.Signal(csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
-    task.PostCallback([visible_point_count_stage, stats_stage, &stats, &storage, &draw_options] {
+    task.PostCallback([visible_point_count_stage, stats_stage, stats = &stats, storage = &storage,
+                       record_stat = draw_options.record_stat] {
       uint32_t visible_point_count;
       std::memcpy(&visible_point_count, visible_point_count_stage->data(), sizeof(uint32_t));
-      storage.SetVisiblePointCount(visible_point_count);
+      storage->SetVisiblePointCount(visible_point_count);
 
-      if (draw_options.record_stat) {
-        std::memcpy(&stats, stats_stage->data(), sizeof(core::Stats));
+      if (record_stat) {
+        std::memcpy(stats, stats_stage->data(), sizeof(core::Stats));
       } else {
-        std::memset(&stats, 0, sizeof(core::Stats));
+        std::memset(stats, 0, sizeof(core::Stats));
       }
     });
 
