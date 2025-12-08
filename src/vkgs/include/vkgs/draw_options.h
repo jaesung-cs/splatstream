@@ -13,6 +13,7 @@ struct DrawOptions {
   uint32_t height;
   float background[3];
   float eps2d;
+  float confidence_radius;
   int sh_degree;
 };
 

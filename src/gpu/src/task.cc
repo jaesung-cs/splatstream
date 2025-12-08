@@ -2,17 +2,16 @@
 
 #include <volk.h>
 
-#include "vkgs/gpu/queue.h"
+#include "vkgs/gpu/details/fence.h"
+#include "vkgs/gpu/details/command.h"
 #include "vkgs/gpu/gpu.h"
-
-#include "fence.h"
-#include "command.h"
+#include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
 namespace gpu {
 
 Task::Task(QueueType queue_type) {
-  device_ = gpu::GetDevice();
+  device_ = GetDevice();
   device_->SetCurrentTask(this);
 
   switch (queue_type) {
@@ -32,7 +31,7 @@ Task::Task(QueueType queue_type) {
 
   VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(*command_, &begin_info);
+  vkBeginCommandBuffer(command_, &begin_info);
 }
 
 Task::~Task() {
@@ -41,7 +40,7 @@ Task::~Task() {
   }
 }
 
-VkCommandBuffer Task::command_buffer() const { return *command_; }
+VkCommandBuffer Task::command_buffer() const { return command_; }
 
 Task& Task::Keep(std::shared_ptr<Object> object) {
   objects_.push_back(object);
@@ -97,11 +96,11 @@ Task& Task::PostCallback(std::function<void()> callback) {
   return *this;
 }
 
-std::shared_ptr<QueueTask> Task::Submit() {
-  vkEndCommandBuffer(*command_);
+QueueTask Task::Submit() {
+  vkEndCommandBuffer(command_);
 
   VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-  command_buffer_info.commandBuffer = *command_;
+  command_buffer_info.commandBuffer = command_;
 
   VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
   submit.waitSemaphoreInfoCount = wait_semaphore_infos_.size();
@@ -110,7 +109,7 @@ std::shared_ptr<QueueTask> Task::Submit() {
   submit.pCommandBufferInfos = &command_buffer_info;
   submit.signalSemaphoreInfoCount = signal_semaphore_infos_.size();
   submit.pSignalSemaphoreInfos = signal_semaphore_infos_.data();
-  vkQueueSubmit2(*queue_, 1, &submit, *fence_);
+  vkQueueSubmit2(queue_, 1, &submit, fence_);
 
   auto task = device_->AddQueueTask(fence_, command_, std::move(objects_), callback_);
   submitted_ = true;

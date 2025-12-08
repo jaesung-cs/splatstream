@@ -10,14 +10,6 @@
 #include "vkgs/camera_params.h"
 
 namespace vkgs {
-namespace core {
-class Parser;
-class Renderer;
-}  // namespace core
-
-namespace viewer {
-class Viewer;
-}  // namespace viewer
 
 class GaussianSplats;
 class RenderingTask;
@@ -38,12 +30,12 @@ class VKGS_API Engine {
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
   void AddCamera(const CameraParams& camera_params);
+  void ClearCameras();
   void Show(GaussianSplats splats);
 
  private:
-  std::shared_ptr<viewer::Viewer> viewer_;
-  std::shared_ptr<core::Parser> parser_;
-  std::shared_ptr<core::Renderer> renderer_;
+  class Impl;
+  std::shared_ptr<Impl> impl_;
 };
 
 }  // namespace vkgs

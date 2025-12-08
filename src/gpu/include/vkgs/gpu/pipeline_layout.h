@@ -6,27 +6,33 @@
 
 #include <vulkan/vulkan.h>
 
-#include "export_api.h"
-#include "object.h"
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API PipelineLayout : public Object {
- public:
-  static std::shared_ptr<PipelineLayout> Create(const std::vector<VkDescriptorSetLayoutBinding>& bindings,
-                                                const std::vector<VkPushConstantRange>& push_constants = {});
+struct PipelineLayoutCreateInfo {
+  std::vector<VkDescriptorSetLayoutBinding> bindings;
+  std::vector<VkPushConstantRange> push_constants;
+};
 
+class VKGS_GPU_API PipelineLayoutImpl : public Object {
  public:
-  PipelineLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings,
-                 const std::vector<VkPushConstantRange>& push_constants);
-  ~PipelineLayout();
+  PipelineLayoutImpl(const PipelineLayoutCreateInfo& create_info);
+  ~PipelineLayoutImpl() override;
 
   operator VkPipelineLayout() const noexcept { return pipeline_layout_; }
 
  private:
   VkDescriptorSetLayout descriptor_set_layout_ = VK_NULL_HANDLE;
   VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
+};
+
+class VKGS_GPU_API PipelineLayout : public SharedAccessor<PipelineLayout, PipelineLayoutImpl> {
+ public:
+  static PipelineLayout Create(const PipelineLayoutCreateInfo& create_info) { return Base::Create(create_info); }
 };
 
 }  // namespace gpu

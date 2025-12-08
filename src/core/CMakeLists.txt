@@ -1,4 +1,4 @@
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Vulkan REQUIRED)
@@ -20,15 +20,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(vk_radix_sort)
 
 add_library(vkgs_core SHARED
-  src/compute_storage.cc
+  src/details/compute_storage.cc
+  src/details/graphics_storage.cc
+  src/details/sorter.cc
   src/gaussian_splats.cc
-  src/graphics_storage.cc
   src/parser.cc
   src/renderer.cc
   src/rendering_task.cc
   src/screen_splats.cc
-  src/sorter.cc
-  src/transfer_storage.cc
   src/vrdx_impl.cc
 )
 add_library(vkgs::core ALIAS vkgs_core)
@@ -44,7 +43,6 @@ target_link_libraries(vkgs_core
   PUBLIC
     Vulkan::Vulkan
     glm::glm
-  PRIVATE
     vkgs::gpu
     vk_radix_sort
 )
@@ -54,12 +52,15 @@ target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
 add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)
 add_shader(vkgs_core shader/parse_data.comp parse_data)
-add_shader(vkgs_core shader/projection.comp projection)
+add_shader(vkgs_core shader/projection.comp projection VKGS_SHADER_INSTANCES_VEC4)
+add_shader(vkgs_core shader/projection.comp projection_float)
 add_shader(vkgs_core shader/rank.comp rank)
-add_shader(vkgs_core shader/splat.frag splat_frag)
-add_shader(vkgs_core shader/splat.vert splat_vert)
-add_shader(vkgs_core shader/splat.frag splat_depth_frag VKGS_RENDER_DEPTH)
-add_shader(vkgs_core shader/splat.vert splat_depth_vert VKGS_RENDER_DEPTH)
+add_shader(vkgs_core shader/splat_color.frag splat_color_frag)
+add_shader(vkgs_core shader/splat_color.vert splat_color_vert VKGS_SHADER_INSTANCES_VEC4)
+add_shader(vkgs_core shader/splat_color.vert splat_color_float_vert)
+add_shader(vkgs_core shader/splat_depth.frag splat_depth_frag)
+add_shader(vkgs_core shader/splat_depth.vert splat_depth_vert VKGS_SHADER_INSTANCES_VEC4)
+add_shader(vkgs_core shader/splat_depth.vert splat_depth_float_vert)
 
 set_target_properties(vkgs_core PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

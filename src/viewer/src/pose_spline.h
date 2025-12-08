@@ -11,7 +11,11 @@ namespace viewer {
 
 class PoseSpline {
  public:
+  PoseSpline() = default;
   PoseSpline(std::vector<Pose> poses) : poses_(std::move(poses)) {}
+
+  void push_back(const Pose& pose) { poses_.push_back(pose); }
+  void clear() { poses_.clear(); }
 
   // Evaluate spline at t in [0, N-1]
   Pose Evaluate(float t) const;

@@ -47,6 +47,67 @@ One of the biggest challenges of this design is that the object management syste
 Other design patterns for managing lifetime of Vulkan objects could be a single context having `unique_ptr`s of dependent resources, where public interface for the resources are available via handles or wrapper classes.
 This design is not adopted because it seemingly makes the design more complex and requires more lines of codes.
 
+## Shared Accessor
+`std::shared_ptr` is good for Vulkan resource lifetime management, but is too low-level, in that the users need to create with `std::make_shared` and manage the pointers by their own.
+
+How about having a wrapper class, from which an object is created behaving like `std::shared_ptr` but hold the 
+
+```cpp
+template <typename ObjectType, typename InstanceType>
+class SharedAccessor {
+ public:
+  // Empty object
+  SharedAccessor() = default;
+
+  // Actual instance is created by Create(...)
+  template <typename... Args>
+  static ObjectType Create(Args&&... args) {
+    auto instance = std::make_shared<InstanceType>(std::forward<Args>(args)...);
+    ObjectType object;
+    object.instance_ = instance;
+    return object;
+  }
+
+  // Use as if a variable has functions
+  auto operator->() const noexcept { return instance_.get(); }
+
+  // To "any" cast operator, if the implementation class has cast operation.
+  template <typename T> operator T() const noexcept { return static_cast<T>(*instance_.get()); }
+
+ private:
+  std::shared_ptr<InstanceType> instance_;
+};
+```
+
+This is the basic pattern:
+```cpp
+class FooImpl {  // Actual implementation
+ public:
+  FooImpl(int x, float y);
+  void Bar();
+};
+
+class Foo : public SharedAccessor<Foo, FooImpl> {};  // Object class
+
+{
+  Foo foo;                        // An empty object
+  Foo bar = Foo::Create(1, 2.f);  // Create concrete
+  bar->Boo();                     // Act like a shared ptr
+  Foo baz = bar;                  // An object points to the same one
+}                                 // Destructor ~FooImpl() is called once
+```
+
+For singleton, `std::weak_ptr<FooImpl>` points to the instance, and `Foo` is created with `Foo::FromPtr` if not expired, `Foo::Create` otherwise.
+For more details about this, see `vkgs/gpu/gpu.cc` for more details.
+
+I find this wrapper class very powerful in that the "pointer" concept can be completely hidden in the middle layer and to the end users.
+
+One of drawbacks is that to have shared accessors as member variable, the class is not just to be declared but must be defined, i.e. headers must be included.
+It will result in increase of compile time and the number of headers to expose.
+
+Pimpl idiom is also valid along with this shared accessor pattern.
+It is good for hiding implementation details and reducing compile time.
+
 ## Back-to-Front Rendering
 The splats are sorted back-to-front, like how general renderers draw transparent objects.
 
@@ -205,3 +266,27 @@ One crucial point is that we need at least float16 image for the image quality o
 
 ImGui's dynamic rendering is partially supported, in that multiple attachments are not available for now.
 So, UI is rendered to the swapchain image in a separate render pass.
+
+### Memory Access Pattern
+When it comes to calculation and memory costs, Gaussian splatting is leaned toward memory-bound operation, i.e. the number of operations are not so much compared to the number of memory reads/writes.
+
+Considering memory coalescing is as import as the global memory size and read/write count.
+
+It turns out that writing to screen splat instances into (N, 12) tensor, 12 elements of each row aggregated with 3 `vec4`s, is faster by 10% FPS in "garden" scene than into (N, 11) tensor with 11 `float`s.
+Even the memory consumption is approximately 10% more, the end-to-end frame rate is faster by 10% (FPS 400 vs. 360)
+This is probably because of cache flush cost on write operations. The former requires 3 writes, whiel the latter requires 11 writes.
+
+Because writing operation is more vulnerable to random access pattern, I also tested the "sequential gaussian splat read + random screen splat write" vs. "random gaussian splat read + sequential screen splat write."
+
+SH coefficients are (N, 48) `float16` tensor which is equivalent to 24 `float`s, and is still large.
+Other tensors are position (N, 3), cov3d (N, 6), and opacity (N, 1).
+
+With the current sequential read + random write scheme, FPS was 400.
+With random read + sequential write, FPS was dropped significantly to 300.
+This can be simply tested by using inversed index in `projection.comp`.
+Having On/Off flag for this makes code too complicated to just test the rendering speed.
+
+My conclusion is that sequential read + random write is the best so far, but there is still more room for improvement.
+Current implementation has many inactivate invocations for splats that are not visible.
+
+Shared memory could be a key to improve the rendering speed further.

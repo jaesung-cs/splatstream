@@ -3,10 +3,9 @@
 
 #include <memory>
 
+#include "vkgs/gpu/device.h"
+
 namespace vkgs {
-namespace gpu {
-class Device;
-}  // namespace gpu
 namespace viewer {
 
 class Context;
@@ -17,8 +16,10 @@ class Context {
   Context();
   ~Context();
 
+  auto device() const noexcept { return device_; }
+
  private:
-  std::shared_ptr<gpu::Device> device_;
+  gpu::Device device_;
 };
 
 }  // namespace viewer

@@ -6,16 +6,16 @@
 
 #include <vulkan/vulkan.h>
 
-#include "export_api.h"
-#include "device.h"
+#include "vkgs/gpu/details/fence.h"
+#include "vkgs/gpu/details/command.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/device.h"
+#include "vkgs/gpu/queue.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Object;
-class Queue;
-class Fence;
-class Command;
 
 class VKGS_GPU_API Task {
  protected:
@@ -48,13 +48,13 @@ class VKGS_GPU_API Task {
 
   Task& PostCallback(std::function<void()> callback);
 
-  std::shared_ptr<QueueTask> Submit();
+  QueueTask Submit();
 
  private:
-  std::shared_ptr<Device> device_;
-  std::shared_ptr<Queue> queue_;
-  std::shared_ptr<Fence> fence_;
-  std::shared_ptr<Command> command_;
+  Device device_;
+  Queue queue_;
+  Fence fence_;
+  Command command_;
   std::vector<std::shared_ptr<Object>> objects_;
   std::function<void()> callback_;
 

@@ -12,18 +12,19 @@ class GaussianSplats;
 
 class VKGS_API GaussianSplats {
  public:
-  explicit GaussianSplats(std::shared_ptr<core::GaussianSplats> gaussian_splats);
+  explicit GaussianSplats(core::GaussianSplats gaussian_splats);
   ~GaussianSplats();
 
   size_t size() const;
 
-  void Wait() const noexcept;
+  void Wait() const;
 
   // Internal
-  auto get() const noexcept { return gaussian_splats_; }
+  core::GaussianSplats get() const;
 
  private:
-  std::shared_ptr<core::GaussianSplats> gaussian_splats_;
+  class Impl;
+  std::shared_ptr<Impl> impl_;
 };
 
 }  // namespace vkgs

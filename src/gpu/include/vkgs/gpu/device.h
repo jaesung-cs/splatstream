@@ -8,32 +8,36 @@
 
 #include <vulkan/vulkan.h>
 
-#include "export_api.h"
+#include "vkgs/common/shared_accessor.h"
+
+#include "vkgs/gpu/details/fence_pool.h"
+#include "vkgs/gpu/details/semaphore_pool.h"
+#include "vkgs/gpu/details/graphics_pipeline_pool.h"
+#include "vkgs/gpu/details/task_monitor.h"
+#include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/queue.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Object;
-class Queue;
 class Semaphore;
 class Fence;
-class SemaphorePool;
-class FencePool;
-class TaskMonitor;
+struct GraphicsPipelineCreateInfo;
+class GraphicsPipeline;
 class Command;
 class QueueTask;
 class Task;
-class GraphicsPipelinePool;
 
 struct DeviceCreateInfo {
   bool enable_viewer;
   std::vector<const char*> instance_extensions;
 };
 
-class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
+class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> {
  public:
-  Device(const DeviceCreateInfo& create_info);
-  ~Device();
+  DeviceImpl(const DeviceCreateInfo& create_info);
+  ~DeviceImpl();
 
   operator VkDevice() const noexcept { return device_; }
 
@@ -51,9 +55,9 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
   auto compute_queue() const noexcept { return compute_queue_; }
   auto transfer_queue() const noexcept { return transfer_queue_; }
 
-  std::shared_ptr<Semaphore> AllocateSemaphore();
-  std::shared_ptr<Fence> AllocateFence();
-  std::shared_ptr<GraphicsPipelinePool> GetGraphicsPipelinePool() { return graphics_pipeline_pool_; }
+  Semaphore AllocateSemaphore();
+  Fence AllocateFence();
+  GraphicsPipeline AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info);
 
   void WaitIdle();
 
@@ -62,8 +66,8 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
   void ClearCurrentTask() { current_task_ = nullptr; }
   Task* CurrentTask() const { return current_task_; }
 
-  std::shared_ptr<QueueTask> AddQueueTask(std::shared_ptr<Fence> fence, std::shared_ptr<Command> command,
-                                          std::vector<std::shared_ptr<Object>> objects, std::function<void()> callback);
+  QueueTask AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                         std::function<void()> callback);
 
  private:
   std::string device_name_;
@@ -75,16 +79,18 @@ class VKGS_GPU_API Device : public std::enable_shared_from_this<Device> {
 
   void* allocator_ = VK_NULL_HANDLE;
 
-  std::shared_ptr<Queue> graphics_queue_;
-  std::shared_ptr<Queue> compute_queue_;
-  std::shared_ptr<Queue> transfer_queue_;
-  std::shared_ptr<SemaphorePool> semaphore_pool_;
-  std::shared_ptr<FencePool> fence_pool_;
-  std::shared_ptr<GraphicsPipelinePool> graphics_pipeline_pool_;
-  std::shared_ptr<TaskMonitor> task_monitor_;
+  Queue graphics_queue_;
+  Queue compute_queue_;
+  Queue transfer_queue_;
+  SemaphorePool semaphore_pool_;
+  FencePool fence_pool_;
+  GraphicsPipelinePool graphics_pipeline_pool_;
+  TaskMonitor task_monitor_;
 
   Task* current_task_ = nullptr;
 };
+
+class VKGS_GPU_API Device : public SharedAccessor<Device, DeviceImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

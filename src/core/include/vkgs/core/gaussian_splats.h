@@ -3,26 +3,21 @@
 
 #include <memory>
 
-#include "export_api.h"
+#include "vkgs/common/shared_accessor.h"
+#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/queue_task.h"
+
+#include "vkgs/core/export_api.h"
 
 namespace vkgs {
-namespace gpu {
-
-class Buffer;
-class QueueTask;
-
-}  // namespace gpu
-
 namespace core {
 
-class VKGS_CORE_API GaussianSplats {
+class VKGS_CORE_API GaussianSplatsImpl {
  public:
-  GaussianSplats(size_t size, uint32_t sh_degree, std::shared_ptr<gpu::Buffer> position,
-                 std::shared_ptr<gpu::Buffer> cov3d, std::shared_ptr<gpu::Buffer> sh,
-                 std::shared_ptr<gpu::Buffer> opacity, std::shared_ptr<gpu::Buffer> index,
-                 std::shared_ptr<gpu::QueueTask> task);
+  GaussianSplatsImpl(size_t size, uint32_t sh_degree, gpu::Buffer position, gpu::Buffer cov3d, gpu::Buffer sh,
+                     gpu::Buffer opacity, gpu::Buffer index_buffer, gpu::QueueTask task);
 
-  ~GaussianSplats();
+  ~GaussianSplatsImpl();
 
   size_t size() const noexcept { return size_; }
   uint32_t sh_degree() const noexcept { return sh_degree_; }
@@ -37,13 +32,15 @@ class VKGS_CORE_API GaussianSplats {
  private:
   size_t size_;
   uint32_t sh_degree_;
-  std::shared_ptr<gpu::Buffer> position_;      // (N, 3)
-  std::shared_ptr<gpu::Buffer> cov3d_;         // (N, 6)
-  std::shared_ptr<gpu::Buffer> sh_;            // (N, K) float16
-  std::shared_ptr<gpu::Buffer> opacity_;       // (N)
-  std::shared_ptr<gpu::Buffer> index_buffer_;  // (N, 6)
-  std::shared_ptr<gpu::QueueTask> task_;
+  gpu::Buffer position_;      // (N, 3)
+  gpu::Buffer cov3d_;         // (N, 6)
+  gpu::Buffer sh_;            // (N, K) float16
+  gpu::Buffer opacity_;       // (N)
+  gpu::Buffer index_buffer_;  // (N, 6)
+  gpu::QueueTask task_;
 };
+
+class VKGS_CORE_API GaussianSplats : public SharedAccessor<GaussianSplats, GaussianSplatsImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

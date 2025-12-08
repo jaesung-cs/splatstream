@@ -6,6 +6,7 @@
 _skbuild
 *.egg-info
 __pycache__
+.skbuild
 
 models/
 
