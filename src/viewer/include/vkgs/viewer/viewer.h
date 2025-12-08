@@ -25,6 +25,7 @@ class VKGS_VIEWER_API ViewerImpl {
   void SetSplats(core::GaussianSplats splats);
 
   void AddCamera(const CameraParams& camera_params);
+  void ClearCameras();
 
   void Run();
 

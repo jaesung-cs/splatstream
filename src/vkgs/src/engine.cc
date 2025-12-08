@@ -64,6 +64,8 @@ class Engine::Impl {
     viewer_->AddCamera(viewer_camera_params);
   }
 
+  void ClearCameras() { viewer_->ClearCameras(); }
+
   void Show(GaussianSplats splats) {
     viewer_->SetSplats(splats.get());
     viewer_->Run();
@@ -98,6 +100,8 @@ RenderingTask Engine::Draw(GaussianSplats splats, const DrawOptions& draw_option
 }
 
 void Engine::AddCamera(const CameraParams& camera_params) { impl_->AddCamera(camera_params); }
+
+void Engine::ClearCameras() { impl_->ClearCameras(); }
 
 void Engine::Show(GaussianSplats splats) { impl_->Show(splats); }
 

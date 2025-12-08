@@ -13,6 +13,7 @@ ViewerImpl::~ViewerImpl() = default;
 void ViewerImpl::SetRenderer(core::Renderer renderer) { impl_->SetRenderer(renderer); }
 void ViewerImpl::SetSplats(core::GaussianSplats splats) { impl_->SetSplats(splats); }
 void ViewerImpl::AddCamera(const CameraParams& camera_params) { impl_->AddCamera(camera_params); }
+void ViewerImpl::ClearCameras() { impl_->ClearCameras(); }
 void ViewerImpl::Run() { impl_->Run(); }
 
 }  // namespace viewer

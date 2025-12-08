@@ -492,6 +492,7 @@ void ViewerImpl::Impl::Run() {
   }
 
   // Camera spline
+  pose_spline_.clear();
   for (int i = 0; i < camera_params_.size(); i++) {
     const auto& camera_params = camera_params_[i];
     pose_spline_.push_back(OpenCVExtrinsicToPose(camera_params.extrinsic));

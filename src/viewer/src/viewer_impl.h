@@ -37,6 +37,7 @@ class ViewerImpl::Impl {
   void SetSplats(core::GaussianSplats splats) { splats_ = splats; }
 
   void AddCamera(const CameraParams& camera_params) { camera_params_.push_back(camera_params); }
+  void ClearCameras() { camera_params_.clear(); }
 
   void Run();
 

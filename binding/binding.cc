@@ -61,6 +61,8 @@ PYBIND11_MODULE(_core, m) {
         const auto* extrinsics_ptr = static_cast<const float*>(extrinsics.request().ptr);
         const auto* intrinsics_ptr = static_cast<const float*>(intrinsics.request().ptr);
 
+        engine.ClearCameras();
+
         for (auto i = 0; i < N; ++i) {
           vkgs::CameraParams camera_params = {};
           for (int r = 0; r < 4; ++r) {
