@@ -21,14 +21,12 @@ class VKGS_CORE_API ScreenSplatsImpl {
 
   void SetProjection(const glm::mat4& projection) { projection_ = projection; }
   void SetIndexBuffer(gpu::Buffer index_buffer) { index_buffer_ = index_buffer; }
-  void SetInstanceVec4(bool instance_vec4) { instance_vec4_ = instance_vec4; }
 
   auto visible_point_count() const noexcept { return visible_point_count_; }
   auto projection() const noexcept { return projection_; }
   auto draw_indirect() const noexcept { return draw_indirect_; }
   auto instances() const noexcept { return instances_; }
   auto index_buffer() const noexcept { return index_buffer_; }
-  bool instance_vec4() const noexcept { return instance_vec4_; }
   auto stats() const noexcept { return stats_; }
 
   // Internal
@@ -37,7 +35,6 @@ class VKGS_CORE_API ScreenSplatsImpl {
  private:
   uint32_t point_count_ = 0;
   glm::mat4 projection_;
-  bool instance_vec4_;
 
   // Fixed
   gpu::Buffer visible_point_count_;  // (1)

@@ -52,15 +52,12 @@ target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
 add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)
 add_shader(vkgs_core shader/parse_data.comp parse_data)
-add_shader(vkgs_core shader/projection.comp projection VKGS_SHADER_INSTANCES_VEC4)
-add_shader(vkgs_core shader/projection.comp projection_float)
+add_shader(vkgs_core shader/projection.comp projection)
 add_shader(vkgs_core shader/rank.comp rank)
 add_shader(vkgs_core shader/splat_color.frag splat_color_frag)
-add_shader(vkgs_core shader/splat_color.vert splat_color_vert VKGS_SHADER_INSTANCES_VEC4)
-add_shader(vkgs_core shader/splat_color.vert splat_color_float_vert)
+add_shader(vkgs_core shader/splat_color.vert splat_color_vert)
 add_shader(vkgs_core shader/splat_depth.frag splat_depth_frag)
-add_shader(vkgs_core shader/splat_depth.vert splat_depth_vert VKGS_SHADER_INSTANCES_VEC4)
-add_shader(vkgs_core shader/splat_depth.vert splat_depth_float_vert)
+add_shader(vkgs_core shader/splat_depth.vert splat_depth_vert)
 
 set_target_properties(vkgs_core PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

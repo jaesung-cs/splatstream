@@ -312,8 +312,6 @@ void ViewerImpl::Impl::DrawUi() {
           viewer_options_.camera_modified = true;
         }
       }
-
-      ImGui::Checkbox("Use vec4 array for instances", &viewer_options_.instance_vec4);
     }
 
     if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -330,13 +328,23 @@ void ViewerImpl::Impl::DrawUi() {
       ImGui::Checkbox("Show statistics", &viewer_options_.show_stat);
       if (viewer_options_.show_stat) {
         if (ImPlot::BeginPlot("Splat Alpha Histogram")) {
-          std::array<float, 50> labels;
-          for (int i = 0; i < 50; ++i) labels[i] = i / 50.f;
-          std::array<float, 50> values;
-          for (int i = 0; i < 50; ++i) values[i] = stats.histogram_alpha[i];
+          std::array<float, 50> xs;
+          for (int i = 0; i < 50; ++i) xs[i] = i / 50.f;
+          std::array<float, 50> ys;
+          for (int i = 0; i < 50; ++i) ys[i] = stats.histogram_alpha[i];
           ImPlot::SetupAxis(ImAxis_X1, "Alpha", ImPlotAxisFlags_AutoFit);
           ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
-          ImPlot::PlotBars("Splat Alpha", labels.data(), values.data(), labels.size(), 1.f / labels.size() * 0.67f);
+          ImPlot::PlotBars("Splat Alpha", xs.data(), ys.data(), xs.size(), (xs[1] - xs[0]) * 0.67f);
+          ImPlot::EndPlot();
+        }
+        if (ImPlot::BeginPlot("Projection Active Threads")) {
+          std::array<float, 64> xs;
+          for (int i = 0; i < 64; ++i) xs[i] = i + 1;
+          std::array<float, 64> ys;
+          for (int i = 0; i < 64; ++i) ys[i] = stats.histogram_projection_active_threads[i];
+          ImPlot::SetupAxis(ImAxis_X1, "Threads", ImPlotAxisFlags_AutoFit);
+          ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
+          ImPlot::PlotBars("Active Threads", xs.data(), ys.data(), xs.size(), (xs[1] - xs[0]) * 0.67f);
           ImPlot::EndPlot();
         }
       }
@@ -516,7 +524,6 @@ void ViewerImpl::Impl::Run() {
       .animation_time = 0.f,
       .animation_speed = 1.f,
       .left_panel = true,
-      .instance_vec4 = true,
       .show_stat = true,
   };
 
@@ -587,7 +594,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       .background = {0.f, 0.f, 0.f},  // unused
       .eps2d = viewer_options_.eps2d,
       .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
-      .instance_vec4 = viewer_options_.instance_vec4,
       .record_stat = viewer_options_.show_stat,
   };
 

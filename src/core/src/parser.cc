@@ -53,6 +53,9 @@ ParserImpl::ParserImpl() {
               {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+              {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+              {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+              {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           },
       .push_constants = {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePushConstants)}},
   });
@@ -109,7 +112,9 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
   auto opacity =
       gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, size * sizeof(float));
 
-  auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * 6 * sizeof(float));
+  auto position_opacity = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                              size * 4 * sizeof(float));
+  auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * 8 * sizeof(float));
   auto sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * sh_packed_size * 4 * sizeof(uint16_t));
   auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                           index_data.size() * sizeof(uint32_t));
@@ -184,11 +189,14 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
         .Commit(cb);
 
     gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
-        .Storage(0, quats)
-        .Storage(1, scales)
-        .Storage(2, cov3d)
+        .Storage(0, position)
+        .Storage(1, quats)
+        .Storage(2, scales)
         .Storage(3, colors)
-        .Storage(4, sh)
+        .Storage(4, opacity)
+        .Storage(5, position_opacity)
+        .Storage(6, cov3d)
+        .Storage(7, sh)
         .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants), &parse_data_push_constants)
         .Bind(parse_data_pipeline_)
         .Commit(cb);
@@ -221,7 +229,7 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
 
   sem->Increment();
 
-  return GaussianSplats::Create(size, sh_degree, position, cov3d, sh, opacity, index_buffer, queue_task);
+  return GaussianSplats::Create(size, sh_degree, position_opacity, cov3d, sh, index_buffer, queue_task);
 }
 
 GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
@@ -334,11 +342,10 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
   auto ply_buffer =
       gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
 
-  auto position = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 3 * sizeof(float));
-  auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 6 * sizeof(float));
+  auto position_opacity = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 4 * sizeof(float));
+  auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 8 * sizeof(float));
   auto sh =
       gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sh_packed_size * 4 * sizeof(uint16_t));
-  auto opacity = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(float));
 
   auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
   auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -389,10 +396,9 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
     // ply_buffer -> gaussian_splats
     gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
         .Storage(0, ply_buffer)
-        .Storage(1, position)
+        .Storage(1, position_opacity)
         .Storage(2, cov3d)
-        .Storage(3, opacity)
-        .Storage(4, sh)
+        .Storage(3, sh)
         .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_ply_push_constants), &parse_ply_push_constants)
         .Bind(parse_ply_pipeline_)
         .Commit(cb);
@@ -423,7 +429,7 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
 
   sem->Increment();
 
-  return GaussianSplats::Create(point_count, sh_degree, position, cov3d, sh, opacity, index_buffer, queue_task);
+  return GaussianSplats::Create(point_count, sh_degree, position_opacity, cov3d, sh, index_buffer, queue_task);
 }
 
 }  // namespace core
