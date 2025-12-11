@@ -3,8 +3,6 @@
 
 #include <memory>
 
-#include "imgui_texture.h"
-
 #include "vkgs/core/stats.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/gpu/sampler.h"
@@ -13,11 +11,6 @@
 #include "vkgs/gpu/queue_task.h"
 
 namespace vkgs {
-
-namespace core {
-class ScreenSplats;
-}
-
 namespace viewer {
 
 class Storage {
@@ -32,12 +25,6 @@ class Storage {
 
   auto visible_point_count_stage() const noexcept { return visible_point_count_stage_; }
   auto stats_stage() const noexcept { return stats_stage_; }
-
-  // Texture for ImGui
-  auto texture() const noexcept { return texture_; }
-
-  // Final image
-  auto image() const noexcept { return image_; }
 
   // Intermediate color image
   auto image16() const noexcept { return image16_; }
@@ -66,16 +53,11 @@ class Storage {
   core::ScreenSplats screen_splats_;
   gpu::Buffer visible_point_count_stage_;
   gpu::Buffer stats_stage_;
-  gpu::Image image_;
   gpu::Image image16_;
   gpu::Image depth_image_;
   gpu::Image depth_;
   gpu::Semaphore compute_semaphore_;
   gpu::Semaphore graphics_semaphore_;
-
-  // For ImGui texture
-  gpu::Sampler sampler_;
-  ImGuiTexture texture_;
 
   // Draw result
   gpu::QueueTask task_;

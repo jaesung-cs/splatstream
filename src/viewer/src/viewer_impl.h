@@ -72,7 +72,6 @@ class ViewerImpl::Impl {
     float animation_time;
     float animation_speed;
     bool camera_modified;
-    bool left_panel;
     bool show_stat;
   };
   ViewerOptions viewer_options_ = {};
