@@ -330,13 +330,23 @@ void ViewerImpl::Impl::DrawUi() {
       ImGui::Checkbox("Show statistics", &viewer_options_.show_stat);
       if (viewer_options_.show_stat) {
         if (ImPlot::BeginPlot("Splat Alpha Histogram")) {
-          std::array<float, 50> labels;
-          for (int i = 0; i < 50; ++i) labels[i] = i / 50.f;
-          std::array<float, 50> values;
-          for (int i = 0; i < 50; ++i) values[i] = stats.histogram_alpha[i];
+          std::array<float, 50> xs;
+          for (int i = 0; i < 50; ++i) xs[i] = i / 50.f;
+          std::array<float, 50> ys;
+          for (int i = 0; i < 50; ++i) ys[i] = stats.histogram_alpha[i];
           ImPlot::SetupAxis(ImAxis_X1, "Alpha", ImPlotAxisFlags_AutoFit);
           ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
-          ImPlot::PlotBars("Splat Alpha", labels.data(), values.data(), labels.size(), 1.f / labels.size() * 0.67f);
+          ImPlot::PlotBars("Splat Alpha", xs.data(), ys.data(), xs.size(), (xs[1] - xs[0]) * 0.67f);
+          ImPlot::EndPlot();
+        }
+        if (ImPlot::BeginPlot("Projection Active Threads")) {
+          std::array<float, 64> xs;
+          for (int i = 0; i < 64; ++i) xs[i] = i + 1;
+          std::array<float, 64> ys;
+          for (int i = 0; i < 64; ++i) ys[i] = stats.histogram_projection_active_threads[i];
+          ImPlot::SetupAxis(ImAxis_X1, "Threads", ImPlotAxisFlags_AutoFit);
+          ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
+          ImPlot::PlotBars("Active Threads", xs.data(), ys.data(), xs.size(), (xs[1] - xs[0]) * 0.67f);
           ImPlot::EndPlot();
         }
       }

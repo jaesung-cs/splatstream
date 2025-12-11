@@ -1,6 +1,7 @@
 #version 460 core
 
 #extension GL_EXT_shader_16bit_storage : require
+#extension GL_KHR_shader_subgroup_arithmetic : enable
 
 layout(local_size_x = 256) in;
 
@@ -59,9 +60,11 @@ layout(std430, binding = 8) writeonly buffer Instances {
 layout(std430, binding = 8) writeonly buffer Instances {
   float instances[];  // (N, 11). 3 for ndc position, 4 for rot scale, 4 for color.
 };
-#endif
 
-layout(std430, binding = 9) buffer Stat { uint histogram_alpha[50]; };
+layout(std430, binding = 9) buffer Stat {
+  uint histogram_alpha[64];
+  uint histogram_projection_active_threads[64];
+};
 
 void main() {
   uint id = gl_GlobalInvocationID.x;
@@ -235,5 +238,10 @@ void main() {
   if (record_stat == 1) {
     uint quantized_alpha = clamp(int(alpha * 50.f), 0, 49);
     atomicAdd(histogram_alpha[quantized_alpha], 1);
+
+    uint count = subgroupAdd(1);
+    if (subgroupElect()) {
+      atomicAdd(histogram_projection_active_threads[count - 1], 1);
+    }
   }
 }
