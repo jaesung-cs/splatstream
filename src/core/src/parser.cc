@@ -244,6 +244,8 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
       iss >> type >> property;
       if (type == "float") {
         size = 4;
+      } else {
+        throw std::runtime_error("Unsupported data type for " + property + ": " + type);
       }
       offsets[property] = offset;
       offset += size;
@@ -260,10 +262,9 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
   int K = 0;
   for (const auto& [key, _] : offsets) {
     if (key.find("f_rest_") != std::string::npos) {
-      K = std::max(K, std::stoi(key.substr(7)));
+      K = std::max(K, std::stoi(key.substr(7)) + 1);
     }
   }
-  K = K + 1;
 
   int sh_degree_data = 0;  // [0, 1, 2, 3], sh degree
   int sh_packed_size = 0;  // [1, 3, 7, 12], storage dimension for packing with f16vec4.

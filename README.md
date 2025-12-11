@@ -7,46 +7,28 @@
 
 ![train_animation](/media/train_animation.gif) ![garden_animation](/media/garden_animation.gif)
 
-Python bindings for streamlined 3dgs rendering.
+Python bindings for streamlined 3D Gaussian Splatting rendering.
 - This is a more modularized and organized code of my previous c++ project [vkgs](https://github.com/jaesung-cs/vkgs).
-- This code is being actively developed, so expect some bugs until the codes are stabilized.
 
 ## Feature Highlights
-- Fast speed: rasterization using Graphics capability.
-- Memory-efficiency: reuse resources by double buffering.
-- Pure Vulkan with a minimal set of dependencies. No CUDA required.
-- Renderable pre-trained models from the [original Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting) project.
-- Viewer.
-
-## Limitations
-- No gradient computation; this code is for rendering, not training.
-- Perfect pinhole camera only; because rendering is based on rasterization.
-- Rendering image slightly differs from `gsplat` (suspectedly due to splat culling logic, i.e. frustum test, near plane of the camera)
-- No `pytorch` integration.
-
-## Requirements (End Users)
-- A GPU connected to a monitor
-  - The GPU indexed first in your system will be automatically selected.
-  - Device selection is TODO.
-  - Need a monitor for the viewer program.
-- Up-to-date graphic drivers
-  - Check [this (link to gpuinfo)](https://vulkan.gpuinfo.org/listdevices.php) out and confirm if your GPU supports API version >=1.4. Most of GPUs may have >=1.4.
-  - Vulkan 1.4 was released on December 3, 2024. You must have updated your graphic driver since then.
-  - Download the latest graphic driver from your GPU vendor's website for splatstream to use the latest feature in Vulkan.
-- Windows: x64
-- Ubuntu: x64
-- MacOS: arm64
-- `python>=3.10`
+- Fast rendering: GPU-accelerated rasterization for high performance
+  - Up to 2x faster than [vk_gaussian_splatting](https://github.com/nvpro-samples/vk_gaussian_splatting) viewer
+  - Up to 1.3x faster than [gsplat](https://github.com/nerfstudio-project/gsplat) off-screen rendering
+- Memory-efficient: resource reuse through double buffering
+- Pure Vulkan implementation with minimal dependencies, no CUDA required
+- Compatible with pre-trained models from the [original Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting)
+- Interactive viewer
 
 ## Installation
-- Install stable from pip
-  ```bash
-  $ pip install splatstream
-  ```
-- Install dev from source
-  ```bash
-  $ pip install --no-build-isolation ./binding
-  ```
+Install the stable version from PyPI:
+```bash
+$ pip install splatstream
+```
+
+Or install the development version from source:
+```bash
+$ pip install --no-build-isolation ./binding
+```
 
 ## Usage
 ```python
@@ -54,7 +36,8 @@ import splatstream as ss
 
 # Splats from .ply file
 splats = ss.load_from_ply("my_splats.ply")
-# Splats from numpy array
+
+# Or, from numpy array
 splats = ss.gaussian_splats(
     means,      # np.ndarray, (N, 3)
     quats,      # np.ndarray, (N, 4), wxyz convention.
@@ -92,72 +75,64 @@ for i in range(len(images)):
 ```
 
 ### Viewer Camera Controls
-- WASD/Space to move.
-- Q/E to roll.
-- Left drag to rotate.
-- Right drag to move.
-- L+R drag or wheel to zoom.
-- Ctrl wheel to dolly zoom (change FOV angle.)
+- WASD/Space to move
+- Q/E to roll
+- Left drag to rotate
+- Right drag to move
+- L+R drag or wheel to zoom
+- Ctrl wheel to dolly zoom (change FOV angle)
 
+## Requirements
+- GPU with Vulkan 1.4+ support ([check compatibility](https://vulkan.gpuinfo.org/listdevices.php))
+- Up-to-date graphics drivers
+- Python >= 3.10
+- Supported platforms: Windows x64, Ubuntu x64, macOS arm64
+- Monitor required for the viewer program
+
+## Limitations
+- No gradient computation; rendering only, not training
+- Perfect pinhole cameras only
+- Rendered images may differ slightly from [gsplat](https://github.com/nerfstudio-project/gsplat) (likely due to splat culling logic)
+- No PyTorch integration
 
 ## Pre-trained Dataset
-This project redistributes a modified subset of [Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting).
+This project redistributes a modified subset of the [Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting) dataset.
 
-The dataset is available [here (Link to Google Drive)](https://drive.google.com/drive/folders/1bfmbi84C4Xy51fVSdXLqKpb3y8Pt7Gia?usp=sharing).
+The dataset is available [here](https://drive.google.com/drive/folders/1bfmbi84C4Xy51fVSdXLqKpb3y8Pt7Gia?usp=sharing) (Google Drive link).
 
-See `LICENSE` in the dataset link for details.
+See the `LICENSE` file in the dataset for details.
 
-Download them to `models/` directory.
+Download the datasets to the `models/` directory.
 
-Run viewer with pre-trained 3dgs scene.
+To run the viewer with a pre-trained 3DGS scene:
 ```bash
 $ python test/test_viewer.py --scene <scene>
 ```
-where scene is `bicycle`, `bonsai`, `counter`, etc.
 
-## Requirements (Dev)
-- `VulkanSDK>=1.4.328.1`
-  - `VK_KHR_push_descriptor` has been promoted to 1.4 and is supported by `MoltenVK` in `MacOS` since the bug was fixed in `1.4.328.1`.
-  - Environment variables set up according to OS.
-    - Windows: use installer.
-    - Linux/MacOS: run setup_env.sh.
-- `cmake>=3.15`
-  - Either system-installed, or via pip or conda.
-    ```bash
-    $ pip install cmake
-    or
-    $ conda install conda-forge::cmake
-    ```
-- `python>=3.10`
+where `<scene>` is one of: `bicycle`, `bonsai`, `counter`, etc.
 
 ## Benchmark
-- Tested on my PC: NVIDIA GeForce RTX 5080, Windows.
+Tested on NVIDIA GeForce RTX 5080, Windows. FPS measure includes **rendering time plus GPU-to-CPU transfer**.
 
-  | Implementation | Dataset | #imgs | resolution | #splats | PSNR | FPS |
-  |:---------------|:--------|:-----:|:----------:|:-------:|:----:|:---:|
-  | gsplat      | bicycle | 194 |  1237x822 | 6131954 |   19.18 ± 1.60   |    245.70   |
-  | splatstream | bicycle | 194 |  1237x822 | 6131954 | **19.22 ± 1.67** |  **373.08** |
-  | gsplat      | garden  | 185 |  1297x840 | 5834784 |   18.96 ± 0.74   |    196.80   |
-  | splatstream | garden  | 185 |  1297x840 | 5834784 | **19.11 ± 0.74** |  **320.93** |
+| Implementation | Dataset | #imgs | resolution | #splats | PSNR | FPS |
+|:---------------|:--------|:-----:|:----------:|:-------:|:----:|:---:|
+| gsplat      | bicycle | 194 |  1237x822 | 6131954 |   19.18 ± 1.60   |    245.70   |
+| splatstream | bicycle | 194 |  1237x822 | 6131954 | **19.22 ± 1.67** |  **373.08** |
+| gsplat      | garden  | 185 |  1297x840 | 5834784 |   18.96 ± 0.74   |    196.80   |
+| splatstream | garden  | 185 |  1297x840 | 5834784 | **19.11 ± 0.74** |  **320.93** |
 
 See [bench](/bench/README.md) for more details.
 
 ## Technical Details
+See [DETAILS.md](/DETAILS.md).
 
-See [here](/DETAILS.md).
+## Development Requirements
+- `VulkanSDK>=1.4.328.1` (set up environment variables per OS)
+- `cmake>=3.15` (install via `pip install cmake` or `conda install conda-forge::cmake`)
+- `python>=3.10`
+
+## Contributing
+Feedback, feature requests, and issue reports are welcome!
 
 ## TODO
-- [x] Support SH degree
-- [x] Support background color
 - [ ] Device selection
-- [x] c++ viewer
-- [x] python viewer
-- [x] Build wheels and publish
-- [ ] Find reasons for pixel value difference with `gsplat`
-- [x] More benchmark results
-
-## Contribution
-
-- Feedback, feature request, issue report, or PRs are welcome!
-- c++ must be formatted with `clang-format` with rules defined in `.clang-format`.
-- python shall be formatted, but no specific formatter yet.
