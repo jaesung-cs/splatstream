@@ -46,7 +46,6 @@ class Engine::Impl {
         .background = glm::make_vec3(draw_options.background),
         .eps2d = draw_options.eps2d,
         .sh_degree = draw_options.sh_degree,
-        .instance_vec4 = true,
     };
     core::ScreenSplatOptions core_screen_splat_options = {
         .confidence_radius = draw_options.confidence_radius,

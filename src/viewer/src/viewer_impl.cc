@@ -7,7 +7,6 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "imgui_internal.h"  // dock
 #include "ImGuizmo.h"
 #include "implot.h"
 
@@ -39,8 +38,8 @@
 #include "generated/screen_vert.h"
 #include "generated/blend_color_frag.h"
 #include "generated/blend_depth_frag.h"
+#include "fonts/roboto_regular.h"
 #include "context.h"
-#include "imgui_texture.h"
 
 namespace vkgs {
 namespace viewer {
@@ -82,7 +81,7 @@ ViewerImpl::Impl::~Impl() = default;
 
 void ViewerImpl::Impl::InitializeWindow() {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  window_ = glfwCreateWindow(1280, 720, "vkgs", nullptr, nullptr);
+  window_ = glfwCreateWindow(1600, 900, "vkgs", nullptr, nullptr);
   if (!window_) throw std::runtime_error("Failed to create window");
 
   auto device = context_->device();
@@ -99,6 +98,16 @@ void ViewerImpl::Impl::InitializeWindow() {
   ImGui::StyleColorsDark();
   ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   ImPlot::CreateContext();
+
+  ImFontConfig font_config = {};
+  font_config.OversampleH = 3;
+  font_config.OversampleV = 3;
+  float font_size = 15.f;
+  ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(roboto_regular_compressed_data, roboto_regular_compressed_size,
+                                                       font_size, &font_config);
+  auto& style = ImGui::GetStyle();
+  style.FramePadding.y = 2;
+  style.ItemSpacing.y = 3;
 
   ImGui_ImplGlfw_InitForVulkan(window_, true);
   ImGui_ImplVulkan_InitInfo init_info = {
@@ -137,43 +146,11 @@ void ViewerImpl::Impl::FinalizeWindow() {
 void ViewerImpl::Impl::DrawUi() {
   const auto& io = ImGui::GetIO();
 
-  // Dock panels
-  ImGuiID dockspace_id = ImGui::GetID("My Dockspace");
-  ImGuiViewport* viewport = ImGui::GetMainViewport();
-  if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
-    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
-    ImGuiID dock_id_left;
-    ImGuiID dock_id_right;
-    ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, &dock_id_left, &dock_id_right);
-    auto left_node = ImGui::DockBuilderGetNode(dock_id_left);
-    left_node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
-    auto right_node = ImGui::DockBuilderGetNode(dock_id_right);
-    right_node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
-    ImGui::DockBuilderDockWindow("Left", dock_id_left);
-    ImGui::DockBuilderDockWindow("Right", dock_id_right);
-    ImGui::DockBuilderFinish(dockspace_id);
-  }
-
-  ImGui::DockSpaceOverViewport(dockspace_id);
-
-  const ImGuiWindowFlags dock_flags =
-      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
-  bool left_panel = viewer_options_.left_panel;
-
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-  ImGui::Begin("Right", NULL, dock_flags);
-  auto image_size = ImGui::GetContentRegionAvail();
+  fps_window_.add(timer_.elapsed(), io.Framerate);
 
   viewer_options_.camera_modified = false;
 
-  // handle events
-  // TODO: bool gizmo_over = ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !ImGui::IsAnyItemActive();
-  // TODO: drag outside of window
-  bool hovered = ImGui::IsWindowHovered();
-  auto window_focused = ImGui::IsWindowFocused();
-
-  if (hovered) {
+  if (!io.WantCaptureMouse) {
     bool left = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool right = ImGui::IsMouseDown(ImGuiMouseButton_Right);
     bool ctrl = ImGui::IsKeyDown(ImGuiKey::ImGuiMod_Ctrl);
@@ -207,7 +184,7 @@ void ViewerImpl::Impl::DrawUi() {
     }
   }
 
-  if (window_focused) {
+  if (!io.WantCaptureKeyboard) {
     constexpr float speed = 1000.f;
     float dt = io.DeltaTime;
     if (ImGui::IsKeyDown(ImGuiKey_W)) {
@@ -246,110 +223,132 @@ void ViewerImpl::Impl::DrawUi() {
   camera_.Update(io.DeltaTime);
 
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
-  storage.Update(splats_->size(), image_size.x, image_size.y);
   storage.Wait();
   auto point_count = static_cast<int>(splats_->size());
   auto visible_point_count = static_cast<int>(storage.visible_point_count());
   const auto& stats = storage.stats();
 
-  ImGui::SetCursorPos({0.f, 0.f});
-  ImGui::Image(static_cast<VkDescriptorSet>(storage.texture()), image_size);
+  visible_point_count_window_.add(timer_.elapsed(), visible_point_count);
 
-  if (!left_panel) {
-    ImGui::SetCursorPos({0.f, 0.f});
-    ImGui::Text("FPS: %.2f", io.Framerate);
-    ImGui::Text("Resolution: %dx%d", (int)image_size.x, (int)image_size.y);
-    ImGui::Text("Point count   : %d", point_count);
-    ImGui::Text("Visible points: %d (%.2f%%)", visible_point_count,
-                static_cast<float>(visible_point_count) / point_count * 100.f);
-
-    ImVec2 pos = {-5.f, image_size.y / 2.f};
-    ImGui::SetCursorPos(pos);
-    if (ImGui::Button(">")) {
-      viewer_options_.left_panel = true;
-    }
-  }
-  ImGui::End();
-  ImGui::PopStyleVar();
-
-  if (left_panel) {
-    ImGui::Begin("Left", NULL, dock_flags);
-    auto size = ImGui::GetContentRegionAvail();
-
-    ImGui::Text("FPS: %.2f", io.Framerate);
-    ImGui::Text("Resolution: %dx%d", (int)image_size.x, (int)image_size.y);
-
-    ImGui::Text("Point count   : %d", point_count);
-    ImGui::Text("Visible points: %d (%.2f%%)", visible_point_count,
-                static_cast<float>(visible_point_count) / point_count * 100.f);
-
-    if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-      if (ImGui::Checkbox("vsync", &viewer_options_.vsync)) {
+  ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Always);
+  ImGui::SetNextWindowSize({300, 0});
+  ImGui::SetNextWindowBgAlpha(0.5f);
+  if (ImGui::Begin("Settings", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar)) {
+    if (ImGui::CollapsingHeader("Graphic")) {
+      if (ImGui::Checkbox("V-Sync", &viewer_options_.vsync)) {
         if (viewer_options_.vsync)
           swapchain_->SetPresentMode(VK_PRESENT_MODE_FIFO_KHR);
         else
           swapchain_->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
       }
+    }
 
-      ImGui::SliderInt("SH degree", &viewer_options_.sh_degree, 0, splats_->sh_degree());
-
+    if (ImGui::CollapsingHeader("Scene")) {
       constexpr const char* render_types[] = {"Color", "Alpha", "Depth (experimental)"};
-      ImGui::Combo("Render type", &viewer_options_.render_type, render_types, IM_ARRAYSIZE(render_types));
+      ImGui::Combo("Render Type", &viewer_options_.render_type, render_types, IM_ARRAYSIZE(render_types));
 
       ImGui::ColorEdit3("Background", glm::value_ptr(viewer_options_.background));
 
-      ImGui::SliderFloat("eps2d", &viewer_options_.eps2d, 0.0001f, 10.f, "%.4f", ImGuiSliderFlags_Logarithmic);
-      ImGui::SliderFloat("confidence radius", &viewer_options_.confidence_radius, 1.f, 5.f, "%.3f");
+      ImGui::SliderInt("SH degree", &viewer_options_.sh_degree, 0, splats_->sh_degree());
+      ImGui::SliderFloat("Eps2d", &viewer_options_.eps2d, 0.0001f, 10.f, "%.4f", ImGuiSliderFlags_Logarithmic);
+      ImGui::SliderFloat("Radius", &viewer_options_.confidence_radius, 1.f, 5.f, "%.3f");
+    }
 
-      if (!camera_params_.empty()) {
+    if (!camera_params_.empty()) {
+      if (ImGui::CollapsingHeader("Camera")) {
         ImGui::Checkbox("Show Camera Frames", &viewer_options_.show_camera_frames);
-        ImGui::SliderFloat("Camera Frame Scale", &viewer_options_.camera_frame_scale, 0.01f, 10.f, "%.3f",
+        ImGui::SliderFloat("Frame Size", &viewer_options_.camera_frame_scale, 0.01f, 10.f, "%.3f",
                            ImGuiSliderFlags_Logarithmic);
 
-        if (ImGui::SliderInt("Camera Index", &viewer_options_.camera_index, 0, camera_params_.size() - 1)) {
+        if (ImGui::SliderInt("Index", &viewer_options_.camera_index, 0, camera_params_.size() - 1)) {
           const auto& camera_params = camera_params_[viewer_options_.camera_index];
           camera_.SetView(OpenCVExtrinsicToView(camera_params.extrinsic));
           viewer_options_.camera_modified = true;
-        }
-      }
-
-      ImGui::Checkbox("Use vec4 array for instances", &viewer_options_.instance_vec4);
-    }
-
-    if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
-      if (ImGui::Checkbox("Animation##Button", &viewer_options_.animation)) {
-        if (viewer_options_.animation) {
           viewer_options_.animation_time = viewer_options_.camera_index;
         }
       }
 
-      ImGui::SliderFloat("Animation Speed (FPS)", &viewer_options_.animation_speed, 1.f, 30.f, "%.2f");
-    }
-
-    if (ImGui::CollapsingHeader("Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
-      ImGui::Checkbox("Show statistics", &viewer_options_.show_stat);
-      if (viewer_options_.show_stat) {
-        if (ImPlot::BeginPlot("Splat Alpha Histogram")) {
-          std::array<float, 50> labels;
-          for (int i = 0; i < 50; ++i) labels[i] = i / 50.f;
-          std::array<float, 50> values;
-          for (int i = 0; i < 50; ++i) values[i] = stats.histogram_alpha[i];
-          ImPlot::SetupAxis(ImAxis_X1, "Alpha", ImPlotAxisFlags_AutoFit);
-          ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
-          ImPlot::PlotBars("Splat Alpha", labels.data(), values.data(), labels.size(), 1.f / labels.size() * 0.67f);
-          ImPlot::EndPlot();
-        }
+      if (ImGui::CollapsingHeader("Animation")) {
+        ImGui::Checkbox("Animation##Button", &viewer_options_.animation);
+        ImGui::SliderFloat("Speed (FPS)", &viewer_options_.animation_speed, 1.f, 30.f, "%.2f");
       }
     }
+  }
+  ImGui::End();
 
-    ImVec2 pos = {size.x + 5.f, size.y / 2.f};
-    ImGui::SetCursorScreenPos(pos);
-    if (ImGui::Button("<")) {
-      viewer_options_.left_panel = false;
+  ImGui::SetNextWindowPos({io.DisplaySize.x - 10, 10}, ImGuiCond_Always, ImVec2(1.f, 0.f));
+  ImGui::SetNextWindowSize({300, 0});
+  ImGui::SetNextWindowBgAlpha(0.5f);
+  if (ImGui::Begin("Info", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar)) {
+    const auto& display_size = io.DisplaySize;
+    ImGui::Text("FPS: %.2f", io.Framerate);
+    ImGui::Text("Resolution: %dx%d", (int)display_size.x, (int)display_size.y);
+    ImGui::Text("Point count   : %d", point_count);
+    ImGui::Text("Visible points: %d (%.2f%%)", visible_point_count,
+                static_cast<float>(visible_point_count) / point_count * 100.f);
+
+    if (ImPlot::BeginPlot("FPS", {-1, 100}, ImPlotFlags_NoLegend)) {
+      std::vector<float> xs;
+      std::vector<float> ys;
+      float y_max = 0.f;
+      for (const auto& point : fps_window_.points()) {
+        xs.push_back(point.time);
+        ys.push_back(point.value);
+        y_max = std::max(y_max, point.value);
+      }
+      float y_margin = y_max * 0.05f;
+      ImPlot::SetupAxis(ImAxis_X1, "Time",
+                        ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickLabels);
+      ImPlot::SetupAxis(ImAxis_Y1, "FPS");
+      ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f - y_margin, y_max + y_margin, ImPlotCond_Always);
+      ImPlot::PlotLine("FPS", xs.data(), ys.data(), xs.size());
+      ImPlot::EndPlot();
     }
 
-    ImGui::End();
+    if (ImPlot::BeginPlot("Visible Points (%)", {-1, 100}, ImPlotFlags_NoLegend)) {
+      std::vector<float> xs;
+      std::vector<float> ys;
+      for (const auto& point : visible_point_count_window_.points()) {
+        xs.push_back(point.time);
+        ys.push_back(point.value / point_count * 100.f);
+      }
+      float y_max = 100.f;
+      float y_margin = y_max * 0.05f;
+      ImPlot::SetupAxis(ImAxis_X1, "Time",
+                        ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickLabels);
+      ImPlot::SetupAxis(ImAxis_Y1, "Visible (%)");
+      ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f - y_margin, y_max + y_margin, ImPlotCond_Always);
+      ImPlot::PlotLine("Visible Points (%)", xs.data(), ys.data(), xs.size());
+      ImPlot::EndPlot();
+    }
+
+    if (ImGui::CollapsingHeader("Statistics (Slightly Decrease FPS!)")) {
+      viewer_options_.show_stat = true;
+      if (ImPlot::BeginPlot("Splat Alpha Histogram", {-1, 200}, ImPlotFlags_NoLegend)) {
+        std::array<float, 50> xs;
+        for (int i = 0; i < 50; ++i) xs[i] = i / 50.f;
+        std::array<float, 50> ys;
+        for (int i = 0; i < 50; ++i) ys[i] = stats.histogram_alpha[i];
+        ImPlot::SetupAxis(ImAxis_X1, "Alpha", ImPlotAxisFlags_AutoFit);
+        ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
+        ImPlot::PlotBars("Splat Alpha", xs.data(), ys.data(), xs.size(), (xs[1] - xs[0]) * 0.67f);
+        ImPlot::EndPlot();
+      }
+      if (ImPlot::BeginPlot("Projection Active Threads", {-1, 200}, ImPlotFlags_NoLegend)) {
+        std::array<float, 64> xs;
+        for (int i = 0; i < 64; ++i) xs[i] = i + 1;
+        std::array<float, 64> ys;
+        for (int i = 0; i < 64; ++i) ys[i] = stats.histogram_projection_active_threads[i];
+        ImPlot::SetupAxis(ImAxis_X1, "Threads", ImPlotAxisFlags_AutoFit);
+        ImPlot::SetupAxis(ImAxis_Y1, "Count", ImPlotAxisFlags_AutoFit);
+        ImPlot::PlotBars("Active Threads", xs.data(), ys.data(), xs.size(), (xs[1] - xs[0]) * 0.67f);
+        ImPlot::EndPlot();
+      }
+    } else {
+      viewer_options_.show_stat = false;
+    }
   }
+  ImGui::End();
 
   if (viewer_options_.camera_modified) {
     viewer_options_.animation = false;
@@ -509,17 +508,18 @@ void ViewerImpl::Impl::Run() {
       .background = {0.f, 0.f, 0.f},
       .eps2d = 0.01f,
       .confidence_radius = 3.5f,
-      .show_camera_frames = true,
+      .show_camera_frames = false,
       .camera_frame_scale = 0.1f,
       .camera_index = 0,
       .animation = false,
       .animation_time = 0.f,
       .animation_speed = 1.f,
-      .left_panel = true,
-      .instance_vec4 = true,
       .show_stat = true,
   };
 
+  timer_.start();
+  fps_window_ = SampledMovingWindow(5.f, 0.01f);
+  visible_point_count_window_ = SampledMovingWindow(5.f, 0.01f);
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
 
@@ -556,15 +556,17 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   auto cq = context_->device()->compute_queue();
   auto gq = context_->device()->graphics_queue();
 
+  auto texture_width = present_image_info.extent.width;
+  auto texture_height = present_image_info.extent.height;
+
   // ring buffer
   auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
+  storage.Update(splats_->size(), texture_width, texture_height);
   auto screen_splats = storage.screen_splats();
   auto csem = storage.compute_semaphore();
   auto cval = csem->value();
   auto gsem = storage.graphics_semaphore();
   auto gval = gsem->value();
-  auto texture = storage.texture();
-  auto image = storage.image();
   auto image16 = storage.image16();
   auto depth = storage.depth();
   auto depth_image = storage.depth_image();
@@ -572,9 +574,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
   auto stats_stage = storage.stats_stage();
   auto& stats = storage.stats();
   frame_index_++;
-
-  auto texture_width = image->width();
-  auto texture_height = image->height();
 
   camera_.SetWindowSize(texture_width, texture_height);
 
@@ -587,7 +586,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       .background = {0.f, 0.f, 0.f},  // unused
       .eps2d = viewer_options_.eps2d,
       .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
-      .instance_vec4 = viewer_options_.instance_vec4,
       .record_stat = viewer_options_.show_stat,
   };
 
@@ -657,8 +655,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, present_image_info.image)
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, image)
-        .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, image16)
         .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, depth_image)
@@ -673,7 +669,7 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     // Swapchain image
     color_attachments[0] = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = image->image_view(),
+        .imageView = present_image_info.image_view,
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -681,7 +677,7 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     };
     if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
       // Splats image
-      formats = {image->format(), image16->format()};
+      formats = {swapchain_format_, image16->format()};
       color_attachments[1] = {
           .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
           .imageView = image16->image_view(),
@@ -692,7 +688,7 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
       };
     } else if (viewer_options_.render_type == 2) {
       // Depth image
-      formats = {image->format(), depth_image->format()};
+      formats = {swapchain_format_, depth_image->format()};
       color_attachments[1] = {
           .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
           .imageView = depth_image->image_view(),
@@ -845,12 +841,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
     vkCmdEndRendering(cb);
 
     // Rendering UI
-    gpu::cmd::Barrier()
-        .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-               VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, image)
-        .Commit(cb);
-
     VkRenderingAttachmentInfo color_attachment = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
         .imageView = present_image_info.image_view,
@@ -874,8 +864,6 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, present_image_info.image)
         .Commit(cb);
 
-    texture->Keep();
-    image->Keep();
     image16->Keep();
     depth_image->Keep();
     depth->Keep();

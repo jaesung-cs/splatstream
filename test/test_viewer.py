@@ -7,17 +7,22 @@ import splatstream as ss
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--scene", type=str, default="bonsai")
+    parser.add_argument("--no-camera", action="store_true")
     args = parser.parse_args()
 
     scene = args.scene
+    no_camera = args.no_camera
 
     splats = ss.load_from_ply(f"models/{scene}/point_cloud.ply")
-    with open(f"models/{scene}/cameras.json", "r") as f:
-        cameras = json.load(f)
+    if no_camera:
+        ss.show(splats)
+    else:
+        with open(f"models/{scene}/cameras.json", "r") as f:
+            cameras = json.load(f)
 
-    viewmats = np.stack([camera["extrinsic"] for camera in cameras])
-    Ks = np.stack([camera["intrinsic"] for camera in cameras])
-    width = cameras[0]["width"]
-    height = cameras[0]["height"]
+        viewmats = np.stack([camera["extrinsic"] for camera in cameras])
+        Ks = np.stack([camera["intrinsic"] for camera in cameras])
+        width = cameras[0]["width"]
+        height = cameras[0]["height"]
 
-    ss.show(splats, viewmats, Ks, width, height)
+        ss.show(splats, viewmats, Ks, width, height)

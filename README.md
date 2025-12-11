@@ -107,6 +107,7 @@ Download the datasets to the `models/` directory.
 To run the viewer with a pre-trained 3DGS scene:
 ```bash
 $ python test/test_viewer.py --scene <scene>
+$ python test/test_viewer.py --scene <scene> --no-camera
 ```
 
 where `<scene>` is one of: `bicycle`, `bonsai`, `counter`, etc.

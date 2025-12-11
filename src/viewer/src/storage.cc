@@ -26,13 +26,6 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
   if (!compute_semaphore_) compute_semaphore_ = device->AllocateSemaphore();
   if (!graphics_semaphore_) graphics_semaphore_ = device->AllocateSemaphore();
 
-  if (!sampler_) sampler_ = gpu::Sampler::Create();
-
-  if (!image_ || image_->width() != width || image_->height() != height) {
-    image_ = gpu::Image::Create(VK_FORMAT_B8G8R8A8_UNORM, width, height,
-                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-    texture_ = ImGuiTexture::Create(sampler_, image_->image_view());
-  }
   if (!image16_ || image16_->width() != width || image16_->height() != height) {
     image16_ = gpu::Image::Create(VK_FORMAT_R16G16B16A16_SFLOAT, width, height,
                                   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
@@ -53,14 +46,11 @@ void Storage::Clear() {
   screen_splats_.reset();
   visible_point_count_stage_.reset();
   stats_stage_.reset();
-  image_.reset();
   image16_.reset();
   depth_image_.reset();
   depth_.reset();
   compute_semaphore_.reset();
   graphics_semaphore_.reset();
-  sampler_.reset();
-  texture_.reset();
   task_.reset();
 }
 

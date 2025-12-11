@@ -1,6 +1,7 @@
 #version 460 core
 
 #extension GL_EXT_shader_16bit_storage : require
+#extension GL_KHR_shader_subgroup_arithmetic : enable
 
 layout(local_size_x = 256) in;
 
@@ -21,29 +22,25 @@ layout(std430, binding = 0) readonly buffer Camera {
   uvec2 screen_size;  // (width, height)
 };
 
-layout(std430, binding = 1) readonly buffer GaussianPosition {
-  float gaussian_position[];  // (N, 3)
+layout(std430, binding = 1) readonly buffer GaussianPositionOpacity {
+  vec4 gaussian_position_opacity[];  // (N, 4)
 };
 
 layout(std430, binding = 2) readonly buffer GaussianCov3d {
-  float gaussian_cov3d[];  // (N, 6)
+  vec4 gaussian_cov3d[];  // (N, 6)
 };
 
-layout(std430, binding = 3) readonly buffer GaussianOpacity {
-  float gaussian_opacity[];  // (N)
-};
-
-layout(std430, binding = 4) readonly buffer GaussianSh {
+layout(std430, binding = 3) readonly buffer GaussianSh {
   f16vec4 gaussian_sh[];  // (N, K), packed.
 };
 
-layout(std430, binding = 5) readonly buffer VisiblePointCount { uint visible_point_count; };
+layout(std430, binding = 4) readonly buffer VisiblePointCount { uint visible_point_count; };
 
-layout(std430, binding = 6) readonly buffer InverseMap {
+layout(std430, binding = 5) readonly buffer InverseMap {
   int inverse_map[];  // (N), inverse map from id to sorted index
 };
 
-layout(std430, binding = 7) writeonly buffer DrawIndirect {
+layout(std430, binding = 6) writeonly buffer DrawIndirect {
   uint indexCount;
   uint instanceCount;
   uint firstIndex;
@@ -51,17 +48,14 @@ layout(std430, binding = 7) writeonly buffer DrawIndirect {
   uint firstInstance;
 };
 
-#ifdef VKGS_SHADER_INSTANCES_VEC4
-layout(std430, binding = 8) writeonly buffer Instances {
-  vec4 instances[];  // (N, 12). 3 for ndc position, 1 padding, 4 for rot scale, 4 for color.
+layout(std430, binding = 7) writeonly buffer Instances {
+  vec4 instances[];  // (N, 12). 3 for ndc position, 1 dummy, 4 for rot scale, 4 for color.
 };
-#else
-layout(std430, binding = 8) writeonly buffer Instances {
-  float instances[];  // (N, 11). 3 for ndc position, 4 for rot scale, 4 for color.
-};
-#endif
 
-layout(std430, binding = 9) buffer Stat { uint histogram_alpha[50]; };
+layout(std430, binding = 8) buffer Stat {
+  uint histogram_alpha[64];
+  uint histogram_projection_active_threads[64];
+};
 
 void main() {
   uint id = gl_GlobalInvocationID.x;
@@ -78,11 +72,11 @@ void main() {
   int inverse_id = inverse_map[id];
   if (inverse_id == -1) return;
 
-  vec3 v0 = vec3(gaussian_cov3d[id * 6 + 0], gaussian_cov3d[id * 6 + 1], gaussian_cov3d[id * 6 + 2]);
-  vec3 v1 = vec3(gaussian_cov3d[id * 6 + 3], gaussian_cov3d[id * 6 + 4], gaussian_cov3d[id * 6 + 5]);
-  vec4 pos = vec4(gaussian_position[id * 3 + 0], gaussian_position[id * 3 + 1], gaussian_position[id * 3 + 2], 1.f);
+  vec3 v0 = gaussian_cov3d[2 * id + 0].xyz;
+  vec3 v1 = gaussian_cov3d[2 * id + 1].xyz;
+  vec4 pos = vec4(gaussian_position_opacity[id].xyz, 1.f);
 
-  float opacity = gaussian_opacity[id];
+  float opacity = gaussian_position_opacity[id].w;
 
   mat3x4 sh0, sh1, sh2, sh3;
   vec3 rest;
@@ -214,26 +208,17 @@ void main() {
   color = max(color + 0.5f, 0.f);
   float alpha = opacity * compensation;
 
-#ifdef VKGS_SHADER_INSTANCES_VEC4
-  instances[inverse_id * 3 + 0] = vec4(pos.xyz, 1.f);  // TODO: delete w component
-  instances[inverse_id * 3 + 1] = vec4(rot_scale[0], rot_scale[1]);
-  instances[inverse_id * 3 + 2] = vec4(color, alpha);
-#else
-  instances[inverse_id * 11 + 0] = pos.x;
-  instances[inverse_id * 11 + 1] = pos.y;
-  instances[inverse_id * 11 + 2] = pos.z;
-  instances[inverse_id * 11 + 3] = rot_scale[0][0];
-  instances[inverse_id * 11 + 4] = rot_scale[0][1];
-  instances[inverse_id * 11 + 5] = rot_scale[1][0];
-  instances[inverse_id * 11 + 6] = rot_scale[1][1];
-  instances[inverse_id * 11 + 7] = color.x;
-  instances[inverse_id * 11 + 8] = color.y;
-  instances[inverse_id * 11 + 9] = color.z;
-  instances[inverse_id * 11 + 10] = alpha;
-#endif
+  instances[3 * inverse_id + 0] = vec4(pos.xyz, alpha);
+  instances[3 * inverse_id + 1] = vec4(rot_scale[0], rot_scale[1]);
+  instances[3 * inverse_id + 2] = vec4(color, 0.f);
 
   if (record_stat == 1) {
     uint quantized_alpha = clamp(int(alpha * 50.f), 0, 49);
     atomicAdd(histogram_alpha[quantized_alpha], 1);
+
+    uint count = subgroupAdd(1);
+    if (subgroupElect()) {
+      atomicAdd(histogram_projection_active_threads[count - 1], 1);
+    }
   }
 }

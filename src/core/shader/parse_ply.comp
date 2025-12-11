@@ -14,19 +14,15 @@ layout(std430, binding = 0) readonly buffer GaussianPly {
   float ply[];       // (N, M)
 };
 
-layout(std430, binding = 1) writeonly buffer GaussianPosition {
-  float gaussian_position[];  // (N, 3)
+layout(std430, binding = 1) writeonly buffer GaussianPositionOpacity {
+  vec4 gaussian_position_opacity[];  // (N, 4)
 };
 
 layout(std430, binding = 2) writeonly buffer GaussianCov3d {
-  float gaussian_cov3d[];  // (N, 6)
+  vec4 gaussian_cov3d[];  // (N, 6)
 };
 
-layout(std430, binding = 3) writeonly buffer GaussianOpacity {
-  float gaussian_opacity[];  // (N)
-};
-
-layout(std430, binding = 4) writeonly buffer GaussianSh {
+layout(std430, binding = 3) writeonly buffer GaussianSh {
   f16vec4 gaussian_sh[];  // (N, K), packed.
 };
 
@@ -80,16 +76,10 @@ void main() {
     ss[2][2] = s[2] * s[2];
     mat3 cov3d = rot * ss * transpose(rot);
 
-    gaussian_cov3d[6 * id + 0] = cov3d[0][0];
-    gaussian_cov3d[6 * id + 1] = cov3d[1][0];
-    gaussian_cov3d[6 * id + 2] = cov3d[2][0];
-    gaussian_cov3d[6 * id + 3] = cov3d[1][1];
-    gaussian_cov3d[6 * id + 4] = cov3d[2][1];
-    gaussian_cov3d[6 * id + 5] = cov3d[2][2];
+    gaussian_cov3d[2 * id + 0] = vec4(cov3d[0][0], cov3d[1][0], cov3d[2][0], 0.f);
+    gaussian_cov3d[2 * id + 1] = vec4(cov3d[1][1], cov3d[2][1], cov3d[2][2], 0.f);
 
-    gaussian_position[3 * id + 0] = ply[base * id + local_offsets[0]];
-    gaussian_position[3 * id + 1] = ply[base * id + local_offsets[1]];
-    gaussian_position[3 * id + 2] = ply[base * id + local_offsets[2]];
+    gaussian_position_opacity[id] = vec4(ply[base * id + local_offsets[0]], ply[base * id + local_offsets[1]], ply[base * id + local_offsets[2]], sigmoid(ply[base * id + local_offsets[58]]));
 
     if (sh_degree == 0) {
       gaussian_sh[id] = f16vec4(vec4(ply[base * id + local_offsets[10 +  0]], ply[base * id + local_offsets[10 + 16]], ply[base * id + local_offsets[10 + 32]], 0.f));
@@ -116,7 +106,5 @@ void main() {
         ));
       }
     }
-
-    gaussian_opacity[id] = sigmoid(ply[base * id + local_offsets[58]]);
   }
 }
