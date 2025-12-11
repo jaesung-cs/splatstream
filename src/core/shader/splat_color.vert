@@ -5,11 +5,8 @@ layout(std430, push_constant) uniform SplatPushConstants {
   float confidence_radius;
 };
 
-struct Row {
-  vec4 data[3];  // (N, 12). 3 for ndc position, 1 dummy, 4 for rot scale, 4 for color.
-};
 layout(std430, binding = 0) readonly buffer Instances {
-  Row instances[];
+  vec4 instances[];    // (N, 12). 3 for ndc position, 1 alpha, 4 for rot scale, 3 for color.
 };
 
 layout(location = 0) out vec4 out_color;
@@ -25,10 +22,10 @@ const vec2 positions[4] = vec2[4](
 void main() {
   // index [0,1,2,0,2,3], 4 vertices for a splat.
   int index = gl_VertexIndex / 4;
-  Row row = instances[index];
-  vec3 ndc_position = row.data[0].xyz;
-  vec4 rot_scale_vec = row.data[1];
-  vec4 color = row.data[2];
+  vec4 pa = instances[3 * index + 0];
+  vec3 ndc_position = pa.xyz;
+  vec4 rot_scale_vec = instances[3 * index + 1];
+  vec4 color = vec4(instances[3 * index + 2].rgb, pa.a);
   mat2 rot_scale = mat2(rot_scale_vec.xy, rot_scale_vec.zw);
 
   // circle positions (-1, 0), (0, 1), (1, 0), (0, -1), ccw in screen space.

@@ -48,11 +48,8 @@ layout(std430, binding = 6) writeonly buffer DrawIndirect {
   uint firstInstance;
 };
 
-struct Row {
-  vec4 data[3];  // (N, 12). 3 for ndc position, 1 dummy, 4 for rot scale, 4 for color.
-};
 layout(std430, binding = 7) writeonly buffer Instances {
-  Row instances[];
+  vec4 instances[];  // (N, 12). 3 for ndc position, 1 dummy, 4 for rot scale, 4 for color.
 };
 
 layout(std430, binding = 8) buffer Stat {
@@ -211,11 +208,9 @@ void main() {
   color = max(color + 0.5f, 0.f);
   float alpha = opacity * compensation;
 
-  Row row;
-  row.data[0] = vec4(pos.xyz, 1.f);
-  row.data[1] = vec4(rot_scale[0], rot_scale[1]);
-  row.data[2] = vec4(color, alpha);
-  instances[inverse_id] = row;
+  instances[3 * inverse_id + 0] = vec4(pos.xyz, alpha);
+  instances[3 * inverse_id + 1] = vec4(rot_scale[0], rot_scale[1]);
+  instances[3 * inverse_id + 2] = vec4(color, 0.f);
 
   if (record_stat == 1) {
     uint quantized_alpha = clamp(int(alpha * 50.f), 0, 49);
