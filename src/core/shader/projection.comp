@@ -52,13 +52,11 @@ layout(std430, binding = 7) writeonly buffer DrawIndirect {
   uint firstInstance;
 };
 
-#ifdef VKGS_SHADER_INSTANCES_VEC4
-layout(std430, binding = 8) writeonly buffer Instances {
-  vec4 instances[];  // (N, 12). 3 for ndc position, 1 padding, 4 for rot scale, 4 for color.
+struct Row {
+  vec4 data[3];  // (N, 12). 3 for ndc position, 1 dummy, 4 for rot scale, 4 for color.
 };
-#else
 layout(std430, binding = 8) writeonly buffer Instances {
-  float instances[];  // (N, 11). 3 for ndc position, 4 for rot scale, 4 for color.
+  Row instances[];
 };
 
 layout(std430, binding = 9) buffer Stat {
@@ -217,23 +215,11 @@ void main() {
   color = max(color + 0.5f, 0.f);
   float alpha = opacity * compensation;
 
-#ifdef VKGS_SHADER_INSTANCES_VEC4
-  instances[inverse_id * 3 + 0] = vec4(pos.xyz, 1.f);  // TODO: delete w component
-  instances[inverse_id * 3 + 1] = vec4(rot_scale[0], rot_scale[1]);
-  instances[inverse_id * 3 + 2] = vec4(color, alpha);
-#else
-  instances[inverse_id * 11 + 0] = pos.x;
-  instances[inverse_id * 11 + 1] = pos.y;
-  instances[inverse_id * 11 + 2] = pos.z;
-  instances[inverse_id * 11 + 3] = rot_scale[0][0];
-  instances[inverse_id * 11 + 4] = rot_scale[0][1];
-  instances[inverse_id * 11 + 5] = rot_scale[1][0];
-  instances[inverse_id * 11 + 6] = rot_scale[1][1];
-  instances[inverse_id * 11 + 7] = color.x;
-  instances[inverse_id * 11 + 8] = color.y;
-  instances[inverse_id * 11 + 9] = color.z;
-  instances[inverse_id * 11 + 10] = alpha;
-#endif
+  Row row;
+  row.data[0] = vec4(pos.xyz, 1.f);
+  row.data[1] = vec4(rot_scale[0], rot_scale[1]);
+  row.data[2] = vec4(color, alpha);
+  instances[inverse_id] = row;
 
   if (record_stat == 1) {
     uint quantized_alpha = clamp(int(alpha * 50.f), 0, 49);

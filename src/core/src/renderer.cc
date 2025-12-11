@@ -23,12 +23,9 @@
 #include "generated/rank.h"
 #include "generated/inverse_index.h"
 #include "generated/projection.h"
-#include "generated/projection_float.h"
 #include "generated/splat_color_vert.h"
-#include "generated/splat_color_float_vert.h"
 #include "generated/splat_color_frag.h"
 #include "generated/splat_depth_vert.h"
-#include "generated/splat_depth_float_vert.h"
 #include "generated/splat_depth_frag.h"
 #include "struct.h"
 
@@ -78,7 +75,6 @@ RendererImpl::RendererImpl() {
   rank_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, rank);
   inverse_index_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, inverse_index);
   projection_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, projection);
-  projection_float_pipeline_ = gpu::ComputePipeline::Create(compute_pipeline_layout_, projection_float);
 
   graphics_pipeline_layout_ = gpu::PipelineLayout::Create({
       .bindings = {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
@@ -381,7 +377,6 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
               VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
       .Commit(cb);
 
-  auto projection_pipeline = draw_options.instance_vec4 ? projection_pipeline_ : projection_float_pipeline_;
   pipeline.Storage(0, camera)
       .Storage(1, position)
       .Storage(2, cov3d)
@@ -392,7 +387,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Storage(7, draw_indirect)
       .Storage(8, instances)
       .Storage(9, stats)
-      .Bind(projection_pipeline)
+      .Bind(projection_pipeline_)
       .Commit(cb);
   vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
@@ -416,7 +411,6 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
 
   screen_splats->SetIndexBuffer(splats->index_buffer());
   screen_splats->SetProjection(draw_options.projection);
-  screen_splats->SetInstanceVec4(draw_options.instance_vec4);
 }
 
 void RendererImpl::RenderScreenSplatsColor(VkCommandBuffer cb, ScreenSplats screen_splats,
@@ -424,8 +418,7 @@ void RendererImpl::RenderScreenSplatsColor(VkCommandBuffer cb, ScreenSplats scre
                                            const RenderTargetOptions& render_target_options) {
   auto splat_color_pipeline = gpu::GraphicsPipeline::Create({
       .pipeline_layout = graphics_pipeline_layout_,
-      .vertex_shader =
-          screen_splats->instance_vec4() ? gpu::ShaderCode(splat_color_vert) : gpu::ShaderCode(splat_color_float_vert),
+      .vertex_shader = gpu::ShaderCode(splat_color_vert),
       .fragment_shader = gpu::ShaderCode(splat_color_frag),
       .formats = render_target_options.formats,
       .locations = render_target_options.locations,
@@ -456,8 +449,7 @@ void RendererImpl::RenderScreenSplatsDepth(VkCommandBuffer cb, ScreenSplats scre
                                            const RenderTargetOptions& render_target_options) {
   auto splat_depth_pipeline = gpu::GraphicsPipeline::Create({
       .pipeline_layout = graphics_pipeline_layout_,
-      .vertex_shader =
-          screen_splats->instance_vec4() ? gpu::ShaderCode(splat_depth_vert) : gpu::ShaderCode(splat_depth_float_vert),
+      .vertex_shader = gpu::ShaderCode(splat_depth_vert),
       .fragment_shader = gpu::ShaderCode(splat_depth_frag),
       .formats = render_target_options.formats,
       .locations = render_target_options.locations,
