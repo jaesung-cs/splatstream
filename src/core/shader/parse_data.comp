@@ -9,23 +9,35 @@ layout(push_constant, std430) uniform ParsePushConstant {
   uint sh_degree;
 };
 
-layout(std430, binding = 0) readonly buffer Quats {
+layout(std430, binding = 0) readonly buffer Position {
+  float position[];  // (N, 3)
+};
+
+layout(std430, binding = 1) readonly buffer Quats {
   float quats[];  // (N, 4)
 };
 
-layout(std430, binding = 1) readonly buffer Scales {
+layout(std430, binding = 2) readonly buffer Scales {
   float scales[];  // (N, 3)
-};
-
-layout(std430, binding = 2) writeonly buffer GaussianCov3d {
-  float gaussian_cov3d[];  // (N, 6)
 };
 
 layout(std430, binding = 3) readonly buffer Colors {
   float16_t colors[];  // (N, K, 3)
 };
 
-layout(std430, binding = 4) writeonly buffer GaussianSh {
+layout(std430, binding = 4) readonly buffer Opacity {
+  float opacity[];  // (N)
+};
+
+layout(std430, binding = 5) writeonly buffer GaussianPositionOpacity {
+  vec4 gaussian_position_opacity[];  // (N, 4)
+};
+
+layout(std430, binding = 6) writeonly buffer GaussianCov3d {
+  vec4 gaussian_cov3d[];  // (N, 6)
+};
+
+layout(std430, binding = 7) writeonly buffer GaussianSh {
   f16vec4 gaussian_sh[];  // (N, X), packed.
 };
 
@@ -66,12 +78,10 @@ void main() {
     ss[2][2] = s[2] * s[2];
     mat3 cov3d = rot * ss * transpose(rot);
 
-    gaussian_cov3d[6 * id + 0] = cov3d[0][0];
-    gaussian_cov3d[6 * id + 1] = cov3d[1][0];
-    gaussian_cov3d[6 * id + 2] = cov3d[2][0];
-    gaussian_cov3d[6 * id + 3] = cov3d[1][1];
-    gaussian_cov3d[6 * id + 4] = cov3d[2][1];
-    gaussian_cov3d[6 * id + 5] = cov3d[2][2];
+    gaussian_position_opacity[id] = vec4(position[3 * id + 0], position[3 * id + 1], position[3 * id + 2], opacity[id]);
+
+    gaussian_cov3d[2 * id + 0] = vec4(cov3d[0][0], cov3d[1][0], cov3d[2][0], 0.f);
+    gaussian_cov3d[2 * id + 1] = vec4(cov3d[1][1], cov3d[2][1], cov3d[2][2], 0.f);
 
     if (sh_degree == 0) {
       gaussian_sh[id] = f16vec4(vec4(colors[3 * id + 0], colors[3 * id + 1], colors[3 * id + 2], 0.f));

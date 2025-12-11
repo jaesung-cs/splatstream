@@ -68,7 +68,6 @@ RendererImpl::RendererImpl() {
               {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
-              {9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           },
       .push_constants = {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ProjectionPushConstants)}},
   });
@@ -286,10 +285,9 @@ RenderingTask RendererImpl::Draw(GaussianSplats splats, const DrawOptions& draw_
 void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats, const DrawOptions& draw_options,
                                        ScreenSplats screen_splats, gpu::Timer timer) {
   auto N = splats->size();
-  auto position = splats->position();
+  auto position_opacity = splats->position_opacity();
   auto cov3d = splats->cov3d();
   auto sh = splats->sh();
-  auto opacity = splats->opacity();
 
   const auto& ring_buffer = ring_buffer_[frame_index_ % ring_buffer_.size()];
   auto compute_storage = ring_buffer.compute_storage;
@@ -339,7 +337,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   // Rank
   gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline_layout_);
   pipeline.Storage(0, camera)
-      .Storage(1, position)
+      .Storage(1, position_opacity)
       .Storage(2, visible_point_count)
       .Storage(3, key)
       .Storage(4, index)
@@ -378,15 +376,14 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Commit(cb);
 
   pipeline.Storage(0, camera)
-      .Storage(1, position)
+      .Storage(1, position_opacity)
       .Storage(2, cov3d)
-      .Storage(3, opacity)
-      .Storage(4, sh)
-      .Storage(5, visible_point_count)
-      .Storage(6, inverse_index)
-      .Storage(7, draw_indirect)
-      .Storage(8, instances)
-      .Storage(9, stats)
+      .Storage(3, sh)
+      .Storage(4, visible_point_count)
+      .Storage(5, inverse_index)
+      .Storage(6, draw_indirect)
+      .Storage(7, instances)
+      .Storage(8, stats)
       .Bind(projection_pipeline_)
       .Commit(cb);
   vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
