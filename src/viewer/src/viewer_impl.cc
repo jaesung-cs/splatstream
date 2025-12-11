@@ -146,8 +146,7 @@ void ViewerImpl::Impl::FinalizeWindow() {
 void ViewerImpl::Impl::DrawUi() {
   const auto& io = ImGui::GetIO();
 
-  const ImGuiWindowFlags window_flags =
-      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
+  fps_window_.add(timer_.elapsed(), io.Framerate);
 
   viewer_options_.camera_modified = false;
 
@@ -229,6 +228,8 @@ void ViewerImpl::Impl::DrawUi() {
   auto visible_point_count = static_cast<int>(storage.visible_point_count());
   const auto& stats = storage.stats();
 
+  visible_point_count_window_.add(timer_.elapsed(), visible_point_count);
+
   ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Always);
   ImGui::SetNextWindowSize({300, 0});
   ImGui::SetNextWindowBgAlpha(0.5f);
@@ -286,9 +287,44 @@ void ViewerImpl::Impl::DrawUi() {
     ImGui::Text("Visible points: %d (%.2f%%)", visible_point_count,
                 static_cast<float>(visible_point_count) / point_count * 100.f);
 
-    if (ImGui::CollapsingHeader("Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImPlot::BeginPlot("FPS", {-1, 100}, ImPlotFlags_NoLegend)) {
+      std::vector<float> xs;
+      std::vector<float> ys;
+      float y_max = 0.f;
+      for (const auto& point : fps_window_.points()) {
+        xs.push_back(point.time);
+        ys.push_back(point.value);
+        y_max = std::max(y_max, point.value);
+      }
+      float y_margin = y_max * 0.05f;
+      ImPlot::SetupAxis(ImAxis_X1, "Time",
+                        ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickLabels);
+      ImPlot::SetupAxis(ImAxis_Y1, "FPS");
+      ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f - y_margin, y_max + y_margin, ImPlotCond_Always);
+      ImPlot::PlotLine("FPS", xs.data(), ys.data(), xs.size());
+      ImPlot::EndPlot();
+    }
+
+    if (ImPlot::BeginPlot("Visible Points (%)", {-1, 100}, ImPlotFlags_NoLegend)) {
+      std::vector<float> xs;
+      std::vector<float> ys;
+      for (const auto& point : visible_point_count_window_.points()) {
+        xs.push_back(point.time);
+        ys.push_back(point.value / point_count * 100.f);
+      }
+      float y_max = 100.f;
+      float y_margin = y_max * 0.05f;
+      ImPlot::SetupAxis(ImAxis_X1, "Time",
+                        ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickLabels);
+      ImPlot::SetupAxis(ImAxis_Y1, "Visible (%)");
+      ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f - y_margin, y_max + y_margin, ImPlotCond_Always);
+      ImPlot::PlotLine("Visible Points (%)", xs.data(), ys.data(), xs.size());
+      ImPlot::EndPlot();
+    }
+
+    if (ImGui::CollapsingHeader("Statistics (Slightly Decrease FPS!)")) {
       viewer_options_.show_stat = true;
-      if (ImPlot::BeginPlot("Splat Alpha Histogram")) {
+      if (ImPlot::BeginPlot("Splat Alpha Histogram", {-1, 200}, ImPlotFlags_NoLegend)) {
         std::array<float, 50> xs;
         for (int i = 0; i < 50; ++i) xs[i] = i / 50.f;
         std::array<float, 50> ys;
@@ -298,7 +334,7 @@ void ViewerImpl::Impl::DrawUi() {
         ImPlot::PlotBars("Splat Alpha", xs.data(), ys.data(), xs.size(), (xs[1] - xs[0]) * 0.67f);
         ImPlot::EndPlot();
       }
-      if (ImPlot::BeginPlot("Projection Active Threads")) {
+      if (ImPlot::BeginPlot("Projection Active Threads", {-1, 200}, ImPlotFlags_NoLegend)) {
         std::array<float, 64> xs;
         for (int i = 0; i < 64; ++i) xs[i] = i + 1;
         std::array<float, 64> ys;
@@ -481,6 +517,9 @@ void ViewerImpl::Impl::Run() {
       .show_stat = true,
   };
 
+  timer_.start();
+  fps_window_ = SampledMovingWindow(5.f, 0.01f);
+  visible_point_count_window_ = SampledMovingWindow(5.f, 0.01f);
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
 

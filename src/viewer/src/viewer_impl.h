@@ -9,6 +9,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/timer.h"
+#include "vkgs/common/sampled_moving_window.h"
 #include "vkgs/gpu/swapchain.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/graphics_pipeline.h"
@@ -96,6 +98,9 @@ class ViewerImpl::Impl {
 
   std::array<Storage, 2> ring_buffer_;
   uint64_t frame_index_ = 0;
+  Timer timer_;
+  SampledMovingWindow fps_window_;
+  SampledMovingWindow visible_point_count_window_;
 };
 
 }  // namespace viewer
