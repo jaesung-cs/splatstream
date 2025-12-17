@@ -10,6 +10,10 @@
 Python bindings for streamlined 3D Gaussian Splatting rendering.
 - This is a more modularized and organized code of my previous c++ project [vkgs](https://github.com/jaesung-cs/vkgs).
 
+https://github.com/user-attachments/assets/1750e48a-d9ef-4a1c-bdb7-2b1877e70ecf
+
+Splatstream interactive viewer for [MVP](https://gynjn.github.io/MVP/) pre-trained model.
+
 ## Feature Highlights
 - Fast rendering: GPU-accelerated rasterization for high performance
   - Up to 2x faster than [vk_gaussian_splatting](https://github.com/nvpro-samples/vk_gaussian_splatting) viewer
