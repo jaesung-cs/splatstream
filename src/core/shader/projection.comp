@@ -12,6 +12,7 @@ layout(push_constant, std430) uniform ProjectionPushConstants {
   uint sh_degree_data;
   uint sh_degree_draw;
   uint record_stat;
+  int opacity_degree;
 };
 
 // TODO: use uniform buffer
@@ -34,13 +35,17 @@ layout(std430, binding = 3) readonly buffer GaussianSh {
   f16vec4 gaussian_sh[];  // (N, K), packed.
 };
 
-layout(std430, binding = 4) readonly buffer VisiblePointCount { uint visible_point_count; };
+layout(std430, binding = 4) readonly buffer GaussianOpacitySh {
+  f16vec4 gaussian_opacity_sh[];  // (N, K), packed.
+};
 
-layout(std430, binding = 5) readonly buffer InverseMap {
+layout(std430, binding = 5) readonly buffer VisiblePointCount { uint visible_point_count; };
+
+layout(std430, binding = 6) readonly buffer InverseMap {
   int inverse_map[];  // (N), inverse map from id to sorted index
 };
 
-layout(std430, binding = 6) writeonly buffer DrawIndirect {
+layout(std430, binding = 7) writeonly buffer DrawIndirect {
   uint indexCount;
   uint instanceCount;
   uint firstIndex;
@@ -48,14 +53,16 @@ layout(std430, binding = 6) writeonly buffer DrawIndirect {
   uint firstInstance;
 };
 
-layout(std430, binding = 7) writeonly buffer Instances {
+layout(std430, binding = 8) writeonly buffer Instances {
   vec4 instances[];  // (N, 12). 3 for ndc position, 1 dummy, 4 for rot scale, 4 for color.
 };
 
-layout(std430, binding = 8) buffer Stat {
+layout(std430, binding = 9) buffer Stat {
   uint histogram_alpha[64];
   uint histogram_projection_active_threads[64];
 };
+
+float sigmoid(float x) { return 1.f / (1.f + exp(-x)); }
 
 void main() {
   uint id = gl_GlobalInvocationID.x;
@@ -93,6 +100,27 @@ void main() {
     sh1 = mat3x4(gaussian_sh[id * 12 + 1], gaussian_sh[id * 12 + 5], gaussian_sh[id * 12 + 9]);
     sh2 = mat3x4(gaussian_sh[id * 12 + 2], gaussian_sh[id * 12 + 6], gaussian_sh[id * 12 + 10]);
     sh3 = mat3x4(gaussian_sh[id * 12 + 3], gaussian_sh[id * 12 + 7], gaussian_sh[id * 12 + 11]);
+  }
+
+  vec4 osh0 = vec4(0.f);
+  vec4 osh1 = vec4(0.f);
+  vec4 osh2 = vec4(0.f);
+  vec4 osh3 = vec4(0.f);
+  if (opacity_degree <= 0) {
+    osh0.x = opacity;
+  } else if (opacity_degree == 1) {
+    osh0 = vec4(gaussian_opacity_sh[id]);
+  } else if (opacity_degree == 2) {
+    vec4 o0 = vec4(gaussian_opacity_sh[2 * id + 0]);
+    vec4 o1 = vec4(gaussian_opacity_sh[2 * id + 1]);
+    osh0 = vec4(opacity, o0.xyz);
+    osh1 = vec4(o0.w, o1.xyz);
+    osh2.x = o1.w;
+  } else if (opacity_degree == 3) {
+    osh0 = vec4(gaussian_opacity_sh[4 * id + 0]);
+    osh1 = vec4(gaussian_opacity_sh[4 * id + 1]);
+    osh2 = vec4(gaussian_opacity_sh[4 * id + 2]);
+    osh3 = vec4(gaussian_opacity_sh[4 * id + 3]);
   }
 
   // direction in model space for SH calculation
@@ -155,27 +183,7 @@ void main() {
   const float C34 = 1.445305721320277f;
 
   mat4 basis = mat4(0.f);
-  if (sh_degree_draw == 0) {
-    basis[0].x = C0;
-  } else if (sh_degree_draw == 1) {
-    float x = dir.x;
-    float y = dir.y;
-    float z = dir.z;
-    basis[0] = vec4(C0, -C1 * y, C1 * z, -C1 * x);
-  } else if (sh_degree_draw == 2) {
-    float x = dir.x;
-    float y = dir.y;
-    float z = dir.z;
-    float xx = x * x;
-    float yy = y * y;
-    float zz = z * z;
-    float xy = x * y;
-    float yz = y * z;
-    float xz = x * z;
-    basis[0] = vec4(C0, -C1 * y, C1 * z, -C1 * x);
-    basis[1] = vec4(C20 * xy, -C20 * yz, C21 * (2.f * zz - xx - yy), -C20 * xz);
-    basis[2].x = C22 * (xx - yy);
-  } else if (sh_degree_draw == 3) {
+  {
     float x = dir.x;
     float y = dir.y;
     float z = dir.z;
@@ -202,6 +210,20 @@ void main() {
     color = basis[0] * sh0 + basis[1] * sh1 + basis[2].x * rest;
   } else if (sh_degree_data == 3) {
     color = basis[0] * sh0 + basis[1] * sh1 + basis[2] * sh2 + basis[3] * sh3;
+  }
+
+  if (opacity_degree == -1) {
+  } else if (opacity_degree == 0) {
+    opacity = basis[0].x * osh0.x;
+  } else if (opacity_degree == 1) {
+    opacity = dot(basis[0], osh0);
+  } else if (opacity_degree == 2) {
+    opacity = dot(basis[0], osh0) + dot(basis[1], osh1) + basis[2].x * osh2.x;
+  } else if (opacity_degree == 3) {
+    opacity = dot(basis[0], osh0) + dot(basis[1], osh1) + dot(basis[2], osh2) + dot(basis[3], osh3);
+  }
+  if (opacity_degree >= 0) {
+    opacity = sigmoid(opacity);
   }
 
   // translation and clip

@@ -14,16 +14,19 @@ namespace core {
 
 class VKGS_CORE_API GaussianSplatsImpl {
  public:
-  GaussianSplatsImpl(size_t size, uint32_t sh_degree, gpu::Buffer position_opacity, gpu::Buffer cov3d, gpu::Buffer sh,
-                     gpu::Buffer index_buffer, gpu::QueueTask task);
+  GaussianSplatsImpl(size_t size, uint32_t sh_degree, int opacity_degree, gpu::Buffer position_opacity,
+                     gpu::Buffer cov3d, gpu::Buffer sh, gpu::Buffer opacity_sh, gpu::Buffer index_buffer,
+                     gpu::QueueTask task);
 
   ~GaussianSplatsImpl();
 
   size_t size() const noexcept { return size_; }
   uint32_t sh_degree() const noexcept { return sh_degree_; }
+  int opacity_degree() const noexcept { return opacity_degree_; }
   auto position_opacity() const noexcept { return position_opacity_; }
   auto cov3d() const noexcept { return cov3d_; }
   auto sh() const noexcept { return sh_; }
+  auto opacity_sh() const noexcept { return opacity_sh_; }
   auto index_buffer() const noexcept { return index_buffer_; }
 
   void Wait();
@@ -31,9 +34,11 @@ class VKGS_CORE_API GaussianSplatsImpl {
  private:
   size_t size_;
   uint32_t sh_degree_;
+  int opacity_degree_;
   gpu::Buffer position_opacity_;  // (N, 4)
   gpu::Buffer cov3d_;             // (N, 6)
   gpu::Buffer sh_;                // (N, K) float16
+  gpu::Buffer opacity_sh_;        // (N, K) float16
   gpu::Buffer index_buffer_;      // (N, 6)
   gpu::QueueTask task_;
 };

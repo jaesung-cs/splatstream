@@ -26,7 +26,8 @@ class VKGS_API Engine {
 
   GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
   GaussianSplats CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
-                                      const float* opacities, const uint16_t* colors, int sh_degree);
+                                      const float* opacities, const uint16_t* colors, int sh_degree,
+                                      int opacity_degree);
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst);
 
   void AddCamera(const CameraParams& camera_params);

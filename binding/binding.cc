@@ -18,7 +18,7 @@ PYBIND11_MODULE(_core, m) {
       .def("load_from_ply", &vkgs::Engine::LoadFromPly)
       .def("create_gaussian_splats",
            [](vkgs::Engine& engine, py::array_t<float> means, py::array_t<float> quats, py::array_t<float> scales,
-              py::array_t<float> opacities, intptr_t colors_ptr, int sh_degree) {
+              py::array_t<float> opacities, intptr_t colors_ptr, int sh_degree, int opacity_degree) {
              size_t N = means.shape(0);
              const auto* means_ptr = static_cast<const float*>(means.request().ptr);
              const auto* quats_ptr = static_cast<const float*>(quats.request().ptr);
@@ -26,7 +26,7 @@ PYBIND11_MODULE(_core, m) {
              const auto* opacities_ptr = static_cast<const float*>(opacities.request().ptr);
              const auto* colors_u16_ptr = reinterpret_cast<const uint16_t*>(colors_ptr);
              return engine.CreateGaussianSplats(N, means_ptr, quats_ptr, scales_ptr, opacities_ptr, colors_u16_ptr,
-                                                sh_degree);
+                                                sh_degree, opacity_degree);
            })
       .def("draw",
            [](vkgs::Engine& engine, vkgs::GaussianSplats splats, py::array_t<float> view, py::array_t<float> projection,

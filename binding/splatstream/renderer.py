@@ -16,7 +16,7 @@ def gaussian_splats(
     means: (N, 3)
     quats: (N, 4), wxyz convention.
     scales: (N, 3)
-    opacities: (N)
+    opacities: (N), or (N, K). K = 1, 4, 9, or 16.
     colors: (N, 3) for sh degree = 0, or (N, K, 3) sh coefficients. K = 1, 4, 9, or 16.
     """
     if colors.ndim == 2:
@@ -26,7 +26,11 @@ def gaussian_splats(
     assert quats.ndim == 2 and quats.shape[-1] == 4
     assert scales.ndim == 2 and scales.shape[-1] == 3
     assert colors.ndim == 3 and colors.shape[-1] == 3
-    assert opacities.ndim == 1
+    assert (
+        opacities.ndim == 1
+        or opacities.ndim == 2
+        and opacities.shape[-1] in [1, 4, 9, 16]
+    )
     assert (
         means.shape[0]
         == quats.shape[0]
@@ -40,6 +44,11 @@ def gaussian_splats(
 
     sh_degree = {1: 0, 4: 1, 9: 2, 16: 3}[K]
 
+    if opacities.ndim == 1:
+        opacity_degree = -1
+    else:
+        opacity_degree = {1: 0, 4: 1, 9: 2, 16: 3}[opacities.shape[-1]]
+
     quats = quats / np.linalg.norm(quats, axis=-1, keepdims=True)
 
     means = np.ascontiguousarray(means, dtype=np.float32)
@@ -52,7 +61,7 @@ def gaussian_splats(
     colors_ptr = colors.ctypes.data
 
     return singleton_engine.create_gaussian_splats(
-        means, quats, scales, opacities, colors_ptr, sh_degree
+        means, quats, scales, opacities, colors_ptr, sh_degree, opacity_degree
     )
 
 
