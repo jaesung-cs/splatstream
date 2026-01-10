@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "splatstream"
-version = "0.1.1"
+version = "0.1.2"
 description = "Streamlined 3dgs rendering"
 authors = [
     {name = "Jaesung Park", email = "jaesung.cs@gmail.com"}
@@ -12,6 +12,9 @@ authors = [
 urls = {Homepage = "https://github.com/jaesung-cs/splatstream"}
 requires-python = ">=3.10"
 license = {text = "MIT"}
+dependencies = [
+    "numpy",
+]
 
 [tool.scikit-build]
 build-dir = ".skbuild"

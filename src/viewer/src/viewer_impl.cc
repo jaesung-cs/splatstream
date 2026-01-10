@@ -96,15 +96,18 @@ void ViewerImpl::Impl::InitializeWindow() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGui::StyleColorsDark();
-  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+  auto& io = ImGui::GetIO();
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+  io.IniFilename = NULL;
+  io.LogFilename = NULL;
   ImPlot::CreateContext();
 
   ImFontConfig font_config = {};
   font_config.OversampleH = 3;
   font_config.OversampleV = 3;
   float font_size = 15.f;
-  ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(roboto_regular_compressed_data, roboto_regular_compressed_size,
-                                                       font_size, &font_config);
+  io.Fonts->AddFontFromMemoryCompressedTTF(roboto_regular_compressed_data, roboto_regular_compressed_size, font_size,
+                                           &font_config);
   auto& style = ImGui::GetStyle();
   style.FramePadding.y = 2;
   style.ItemSpacing.y = 3;
