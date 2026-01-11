@@ -8,15 +8,29 @@
 Python bindings for streamlined 3D Gaussian Splatting rendering.
 - This is a more modularized and organized code of my previous c++ project [vkgs](https://github.com/jaesung-cs/vkgs).
 
+## Examples
+
+### Original 3DGS
+
 https://github.com/user-attachments/assets/7ee79ceb-0c8d-491c-8517-b07ba0ac7fbe
 
 Splatstream interactive viewer for "garden" scene.
+
+### Multi-View Pyramid Transformer (MVP)
 
 https://github.com/user-attachments/assets/1750e48a-d9ef-4a1c-bdb7-2b1877e70ecf
 
 Splatstream interactive viewer for [MVP](https://gynjn.github.io/MVP/) pre-trained model.
 
 See [`examples/MVP`](examples/MVP) for more details.
+
+### Sharp Monocular View Synthesis in Less Than a Second (SHARP)
+
+https://github.com/user-attachments/assets/a536c102-0d38-4338-a152-ada92a3a82ba
+
+Splatstream interactive viewer for [SHARP](https://apple.github.io/ml-sharp/) pre-trained model.
+
+See [`examples/ml-sharp`](examples/ml-sharp) for more details.
 
 ## Feature Highlights
 - Fast rendering: GPU-accelerated rasterization for high performance
