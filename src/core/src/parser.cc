@@ -56,6 +56,7 @@ ParserImpl::ParserImpl() {
               {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+              {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           },
       .push_constants = {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ParsePushConstants)}},
   });
@@ -67,7 +68,7 @@ ParserImpl::~ParserImpl() = default;
 
 GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_ptr, const float* quats_ptr,
                                                 const float* scales_ptr, const float* opacities_ptr,
-                                                const uint16_t* colors_ptr, int sh_degree) {
+                                                const uint16_t* colors_ptr, int sh_degree, int opacity_degree) {
   std::vector<uint32_t> index_data = GetIndexData(size);
 
   int colors_size = 0;
@@ -93,12 +94,36 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
       throw std::runtime_error("Unsupported SH degree: " + std::to_string(sh_degree));
   }
 
+  int opacity_size = 0;
+  int opacity_packed_size = 0;
+  switch (opacity_degree) {
+    case -1:
+    case 0:
+      opacity_size = 1;
+      opacity_packed_size = 1;
+      break;
+    case 1:
+      opacity_size = 4;
+      opacity_packed_size = 1;
+      break;
+    case 2:
+      opacity_size = 9;
+      opacity_packed_size = 2;
+      break;
+    case 3:
+      opacity_size = 16;
+      opacity_packed_size = 4;
+      break;
+    default:
+      throw std::runtime_error("Unsupported opacity degree: " + std::to_string(opacity_degree));
+  }
+
   auto position_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
   auto quats_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float), true);
   auto scales_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
   auto colors_stage =
       gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t), true);
-  auto opacity_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * sizeof(float), true);
+  auto opacity_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * opacity_size * sizeof(float), true);
   auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
 
   auto position = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -109,13 +134,15 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
                                     size * 3 * sizeof(float));
   auto colors = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     size * colors_size * 3 * sizeof(uint16_t));
-  auto opacity =
-      gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, size * sizeof(float));
+  auto opacity = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                     size * opacity_size * sizeof(float));
 
   auto position_opacity = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                               size * 4 * sizeof(float));
   auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * 8 * sizeof(float));
   auto sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * sh_packed_size * 4 * sizeof(uint16_t));
+  auto opacity_sh =
+      gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, size * opacity_packed_size * 4 * sizeof(uint16_t));
   auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                           index_data.size() * sizeof(uint32_t));
 
@@ -129,6 +156,7 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
   ParsePushConstants parse_data_push_constants = {
       .point_count = static_cast<uint32_t>(size),
       .sh_degree = static_cast<uint32_t>(sh_degree),
+      .opacity_degree = opacity_degree,
   };
 
   auto device = gpu::GetDevice();
@@ -197,6 +225,7 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
         .Storage(5, position_opacity)
         .Storage(6, cov3d)
         .Storage(7, sh)
+        .Storage(8, opacity_sh)
         .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants), &parse_data_push_constants)
         .Bind(parse_data_pipeline_)
         .Commit(cb);
@@ -207,9 +236,11 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
         .Commit(cb);
 
+    position->Keep();
     quats->Keep();
     scales->Keep();
     colors->Keep();
+    opacity->Keep();
 
     task.Wait(sem, sem->value() + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     queue_task = task.Submit();
@@ -229,7 +260,8 @@ GaussianSplats ParserImpl::CreateGaussianSplats(size_t size, const float* means_
 
   sem->Increment();
 
-  return GaussianSplats::Create(size, sh_degree, position_opacity, cov3d, sh, index_buffer, queue_task);
+  return GaussianSplats::Create(size, sh_degree, opacity_degree, position_opacity, cov3d, sh, opacity_sh, index_buffer,
+                                queue_task);
 }
 
 GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
@@ -333,6 +365,7 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
   ParsePushConstants parse_ply_push_constants = {
       .point_count = point_count,
       .sh_degree = static_cast<uint32_t>(sh_degree),
+      .opacity_degree = -1,
   };
 
   // allocate buffers
@@ -346,6 +379,7 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
   auto cov3d = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * 8 * sizeof(float));
   auto sh =
       gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sh_packed_size * 4 * sizeof(uint16_t));
+  auto opacity_sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 4);  // dummy
 
   auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
   auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -429,7 +463,8 @@ GaussianSplats ParserImpl::LoadFromPly(const std::string& path, int sh_degree) {
 
   sem->Increment();
 
-  return GaussianSplats::Create(point_count, sh_degree, position_opacity, cov3d, sh, index_buffer, queue_task);
+  return GaussianSplats::Create(point_count, sh_degree, -1, position_opacity, cov3d, sh, opacity_sh, index_buffer,
+                                queue_task);
 }
 
 }  // namespace core

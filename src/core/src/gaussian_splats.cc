@@ -3,13 +3,16 @@
 namespace vkgs {
 namespace core {
 
-GaussianSplatsImpl::GaussianSplatsImpl(size_t size, uint32_t sh_degree, gpu::Buffer position_opacity, gpu::Buffer cov3d,
-                                       gpu::Buffer sh, gpu::Buffer index_buffer, gpu::QueueTask task)
+GaussianSplatsImpl::GaussianSplatsImpl(size_t size, uint32_t sh_degree, int opacity_degree,
+                                       gpu::Buffer position_opacity, gpu::Buffer cov3d, gpu::Buffer sh,
+                                       gpu::Buffer opacity_sh, gpu::Buffer index_buffer, gpu::QueueTask task)
     : size_(size),
       sh_degree_(sh_degree),
+      opacity_degree_(opacity_degree),
       position_opacity_(position_opacity),
       cov3d_(cov3d),
       sh_(sh),
+      opacity_sh_(opacity_sh),
       index_buffer_(index_buffer),
       task_(task) {}
 

@@ -7,6 +7,7 @@ layout(local_size_x = 256) in;
 layout(push_constant, std430) uniform ParsePushConstant {
   uint point_count;
   uint sh_degree;
+  int opacity_degree;
 };
 
 layout(std430, binding = 0) readonly buffer Position {
@@ -26,7 +27,7 @@ layout(std430, binding = 3) readonly buffer Colors {
 };
 
 layout(std430, binding = 4) readonly buffer Opacity {
-  float opacity[];  // (N)
+  float opacity[];  // (N), or (N, K). K = 1, 4, 9, or 16.
 };
 
 layout(std430, binding = 5) writeonly buffer GaussianPositionOpacity {
@@ -39,6 +40,10 @@ layout(std430, binding = 6) writeonly buffer GaussianCov3d {
 
 layout(std430, binding = 7) writeonly buffer GaussianSh {
   f16vec4 gaussian_sh[];  // (N, X), packed.
+};
+
+layout(std430, binding = 8) writeonly buffer GaussianOpacitySh {
+  f16vec4 gaussian_opacity_sh[];  // (N, K), packed.
 };
 
 void main() {
@@ -78,7 +83,23 @@ void main() {
     ss[2][2] = s[2] * s[2];
     mat3 cov3d = rot * ss * transpose(rot);
 
-    gaussian_position_opacity[id] = vec4(position[3 * id + 0], position[3 * id + 1], position[3 * id + 2], opacity[id]);
+    float opacity0 = 0.f;
+    if (opacity_degree <= 0) {
+      opacity0 = opacity[id];
+    } else if (opacity_degree == 1) {
+      gaussian_opacity_sh[id] = f16vec4(vec4(opacity[4 * id + 0], opacity[4 * id + 1], opacity[4 * id + 2], opacity[4 * id + 3]));
+    } else if (opacity_degree == 2) {
+      opacity0 = opacity[9 * id + 0];
+      gaussian_opacity_sh[2 * id + 0] = f16vec4(vec4(opacity[9 * id + 1], opacity[9 * id + 2], opacity[9 * id + 3], opacity[9 * id + 4]));
+      gaussian_opacity_sh[2 * id + 1] = f16vec4(vec4(opacity[9 * id + 5], opacity[9 * id + 6], opacity[9 * id + 7], opacity[9 * id + 8]));
+    } else if (opacity_degree == 3) {
+      gaussian_opacity_sh[4 * id + 0] = f16vec4(vec4(opacity[16 * id + 0], opacity[16 * id + 1], opacity[16 * id + 2], opacity[16 * id + 3]));
+      gaussian_opacity_sh[4 * id + 1] = f16vec4(vec4(opacity[16 * id + 4], opacity[16 * id + 5], opacity[16 * id + 6], opacity[16 * id + 7]));
+      gaussian_opacity_sh[4 * id + 2] = f16vec4(vec4(opacity[16 * id + 8], opacity[16 * id + 9], opacity[16 * id + 10], opacity[16 * id + 11]));
+      gaussian_opacity_sh[4 * id + 3] = f16vec4(vec4(opacity[16 * id + 12], opacity[16 * id + 13], opacity[16 * id + 14], opacity[16 * id + 15]));
+    }
+
+    gaussian_position_opacity[id] = vec4(position[3 * id + 0], position[3 * id + 1], position[3 * id + 2], opacity0);
 
     gaussian_cov3d[2 * id + 0] = vec4(cov3d[0][0], cov3d[1][0], cov3d[2][0], 0.f);
     gaussian_cov3d[2 * id + 1] = vec4(cov3d[1][1], cov3d[2][1], cov3d[2][2], 0.f);
