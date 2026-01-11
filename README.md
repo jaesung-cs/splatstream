@@ -16,6 +16,8 @@ https://github.com/user-attachments/assets/1750e48a-d9ef-4a1c-bdb7-2b1877e70ecf
 
 Splatstream interactive viewer for [MVP](https://gynjn.github.io/MVP/) pre-trained model.
 
+See [`examples/MVP`](examples/MVP) for more details.
+
 ## Feature Highlights
 - Fast rendering: GPU-accelerated rasterization for high performance
   - Up to 2x faster than [vk_gaussian_splatting](https://github.com/nvpro-samples/vk_gaussian_splatting) viewer
@@ -135,8 +137,10 @@ See [DETAILS.md](/DETAILS.md).
 
 ## Development Requirements
 - `VulkanSDK>=1.4.328.1` (set up environment variables per OS)
-- `cmake>=3.15` (install via `pip install cmake` or `conda install conda-forge::cmake`)
 - `python>=3.10`
+- `cmake>=3.15` (install via `pip install cmake` or `conda install conda-forge::cmake`)
+- python packages (install via `pip install`)
+    - `scikit-build-core`
 
 ## Contributing
 Feedback, feature requests, and issue reports are welcome!

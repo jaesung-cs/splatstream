@@ -71,6 +71,7 @@ struct ColorPushConstants {
 
 struct BlendPushConstants {
   int mode;
+  int gamma_correction;
 };
 
 }  // namespace
@@ -244,6 +245,8 @@ void ViewerImpl::Impl::DrawUi() {
         else
           swapchain_->SetPresentMode(VK_PRESENT_MODE_MAILBOX_KHR);
       }
+
+      ImGui::Checkbox("Gamma Correction", &viewer_options_.gamma_correction);
     }
 
     if (ImGui::CollapsingHeader("Scene")) {
@@ -506,6 +509,7 @@ void ViewerImpl::Impl::Run() {
   viewer_options_ = {
       .model = glm::mat4{1.f},
       .vsync = true,
+      .gamma_correction = false,
       .sh_degree = static_cast<int>(splats_->sh_degree()),
       .render_type = 0,
       .background = {0.f, 0.f, 0.f},
@@ -821,6 +825,7 @@ void ViewerImpl::Impl::Draw(const gpu::PresentImageInfo& present_image_info) {
 
     BlendPushConstants blend_push_constants = {
         .mode = viewer_options_.render_type,
+        .gamma_correction = viewer_options_.gamma_correction,
     };
     if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
       gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)

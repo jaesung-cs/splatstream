@@ -1,3 +1,4 @@
+import argparse
 import logging
 from pathlib import Path
 
@@ -92,7 +93,7 @@ def visualize(
         gaussians = predict_image(gaussian_predictor, image, f_px, torch.device(device))
 
         metadata = SceneMetaData(intrinsics[0, 0].item(), (width, height), "linearRGB")
-        visualize_gaussians(gaussians, metadata)
+        visualize_gaussians(gaussians, metadata, device=device)
 
 
 @torch.no_grad()
@@ -152,6 +153,7 @@ def visualize_gaussians(
     gaussians: Gaussians3D,
     metadata: SceneMetaData,
     params: camera.TrajectoryParams | None = None,
+    device: torch.device = torch.device("cuda"),
 ) -> None:
     """Render a single gaussian checkpoint file."""
     (width, height) = metadata.resolution_px
@@ -159,11 +161,6 @@ def visualize_gaussians(
 
     if params is None:
         params = camera.TrajectoryParams()
-
-    if not torch.cuda.is_available():
-        raise RuntimeError("Rendering a checkpoint requires CUDA.")
-
-    device = torch.device("cuda")
 
     intrinsics = torch.tensor(
         [
@@ -185,12 +182,9 @@ def visualize_gaussians(
 
     colors = gaussians.colors.cpu().numpy()[0, :, None, :]
 
-    # Gamma correction
-    def gamma_inv(x):
-        return np.where(x > 0.04045, (x + 0.055) / 1.055, x / 12.92)
-
+    # TODO: handle pre-computed colors in viewer. Convert to 0-degree SH for now.
     C0 = 0.28209479177387814
-    colors = (gamma_inv(colors) - 0.5) / C0
+    colors = (colors - 0.5) / C0
 
     splats = ss.gaussian_splats(
         gaussians.mean_vectors.cpu().numpy()[0],
@@ -222,9 +216,16 @@ def visualize_gaussians(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_path", type=Path, required=True)
+    parser.add_argument("--checkpoint_path", type=Path, default=Path("sharp_2572gikvuh.pt"))
+    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--verbose", action="store_true")
+    args = parser.parse_args()
+
     visualize(
-        input_path=Path("image.png"),
-        checkpoint_path=Path("sharp_2572gikvuh.pt"),
-        device="cuda",
-        verbose=True,
+        input_path=args.input_path,
+        checkpoint_path=args.checkpoint_path,
+        device=args.device,
+        verbose=args.verbose,
     )

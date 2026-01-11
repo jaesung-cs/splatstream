@@ -62,6 +62,7 @@ class ViewerImpl::Impl {
   struct ViewerOptions {
     glm::mat4 model;
     bool vsync;
+    bool gamma_correction;
     int sh_degree;
     int render_type;
     glm::vec3 background;
