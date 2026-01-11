@@ -12,6 +12,7 @@ namespace core {
 struct ParsePushConstants {
   alignas(16) uint32_t point_count;
   uint32_t sh_degree;
+  int opacity_degree;
 };
 
 struct ProjectionPushConstants {
@@ -21,6 +22,7 @@ struct ProjectionPushConstants {
   uint32_t sh_degree_data;
   uint32_t sh_degree_draw;
   uint32_t record_stat;
+  int opacity_degree;
 };
 
 struct Camera {

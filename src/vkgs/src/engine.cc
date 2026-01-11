@@ -32,8 +32,10 @@ class Engine::Impl {
   }
 
   GaussianSplats CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
-                                      const float* opacities, const uint16_t* colors, int sh_degree) {
-    return GaussianSplats(parser_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree));
+                                      const float* opacities, const uint16_t* colors, int sh_degree,
+                                      int opacity_degree) {
+    return GaussianSplats(
+        parser_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree, opacity_degree));
   }
 
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
@@ -90,8 +92,9 @@ GaussianSplats Engine::LoadFromPly(const std::string& path, int sh_degree) {
 }
 
 GaussianSplats Engine::CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
-                                            const float* opacities, const uint16_t* colors, int sh_degree) {
-  return impl_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree);
+                                            const float* opacities, const uint16_t* colors, int sh_degree,
+                                            int opacity_degree) {
+  return impl_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree, opacity_degree);
 }
 
 RenderingTask Engine::Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {

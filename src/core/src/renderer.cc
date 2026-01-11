@@ -68,6 +68,7 @@ RendererImpl::RendererImpl() {
               {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
               {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+              {9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT},
           },
       .push_constants = {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ProjectionPushConstants)}},
   });
@@ -288,6 +289,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
   auto position_opacity = splats->position_opacity();
   auto cov3d = splats->cov3d();
   auto sh = splats->sh();
+  auto opacity_sh = splats->opacity_sh();
 
   const auto& ring_buffer = ring_buffer_[frame_index_ % ring_buffer_.size()];
   auto compute_storage = ring_buffer.compute_storage;
@@ -313,6 +315,7 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .sh_degree_data = splats->sh_degree(),
       .sh_degree_draw = draw_options.sh_degree == -1 ? splats->sh_degree() : draw_options.sh_degree,
       .record_stat = draw_options.record_stat,
+      .opacity_degree = splats->opacity_degree(),
   };
 
   Camera camera_data = {
@@ -379,11 +382,12 @@ void RendererImpl::ComputeScreenSplats(VkCommandBuffer cb, GaussianSplats splats
       .Storage(1, position_opacity)
       .Storage(2, cov3d)
       .Storage(3, sh)
-      .Storage(4, visible_point_count)
-      .Storage(5, inverse_index)
-      .Storage(6, draw_indirect)
-      .Storage(7, instances)
-      .Storage(8, stats)
+      .Storage(4, opacity_sh)
+      .Storage(5, visible_point_count)
+      .Storage(6, inverse_index)
+      .Storage(7, draw_indirect)
+      .Storage(8, instances)
+      .Storage(9, stats)
       .Bind(projection_pipeline_)
       .Commit(cb);
   vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
