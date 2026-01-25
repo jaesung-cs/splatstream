@@ -32,12 +32,16 @@
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/task.h"
 #include "vkgs/gpu/image.h"
+#include "vkgs/gpu/timer.h"
 #include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/renderer.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/stats.h"
+#include "vkgs/core/draw_options.h"
+#include "vkgs/core/screen_splat_options.h"
 
+#include "vkgs/viewer/camera_params.h"
 #include "generated/color_vert.h"
 #include "generated/color_frag.h"
 #include "generated/depth_vert.h"
@@ -618,7 +622,7 @@ class ViewerImpl {
       gpu::ComputeTask task;
       auto cb = task.command_buffer();
 
-      renderer_.ComputeScreenSplats(cb, splats_, draw_options, screen_splats);
+      renderer_.ComputeScreenSplats(cb, splats_, draw_options, screen_splats, {});
 
       // Get stats to stage buffer
       gpu::cmd::Barrier()

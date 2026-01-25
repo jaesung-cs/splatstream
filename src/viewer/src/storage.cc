@@ -1,10 +1,7 @@
 #include "storage.h"
 
-#include "vkgs/core/screen_splats.h"
-#include "vkgs/core/stats.h"
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
-#include "vkgs/gpu/image.h"
 
 namespace vkgs {
 namespace viewer {

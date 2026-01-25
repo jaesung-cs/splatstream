@@ -1,7 +1,8 @@
 #include "vkgs/core/screen_splats.h"
 
-#include "vkgs/gpu/buffer.h"
+#include <glm/glm.hpp>
 
+#include "vkgs/gpu/buffer.h"
 #include "vkgs/core/stats.h"
 
 namespace vkgs {

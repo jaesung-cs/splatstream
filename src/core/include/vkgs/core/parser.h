@@ -1,17 +1,12 @@
 #ifndef VKGS_CORE_PARSER_H
 #define VKGS_CORE_PARSER_H
 
-#include <memory>
 #include <string>
-#include <cstdint>
 
 #include "vkgs/common/handle.h"
-#include "vkgs/gpu/pipeline_layout.h"
-#include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/core/export_api.h"
 
 namespace vkgs {
-
 namespace core {
 
 class GaussianSplats;

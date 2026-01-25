@@ -4,7 +4,7 @@
 #include <vulkan/vulkan.h>
 
 #include "vkgs/common/handle.h"
-#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/fwd.h"
 
 namespace vkgs {
 namespace core {

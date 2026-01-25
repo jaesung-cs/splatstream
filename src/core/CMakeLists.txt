@@ -39,9 +39,10 @@ target_include_directories(vkgs_core
 target_link_libraries(vkgs_core
   PUBLIC
     Vulkan::Vulkan
-    vkgs::common
     glm::glm
+    vkgs::common
     vkgs::gpu
+  PRIVATE
     vk_radix_sort
 )
 

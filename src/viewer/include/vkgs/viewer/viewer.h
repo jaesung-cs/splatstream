@@ -6,7 +6,6 @@
 #include "vkgs/common/handle.h"
 
 #include "vkgs/viewer/export_api.h"
-#include "vkgs/viewer/camera_params.h"
 
 namespace vkgs {
 namespace core {
@@ -15,6 +14,8 @@ class Renderer;
 }  // namespace core
 
 namespace viewer {
+
+struct CameraParams;
 
 class ViewerImpl;
 class VKGS_VIEWER_API Viewer : public Handle<Viewer, ViewerImpl> {

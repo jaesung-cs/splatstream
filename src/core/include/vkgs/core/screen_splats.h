@@ -1,14 +1,10 @@
 #ifndef VKGS_CORE_SCREEN_SPLATS_H
 #define VKGS_CORE_SCREEN_SPLATS_H
 
-#include <memory>
-#include <cstdint>
-
-#include "glm/glm.hpp"
+#include <glm/fwd.hpp>
 
 #include "vkgs/common/handle.h"
-#include "vkgs/gpu/buffer.h"
-
+#include "vkgs/gpu/fwd.h"
 #include "vkgs/core/export_api.h"
 
 namespace vkgs {

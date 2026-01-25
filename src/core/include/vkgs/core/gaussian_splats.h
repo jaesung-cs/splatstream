@@ -1,12 +1,9 @@
 #ifndef VKGS_CORE_GAUSSIAN_SPLATS_H
 #define VKGS_CORE_GAUSSIAN_SPLATS_H
 
-#include <memory>
-
 #include "vkgs/common/handle.h"
-#include "vkgs/gpu/buffer.h"
-#include "vkgs/gpu/queue_task.h"
 #include "vkgs/core/export_api.h"
+#include "vkgs/gpu/fwd.h"
 
 namespace vkgs {
 namespace core {

@@ -1,11 +1,10 @@
 #ifndef VKGS_CORE_DETAILS_GRAPHICS_STORAGE_H
 #define VKGS_CORE_DETAILS_GRAPHICS_STORAGE_H
 
-#include <memory>
 #include <cstdint>
 
 #include "vkgs/common/handle.h"
-#include "vkgs/gpu/image.h"
+#include "vkgs/gpu/fwd.h"
 
 namespace vkgs {
 namespace core {

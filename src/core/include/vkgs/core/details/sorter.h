@@ -1,9 +1,11 @@
 #ifndef VKGS_CORE_DETAILS_SORTER_H
 #define VKGS_CORE_DETAILS_SORTER_H
 
-#include "vk_radix_sort.h"
+#include <vulkan/vulkan.h>
 
 #include "vkgs/common/handle.h"
+
+struct VrdxSorterStorageRequirements;
 
 namespace vkgs {
 namespace core {

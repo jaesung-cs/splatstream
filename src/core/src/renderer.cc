@@ -1,9 +1,12 @@
 #include "vkgs/core/renderer.h"
 
+#include <array>
 #include <cstring>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "vk_radix_sort.h"
 
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/cmd/barrier.h"
@@ -16,10 +19,18 @@
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/timer.h"
 #include "vkgs/gpu/task.h"
+#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/queue_task.h"
 
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendering_task.h"
 #include "vkgs/core/screen_splats.h"
+#include "vkgs/core/draw_options.h"
+#include "vkgs/core/screen_splat_options.h"
+#include "vkgs/core/draw_result.h"
+#include "vkgs/core/details/compute_storage.h"
+#include "vkgs/core/details/graphics_storage.h"
+#include "vkgs/core/details/sorter.h"
 #include "generated/rank.h"
 #include "generated/inverse_index.h"
 #include "generated/projection.h"

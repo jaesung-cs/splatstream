@@ -14,6 +14,8 @@
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/task.h"
 #include "vkgs/gpu/semaphore.h"
+#include "vkgs/gpu/pipeline_layout.h"
+#include "vkgs/gpu/queue_task.h"
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/cmd/pipeline.h"
 

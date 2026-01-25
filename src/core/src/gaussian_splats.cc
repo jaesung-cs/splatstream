@@ -1,5 +1,8 @@
 #include "vkgs/core/gaussian_splats.h"
 
+#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/queue_task.h"
+
 namespace vkgs {
 namespace core {
 

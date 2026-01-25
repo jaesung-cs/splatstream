@@ -1,5 +1,7 @@
 #include "vkgs/core/details/compute_storage.h"
 
+#include "vkgs/gpu/buffer.h"
+
 #include "../struct.h"
 
 namespace vkgs {

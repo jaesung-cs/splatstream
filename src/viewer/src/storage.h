@@ -9,6 +9,7 @@
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/queue_task.h"
+#include "vkgs/gpu/buffer.h"
 
 namespace vkgs {
 namespace viewer {

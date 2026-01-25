@@ -10,6 +10,9 @@
 #include "vkgs/core/parser.h"
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendering_task.h"
+#include "vkgs/core/draw_options.h"
+#include "vkgs/core/screen_splat_options.h"
+#include "vkgs/viewer/camera_params.h"
 #include "vkgs/viewer/viewer.h"
 
 namespace vkgs {

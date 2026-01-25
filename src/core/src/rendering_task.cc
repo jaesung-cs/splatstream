@@ -1,5 +1,8 @@
 #include "vkgs/core/rendering_task.h"
 
+#include "vkgs/gpu/queue_task.h"
+#include "vkgs/core/draw_result.h"
+
 namespace vkgs {
 namespace core {
 
