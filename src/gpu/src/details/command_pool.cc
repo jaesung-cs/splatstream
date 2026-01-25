@@ -1,10 +1,10 @@
-#include "vkgs/gpu/details/command_pool.h"
+#include "details/command_pool.h"
 
 #include <vector>
 
 #include "volk.h"
 
-#include "vkgs/gpu/details/command.h"
+#include "details/command.h"
 
 namespace vkgs {
 namespace gpu {

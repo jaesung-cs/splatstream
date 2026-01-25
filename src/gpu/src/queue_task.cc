@@ -1,7 +1,7 @@
 #include "vkgs/gpu/queue_task.h"
 
-#include "vkgs/gpu/details/command.h"
-#include "vkgs/gpu/details/fence.h"
+#include "details/command.h"
+#include "details/fence.h"
 
 namespace vkgs {
 namespace gpu {

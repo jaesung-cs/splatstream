@@ -1,6 +1,6 @@
-#include "vkgs/gpu/details/command.h"
+#include "details/command.h"
 
-#include "vkgs/gpu/details/command_pool.h"
+#include "details/command_pool.h"
 
 namespace vkgs {
 namespace gpu {

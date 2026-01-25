@@ -1,10 +1,10 @@
-#include "vkgs/gpu/details/fence_pool.h"
+#include "details/fence_pool.h"
 
 #include <vector>
 
 #include "volk.h"
 
-#include "vkgs/gpu/details/fence.h"
+#include "details/fence.h"
 
 namespace vkgs {
 namespace gpu {

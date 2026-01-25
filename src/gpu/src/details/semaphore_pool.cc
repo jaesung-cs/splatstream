@@ -1,4 +1,4 @@
-#include "vkgs/gpu/details/semaphore_pool.h"
+#include "details/semaphore_pool.h"
 
 #include <vector>
 

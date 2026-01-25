@@ -7,17 +7,18 @@
 
 #include "vkgs/gpu/object.h"
 #include "vkgs/gpu/semaphore.h"
-#include "vkgs/gpu/details/semaphore_pool.h"
-#include "vkgs/gpu/details/fence.h"
-#include "vkgs/gpu/details/fence_pool.h"
-#include "vkgs/gpu/details/graphics_pipeline_pool.h"
-#include "vkgs/gpu/details/task_monitor.h"
-#include "vkgs/gpu/details/command.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/queue_task.h"
 #include "vkgs/gpu/task.h"
-#include "vkgs/gpu/details/task_monitor.h"
-#include "vulkan/vulkan_core.h"
+#include "vkgs/gpu/queue.h"
+
+#include "details/task_monitor.h"
+#include "details/semaphore_pool.h"
+#include "details/fence.h"
+#include "details/fence_pool.h"
+#include "details/graphics_pipeline_pool.h"
+#include "details/task_monitor.h"
+#include "details/command.h"
 
 namespace {
 

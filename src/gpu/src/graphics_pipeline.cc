@@ -3,8 +3,9 @@
 #include "volk.h"
 
 #include "vkgs/gpu/object.h"
-#include "vkgs/gpu/details/graphics_pipeline_pool.h"
 #include "vkgs/gpu/gpu.h"
+
+#include "details/graphics_pipeline_pool.h"
 
 namespace vkgs {
 namespace gpu {

@@ -1,8 +1,9 @@
-#include "vkgs/gpu/details/task_monitor.h"
+#include "details/task_monitor.h"
 
 #include "vkgs/gpu/queue_task.h"
-#include "vkgs/gpu/details/fence.h"
-#include "vkgs/gpu/details/command.h"
+
+#include "details/fence.h"
+#include "details/command.h"
 
 namespace vkgs {
 namespace gpu {

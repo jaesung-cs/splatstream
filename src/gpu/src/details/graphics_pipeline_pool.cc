@@ -1,4 +1,4 @@
-#include "vkgs/gpu/details/graphics_pipeline_pool.h"
+#include "details/graphics_pipeline_pool.h"
 
 #include <array>
 #include <map>
