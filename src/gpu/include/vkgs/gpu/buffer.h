@@ -1,46 +1,37 @@
 #ifndef VKGS_GPU_BUFFER_H
 #define VKGS_GPU_BUFFER_H
 
-#include <memory>
-
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API BufferImpl : public Object {
+class BufferImpl;
+class VKGS_GPU_API Buffer : public Handle<Buffer, BufferImpl> {
  public:
-  BufferImpl(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
-  ~BufferImpl() override;
+  static Buffer Create(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
 
-  operator VkBuffer() const noexcept { return buffer_; }
+  operator VkBuffer() const;
 
-  VkDeviceSize size() const noexcept { return size_; }
-  void* data() noexcept { return ptr_; }
-  const void* data() const noexcept { return ptr_; }
+  void Keep() const;
+
+  VkDeviceSize size() const noexcept;
+  void* data() noexcept;
+  const void* data() const noexcept;
 
   template <typename T>
   T* data() noexcept {
-    return static_cast<T*>(ptr_);
+    return static_cast<T*>(data());
   }
 
   template <typename T>
   const T* data() const noexcept {
-    return static_cast<const T*>(ptr_);
+    return static_cast<const T*>(data());
   }
-
- private:
-  VkDeviceSize size_ = 0;
-  VkBuffer buffer_ = VK_NULL_HANDLE;
-  void* allocation_ = VK_NULL_HANDLE;
-  void* ptr_ = nullptr;
 };
-
-class VKGS_GPU_API Buffer : public SharedAccessor<Buffer, BufferImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

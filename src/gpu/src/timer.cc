@@ -2,36 +2,53 @@
 
 #include <stdexcept>
 
-#include <volk.h>
+#include "volk.h"
+
+#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-TimerImpl::TimerImpl(uint32_t size) : size_(size) {
-  VkQueryPoolCreateInfo query_pool_info = {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
-  query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
-  query_pool_info.queryCount = size;
-  vkCreateQueryPool(device_, &query_pool_info, NULL, &query_pool_);
-  vkResetQueryPool(device_, query_pool_, 0, size);
-}
+class TimerImpl : public Object {
+ public:
+  void __init__(uint32_t size) {
+    size_ = size;
 
-TimerImpl::~TimerImpl() { vkDestroyQueryPool(device_, query_pool_, NULL); }
-
-void TimerImpl::Record(VkCommandBuffer cb, VkPipelineStageFlags2 stage) {
-  if (counter_ >= size_) {
-    throw std::runtime_error("Timer: counter out of range");
+    VkQueryPoolCreateInfo query_pool_info = {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+    query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    query_pool_info.queryCount = size;
+    vkCreateQueryPool(device_, &query_pool_info, NULL, &query_pool_);
+    vkResetQueryPool(device_, query_pool_, 0, size);
   }
 
-  vkCmdWriteTimestamp2(cb, stage, query_pool_, counter_);
-  counter_++;
-}
+  void __del__() { vkDestroyQueryPool(device_, query_pool_, NULL); }
 
-std::vector<uint64_t> TimerImpl::GetTimestamps() const {
-  std::vector<uint64_t> timestamps(counter_);
-  vkGetQueryPoolResults(device_, query_pool_, 0, counter_, counter_ * sizeof(uint64_t), timestamps.data(),
-                        sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
-  return timestamps;
-}
+  void Record(VkCommandBuffer cb, VkPipelineStageFlags2 stage) {
+    if (counter_ >= size_) {
+      throw std::runtime_error("Timer: counter out of range");
+    }
+
+    vkCmdWriteTimestamp2(cb, stage, query_pool_, counter_);
+    counter_++;
+  }
+
+  std::vector<uint64_t> GetTimestamps() const {
+    std::vector<uint64_t> timestamps(counter_);
+    vkGetQueryPoolResults(device_, query_pool_, 0, counter_, counter_ * sizeof(uint64_t), timestamps.data(),
+                          sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    return timestamps;
+  }
+
+ private:
+  VkQueryPool query_pool_ = VK_NULL_HANDLE;
+  uint32_t size_ = 0;
+  uint32_t counter_ = 0;
+};
+
+Timer Timer::Create(uint32_t size) { return Make<TimerImpl>(size); }
+
+void Timer::Record(VkCommandBuffer cb, VkPipelineStageFlags2 stage) { impl_->Record(cb, stage); }
+std::vector<uint64_t> Timer::GetTimestamps() const { return impl_->GetTimestamps(); }
 
 }  // namespace gpu
 }  // namespace vkgs

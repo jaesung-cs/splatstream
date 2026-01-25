@@ -1,14 +1,12 @@
 #ifndef VKGS_GPU_PIPELINE_LAYOUT_H
 #define VKGS_GPU_PIPELINE_LAYOUT_H
 
-#include <memory>
 #include <vector>
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
@@ -18,21 +16,12 @@ struct PipelineLayoutCreateInfo {
   std::vector<VkPushConstantRange> push_constants;
 };
 
-class VKGS_GPU_API PipelineLayoutImpl : public Object {
+class PipelineLayoutImpl;
+class VKGS_GPU_API PipelineLayout : public Handle<PipelineLayout, PipelineLayoutImpl> {
  public:
-  PipelineLayoutImpl(const PipelineLayoutCreateInfo& create_info);
-  ~PipelineLayoutImpl() override;
+  static PipelineLayout Create(const PipelineLayoutCreateInfo& create_info);
 
-  operator VkPipelineLayout() const noexcept { return pipeline_layout_; }
-
- private:
-  VkDescriptorSetLayout descriptor_set_layout_ = VK_NULL_HANDLE;
-  VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
-};
-
-class VKGS_GPU_API PipelineLayout : public SharedAccessor<PipelineLayout, PipelineLayoutImpl> {
- public:
-  static PipelineLayout Create(const PipelineLayoutCreateInfo& create_info) { return Base::Create(create_info); }
+  operator VkPipelineLayout() const;
 };
 
 }  // namespace gpu

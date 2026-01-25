@@ -1,33 +1,47 @@
 #include "vkgs/gpu/details/fence_pool.h"
 
-#include <volk.h>
+#include <vector>
+
+#include "volk.h"
 
 #include "vkgs/gpu/details/fence.h"
 
 namespace vkgs {
 namespace gpu {
 
-FencePoolImpl::FencePoolImpl(VkDevice device) : device_(device) {}
+class FencePoolImpl : public EnableHandleFromThis<FencePool, FencePoolImpl> {
+ public:
+  void __init__(VkDevice device) { device_ = device; }
 
-FencePoolImpl::~FencePoolImpl() {
-  for (auto fence : fences_) {
-    vkDestroyFence(device_, fence, NULL);
+  void __del__() {
+    for (auto fence : fences_) {
+      vkDestroyFence(device_, fence, NULL);
+    }
   }
-}
 
-Fence FencePoolImpl::Allocate() {
-  VkFence fence;
-  if (fences_.empty()) {
-    VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    vkCreateFence(device_, &fence_info, NULL, &fence);
-  } else {
-    fence = fences_.back();
-    fences_.pop_back();
+  Fence Allocate() {
+    VkFence fence;
+    if (fences_.empty()) {
+      VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+      vkCreateFence(device_, &fence_info, NULL, &fence);
+    } else {
+      fence = fences_.back();
+      fences_.pop_back();
+    }
+    return Fence::Create(HandleFromThis(), fence);
   }
-  return Fence::Create(FencePool::FromPtr(shared_from_this()), fence);
-}
 
-void FencePoolImpl::Free(VkFence fence) { fences_.push_back(fence); }
+  void Free(VkFence fence) { fences_.push_back(fence); }
+
+ private:
+  VkDevice device_;
+  std::vector<VkFence> fences_;
+};
+
+FencePool FencePool::Create(VkDevice device) { return Make<FencePoolImpl>(device); }
+
+Fence FencePool::Allocate() { return impl_->Allocate(); }
+void FencePool::Free(VkFence fence) { impl_->Free(fence); }
 
 }  // namespace gpu
 }  // namespace vkgs

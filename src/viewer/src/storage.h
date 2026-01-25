@@ -40,7 +40,7 @@ class Storage {
 
   void SetTask(gpu::QueueTask task) { task_ = task; }
   void Wait() {
-    if (task_) task_->Wait();
+    if (task_) task_.Wait();
   }
 
   void SetVisiblePointCount(uint32_t visible_point_count) noexcept { visible_point_count_ = visible_point_count; }

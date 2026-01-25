@@ -1,35 +1,57 @@
 #include "vkgs/gpu/queue_task.h"
 
+#include "vkgs/gpu/details/command.h"
 #include "vkgs/gpu/details/fence.h"
 
 namespace vkgs {
 namespace gpu {
 
-QueueTaskImpl::QueueTaskImpl(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                             std::function<void()> callback)
-    : fence_(fence), command_(command), objects_(std::move(objects)), callback_(callback) {}
+class QueueTaskImpl {
+ public:
+  void __init__(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                std::function<void()> callback) {
+    fence_ = fence;
+    command_ = command;
+    objects_ = std::move(objects);
+    callback_ = callback;
+  }
 
-QueueTaskImpl::~QueueTaskImpl() { Wait(); }
+  void __del__() { Wait(); }
 
-bool QueueTaskImpl::IsDone() {
-  if (fence_->IsSignaled()) {
+  bool IsDone() {
+    if (fence_.IsSignaled()) {
+      if (callback_) {
+        callback_();
+        callback_ = {};
+      }
+      return true;
+    }
+    return false;
+  }
+
+  void Wait() {
+    fence_.Wait();
+
     if (callback_) {
       callback_();
       callback_ = {};
     }
-    return true;
   }
-  return false;
+
+ private:
+  Fence fence_;
+  Command command_;
+  std::vector<std::shared_ptr<Object>> objects_;
+  std::function<void()> callback_;
+};
+
+QueueTask QueueTask::Create(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                            std::function<void()> callback) {
+  return Make<QueueTaskImpl>(fence, command, std::move(objects), callback);
 }
 
-void QueueTaskImpl::Wait() {
-  fence_->Wait();
-
-  if (callback_) {
-    callback_();
-    callback_ = {};
-  }
-}
+bool QueueTask::IsDone() { return impl_->IsDone(); }
+void QueueTask::Wait() { impl_->Wait(); }
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -1,28 +1,22 @@
 #ifndef VKGS_GPU_DETAILS_COMMAND_H
 #define VKGS_GPU_DETAILS_COMMAND_H
 
-#include <memory>
-
 #include <vulkan/vulkan.h>
 
-#include "vkgs/gpu/details/command_pool.h"
+#include "vkgs/common/handle.h"
 
 namespace vkgs {
 namespace gpu {
 
-class CommandImpl {
+class CommandPool;
+
+class CommandImpl;
+class Command : public Handle<Command, CommandImpl> {
  public:
-  CommandImpl(CommandPool command_pool, VkCommandBuffer cb);
-  ~CommandImpl();
+  static Command Create(CommandPool command_pool, VkCommandBuffer cb);
 
-  operator VkCommandBuffer() const noexcept { return cb_; }
-
- private:
-  CommandPool command_pool_;
-  VkCommandBuffer cb_ = VK_NULL_HANDLE;
+  operator VkCommandBuffer() const;
 };
-
-class Command : public SharedAccessor<Command, CommandImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

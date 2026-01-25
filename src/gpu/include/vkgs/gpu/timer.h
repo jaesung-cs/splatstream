@@ -2,32 +2,23 @@
 #define VKGS_GPU_TIMER_H
 
 #include <vector>
-#include <memory>
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API TimerImpl : public Object {
+class TimerImpl;
+class VKGS_GPU_API Timer : public Handle<Timer, TimerImpl> {
  public:
-  TimerImpl(uint32_t size);
-  ~TimerImpl() override;
+  static Timer Create(uint32_t size);
 
   void Record(VkCommandBuffer cb, VkPipelineStageFlags2 stage);
   std::vector<uint64_t> GetTimestamps() const;
-
- private:
-  VkQueryPool query_pool_ = VK_NULL_HANDLE;
-  uint32_t size_ = 0;
-  uint32_t counter_ = 0;
 };
-
-class VKGS_GPU_API Timer : public SharedAccessor<Timer, TimerImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

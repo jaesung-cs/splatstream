@@ -1,35 +1,25 @@
 #ifndef VKGS_GPU_DETAILS_SEMAPHORE_POOL_H
 #define VKGS_GPU_DETAILS_SEMAPHORE_POOL_H
 
-#include <memory>
-#include <vector>
-
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Semaphore;
 
-class SemaphorePoolImpl : public std::enable_shared_from_this<SemaphorePoolImpl> {
+class SemaphorePoolImpl;
+class SemaphorePool : public Handle<SemaphorePool, SemaphorePoolImpl> {
  public:
-  explicit SemaphorePoolImpl(VkDevice device);
-  ~SemaphorePoolImpl();
+  static SemaphorePool Create(VkDevice device);
 
   Semaphore Allocate();
   void Free(VkSemaphore semaphore, uint64_t value);
-
- private:
-  VkDevice device_;
-
-  std::vector<std::pair<VkSemaphore, uint64_t>> semaphores_;
 };
-
-class SemaphorePool : public SharedAccessor<SemaphorePool, SemaphorePoolImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs
 
-#endif  // VKGS_GPU_SEMAPHORE_POOL_H
+#endif  // VKGS_GPU_DETAILS_SEMAPHORE_POOL_H

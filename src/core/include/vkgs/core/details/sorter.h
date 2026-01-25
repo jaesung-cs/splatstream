@@ -3,25 +3,20 @@
 
 #include "vk_radix_sort.h"
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 
 namespace vkgs {
 namespace core {
 
-class SorterImpl {
+class SorterImpl;
+class Sorter : public Handle<Sorter, SorterImpl> {
  public:
-  explicit SorterImpl(VkDevice device, VkPhysicalDevice physical_device);
-  ~SorterImpl();
+  static Sorter Create(VkDevice device, VkPhysicalDevice physical_device);
 
   VrdxSorterStorageRequirements GetStorageRequirements(size_t max_size) const;
   void SortKeyValueIndirect(VkCommandBuffer cb, size_t max_size, VkBuffer size, VkBuffer key, VkBuffer value,
                             VkBuffer storage) const;
-
- private:
-  VrdxSorter sorter_ = VK_NULL_HANDLE;
 };
-
-class Sorter : public SharedAccessor<Sorter, SorterImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

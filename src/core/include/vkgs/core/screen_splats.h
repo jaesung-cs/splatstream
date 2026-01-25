@@ -6,7 +6,7 @@
 
 #include "glm/glm.hpp"
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/buffer.h"
 
 #include "vkgs/core/export_api.h"
@@ -14,41 +14,24 @@
 namespace vkgs {
 namespace core {
 
-class VKGS_CORE_API ScreenSplatsImpl {
+class ScreenSplatsImpl;
+class VKGS_CORE_API ScreenSplats : public Handle<ScreenSplats, ScreenSplatsImpl> {
  public:
-  ScreenSplatsImpl();
-  ~ScreenSplatsImpl();
+  static ScreenSplats Create();
 
-  void SetProjection(const glm::mat4& projection) { projection_ = projection; }
-  void SetIndexBuffer(gpu::Buffer index_buffer) { index_buffer_ = index_buffer; }
+  void SetProjection(const glm::mat4& projection);
+  void SetIndexBuffer(gpu::Buffer index_buffer);
 
-  auto visible_point_count() const noexcept { return visible_point_count_; }
-  auto projection() const noexcept { return projection_; }
-  auto draw_indirect() const noexcept { return draw_indirect_; }
-  auto instances() const noexcept { return instances_; }
-  auto index_buffer() const noexcept { return index_buffer_; }
-  auto stats() const noexcept { return stats_; }
+  gpu::Buffer visible_point_count() const;
+  glm::mat4 projection() const;
+  gpu::Buffer draw_indirect() const;
+  gpu::Buffer instances() const;
+  gpu::Buffer index_buffer() const;
+  gpu::Buffer stats() const;
 
   // Internal
   void Update(uint32_t point_count);
-
- private:
-  uint32_t point_count_ = 0;
-  glm::mat4 projection_;
-
-  // Fixed
-  gpu::Buffer visible_point_count_;  // (1)
-  gpu::Buffer draw_indirect_;        // (DrawIndirect)
-  gpu::Buffer stats_;                // (Stats)
-
-  // Variable
-  gpu::Buffer instances_;  // (N, 12)
-
-  // Shared
-  gpu::Buffer index_buffer_;  // (6N)
 };
-
-class VKGS_CORE_API ScreenSplats : public SharedAccessor<ScreenSplats, ScreenSplatsImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

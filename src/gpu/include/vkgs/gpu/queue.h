@@ -1,13 +1,9 @@
 #ifndef VKGS_GPU_QUEUE_H
 #define VKGS_GPU_QUEUE_H
 
-#include <memory>
-
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
-
-#include "vkgs/gpu/details/command_pool.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
 
 namespace vkgs {
@@ -15,27 +11,17 @@ namespace gpu {
 
 class Command;
 
-class VKGS_GPU_API QueueImpl {
+class QueueImpl;
+class VKGS_GPU_API Queue : public Handle<Queue, QueueImpl> {
  public:
-  QueueImpl(VkDevice device, VkQueue queue, uint32_t family_index);
-  ~QueueImpl();
+  static Queue Create(VkDevice device, VkQueue queue, uint32_t family_index);
 
-  operator VkQueue() const noexcept { return queue_; }
-  operator uint32_t() const noexcept { return family_index_; }
-  auto family_index() const noexcept { return family_index_; }
+  operator VkQueue() const;
+  operator uint32_t() const;
+  auto family_index() const;
 
   Command AllocateCommandBuffer();
-
- private:
-  VkDevice device_;
-
-  VkQueue queue_ = VK_NULL_HANDLE;
-  uint32_t family_index_ = 0;
-
-  CommandPool command_pool_;
 };
-
-class VKGS_GPU_API Queue : public SharedAccessor<Queue, QueueImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

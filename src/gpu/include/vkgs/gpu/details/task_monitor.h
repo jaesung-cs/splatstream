@@ -5,7 +5,7 @@
 #include <vector>
 #include <functional>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 
 namespace vkgs {
 namespace gpu {
@@ -15,24 +15,15 @@ class Command;
 class Fence;
 class Object;
 
-class TaskMonitorImpl {
+class TaskMonitorImpl;
+class TaskMonitor : public Handle<TaskMonitor, TaskMonitorImpl> {
  public:
-  TaskMonitorImpl();
-  ~TaskMonitorImpl();
+  static TaskMonitor Create();
 
   void FinishAllTasks();
-
   QueueTask Add(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
                 std::function<void()> callback);
-
- private:
-  void gc();
-
-  std::vector<QueueTask> tasks_;
-  int rotation_index_ = 0;
 };
-
-class TaskMonitor : public SharedAccessor<TaskMonitor, TaskMonitorImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

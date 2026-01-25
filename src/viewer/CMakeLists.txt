@@ -1,6 +1,3 @@
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
 include(FetchContent)
 
 FetchContent_Declare(
@@ -42,7 +39,6 @@ add_library(vkgs_viewer SHARED
   src/pose_spline.cc
   src/storage.cc
   src/util.cc
-  src/viewer_impl.cc
   src/viewer.cc
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp

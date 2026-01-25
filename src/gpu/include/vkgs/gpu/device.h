@@ -8,14 +8,10 @@
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
-
-#include "vkgs/gpu/details/fence_pool.h"
-#include "vkgs/gpu/details/semaphore_pool.h"
-#include "vkgs/gpu/details/graphics_pipeline_pool.h"
-#include "vkgs/gpu/details/task_monitor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/queue.h"
+
+struct VmaAllocator_T;
 
 namespace vkgs {
 namespace gpu {
@@ -27,6 +23,7 @@ struct GraphicsPipelineCreateInfo;
 class GraphicsPipeline;
 class Command;
 class QueueTask;
+class Queue;
 class Task;
 
 struct DeviceCreateInfo {
@@ -34,26 +31,26 @@ struct DeviceCreateInfo {
   std::vector<const char*> instance_extensions;
 };
 
-class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> {
+class DeviceImpl;
+class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
  public:
-  DeviceImpl(const DeviceCreateInfo& create_info);
-  ~DeviceImpl();
+  static Device Create(const DeviceCreateInfo& create_info);
 
-  operator VkDevice() const noexcept { return device_; }
+  operator VkDevice() const noexcept;
 
-  const std::string& device_name() const noexcept { return device_name_; }
+  const std::string& device_name() const noexcept;
   uint32_t graphics_queue_index() const noexcept;
   uint32_t compute_queue_index() const noexcept;
   uint32_t transfer_queue_index() const noexcept;
 
-  auto instance() const noexcept { return instance_; }
-  auto allocator() const noexcept { return allocator_; }
-  auto physical_device() const noexcept { return physical_device_; }
-  auto device() const noexcept { return device_; }
+  VkInstance instance() const noexcept;
+  VmaAllocator_T* allocator() const noexcept;
+  VkPhysicalDevice physical_device() const noexcept;
+  VkDevice device() const noexcept;
 
-  auto graphics_queue() const noexcept { return graphics_queue_; }
-  auto compute_queue() const noexcept { return compute_queue_; }
-  auto transfer_queue() const noexcept { return transfer_queue_; }
+  Queue graphics_queue() const noexcept;
+  Queue compute_queue() const noexcept;
+  Queue transfer_queue() const noexcept;
 
   Semaphore AllocateSemaphore();
   Fence AllocateFence();
@@ -62,35 +59,13 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
   void WaitIdle();
 
   // Internal
-  void SetCurrentTask(Task* task) { current_task_ = task; }
-  void ClearCurrentTask() { current_task_ = nullptr; }
-  Task* CurrentTask() const { return current_task_; }
+  void SetCurrentTask(Task* task);
+  void ClearCurrentTask();
+  Task* CurrentTask() const;
 
   QueueTask AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
                          std::function<void()> callback);
-
- private:
-  std::string device_name_;
-
-  VkInstance instance_ = VK_NULL_HANDLE;
-  VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
-  VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
-  VkDevice device_ = VK_NULL_HANDLE;
-
-  void* allocator_ = VK_NULL_HANDLE;
-
-  Queue graphics_queue_;
-  Queue compute_queue_;
-  Queue transfer_queue_;
-  SemaphorePool semaphore_pool_;
-  FencePool fence_pool_;
-  GraphicsPipelinePool graphics_pipeline_pool_;
-  TaskMonitor task_monitor_;
-
-  Task* current_task_ = nullptr;
 };
-
-class VKGS_GPU_API Device : public SharedAccessor<Device, DeviceImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

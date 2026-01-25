@@ -1,6 +1,3 @@
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
 find_package(Vulkan REQUIRED)
 
 include(FetchContent)
@@ -42,6 +39,7 @@ target_include_directories(vkgs_core
 target_link_libraries(vkgs_core
   PUBLIC
     Vulkan::Vulkan
+    vkgs::common
     glm::glm
     vkgs::gpu
     vk_radix_sort

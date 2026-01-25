@@ -1,6 +1,6 @@
 #include "vkgs/gpu/task.h"
 
-#include <volk.h>
+#include "volk.h"
 
 #include "vkgs/gpu/details/fence.h"
 #include "vkgs/gpu/details/command.h"
@@ -12,22 +12,22 @@ namespace gpu {
 
 Task::Task(QueueType queue_type) {
   device_ = GetDevice();
-  device_->SetCurrentTask(this);
+  device_.SetCurrentTask(this);
 
   switch (queue_type) {
     case QueueType::TRANSFER:
-      queue_ = device_->transfer_queue();
+      queue_ = device_.transfer_queue();
       break;
     case QueueType::COMPUTE:
-      queue_ = device_->compute_queue();
+      queue_ = device_.compute_queue();
       break;
     case QueueType::GRAPHICS:
-      queue_ = device_->graphics_queue();
+      queue_ = device_.graphics_queue();
       break;
   }
 
-  command_ = queue_->AllocateCommandBuffer();
-  fence_ = device_->AllocateFence();
+  command_ = queue_.AllocateCommandBuffer();
+  fence_ = device_.AllocateFence();
 
   VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -111,9 +111,9 @@ QueueTask Task::Submit() {
   submit.pSignalSemaphoreInfos = signal_semaphore_infos_.data();
   vkQueueSubmit2(queue_, 1, &submit, fence_);
 
-  auto task = device_->AddQueueTask(fence_, command_, std::move(objects_), callback_);
+  auto task = device_.AddQueueTask(fence_, command_, std::move(objects_), callback_);
   submitted_ = true;
-  device_->ClearCurrentTask();
+  device_.ClearCurrentTask();
   return task;
 }
 

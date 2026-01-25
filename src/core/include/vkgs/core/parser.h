@@ -5,10 +5,9 @@
 #include <string>
 #include <cstdint>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/compute_pipeline.h"
-
 #include "vkgs/core/export_api.h"
 
 namespace vkgs {
@@ -17,24 +16,16 @@ namespace core {
 
 class GaussianSplats;
 
-class VKGS_CORE_API ParserImpl {
+class ParserImpl;
+class VKGS_CORE_API Parser : public Handle<Parser, ParserImpl> {
  public:
-  ParserImpl();
-  ~ParserImpl();
+  static Parser Create();
 
   GaussianSplats CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
                                       const float* opacities, const uint16_t* colors, int sh_degree,
-                                      int opacity_degree);
-
-  GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
-
- private:
-  gpu::PipelineLayout parse_pipeline_layout_;
-  gpu::ComputePipeline parse_ply_pipeline_;
-  gpu::ComputePipeline parse_data_pipeline_;
+                                      int opacity_degree) const;
+  GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1) const;
 };
-
-class Parser : public SharedAccessor<Parser, ParserImpl> {};
 
 }  // namespace core
 }  // namespace vkgs

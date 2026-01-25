@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 
 #include "vkgs/viewer/export_api.h"
 #include "vkgs/viewer/camera_params.h"
@@ -16,10 +16,10 @@ class Renderer;
 
 namespace viewer {
 
-class VKGS_VIEWER_API ViewerImpl {
+class ViewerImpl;
+class VKGS_VIEWER_API Viewer : public Handle<Viewer, ViewerImpl> {
  public:
-  ViewerImpl();
-  ~ViewerImpl();
+  static Viewer Create();
 
   void SetRenderer(core::Renderer renderer);
   void SetSplats(core::GaussianSplats splats);
@@ -28,13 +28,7 @@ class VKGS_VIEWER_API ViewerImpl {
   void ClearCameras();
 
   void Run();
-
- private:
-  class Impl;
-  std::shared_ptr<Impl> impl_;
 };
-
-class Viewer : public SharedAccessor<Viewer, ViewerImpl> {};
 
 }  // namespace viewer
 }  // namespace vkgs

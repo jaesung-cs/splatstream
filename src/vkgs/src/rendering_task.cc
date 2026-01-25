@@ -10,9 +10,9 @@ class RenderingTask::Impl {
   ~Impl() = default;
 
   void Wait() {
-    task_->Wait();
+    task_.Wait();
 
-    auto result = task_->draw_result();
+    auto result = task_.draw_result();
     result_ = {
         .compute_timestamp = result.compute_timestamp,
         .graphics_timestamp = result.graphics_timestamp,

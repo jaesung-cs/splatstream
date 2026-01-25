@@ -5,33 +5,25 @@
 #include <vector>
 #include <functional>
 
-#include "vkgs/gpu/details/fence.h"
-#include "vkgs/gpu/details/command.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
 
 namespace vkgs {
 namespace gpu {
 
+class Fence;
+class Command;
 class Object;
 
-class VKGS_GPU_API QueueTaskImpl {
+class QueueTaskImpl;
+class VKGS_GPU_API QueueTask : public Handle<QueueTask, QueueTaskImpl> {
  public:
-  QueueTaskImpl(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                std::function<void()> callback);
-
-  ~QueueTaskImpl();
+  static QueueTask Create(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+                          std::function<void()> callback);
 
   bool IsDone();
   void Wait();
-
- private:
-  Fence fence_;
-  Command command_;
-  std::vector<std::shared_ptr<Object>> objects_;
-  std::function<void()> callback_;
 };
-
-class VKGS_GPU_API QueueTask : public SharedAccessor<QueueTask, QueueTaskImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

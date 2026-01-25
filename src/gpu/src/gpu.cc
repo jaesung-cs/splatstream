@@ -19,7 +19,7 @@ Device GetDevice() {
     device_impl = new_device.impl();
     return new_device;
   }
-  return Device::FromPtr(device_impl.lock());
+  return Device::CreateHandle(device_impl.lock());
 }
 
 }  // namespace gpu

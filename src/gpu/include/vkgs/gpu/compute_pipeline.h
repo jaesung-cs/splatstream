@@ -6,30 +6,25 @@
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
 #include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API ComputePipelineImpl : public Object {
+class ComputePipelineImpl;
+class VKGS_GPU_API ComputePipeline : public Handle<ComputePipeline, ComputePipelineImpl> {
  public:
-  ComputePipelineImpl(VkPipelineLayout pipeline_layout, const uint32_t* shader, size_t size);
+  static ComputePipeline Create(VkPipelineLayout pipeline_layout, const uint32_t* shader, size_t size);
 
   template <size_t N>
-  ComputePipelineImpl(VkPipelineLayout pipeline_layout, const uint32_t (&shader)[N])
-      : ComputePipelineImpl(pipeline_layout, shader, N) {}
+  static ComputePipeline Create(VkPipelineLayout pipeline_layout, const uint32_t (&shader)[N]) {
+    return Create(pipeline_layout, shader, N);
+  }
 
-  ~ComputePipelineImpl() override;
-
-  operator VkPipeline() const noexcept { return pipeline_; }
-
- private:
-  VkPipeline pipeline_ = VK_NULL_HANDLE;
+  operator VkPipeline() const noexcept;
 };
-
-class VKGS_GPU_API ComputePipeline : public SharedAccessor<ComputePipeline, ComputePipelineImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs
