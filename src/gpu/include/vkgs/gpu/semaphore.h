@@ -16,13 +16,18 @@ class VKGS_GPU_API Semaphore : public Handle<Semaphore, SemaphoreImpl> {
  public:
   static Semaphore Create(SemaphorePool semaphore_pool, VkSemaphore semaphore, uint64_t value);
 
+  void Keep();
+
   operator VkSemaphore() const;
   uint64_t value() const;
 
   void Wait();
 
   void SetValue(uint64_t value);
-  void Increment();
+
+  Semaphore& operator++();
+  void operator++(int);  // lvalue-to-rvalue not allowed.
+  Semaphore& operator+=(int value);
 };
 
 }  // namespace gpu

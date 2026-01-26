@@ -13,6 +13,7 @@
 #include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/device.h"
+#include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/compute_pipeline.h"
@@ -26,7 +27,6 @@
 #include "vkgs/core/rendering_task.h"
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/draw_options.h"
-#include "vkgs/core/screen_splat_options.h"
 #include "vkgs/core/draw_result.h"
 
 #include "details/compute_storage.h"
@@ -53,21 +53,16 @@ namespace core {
 class RendererImpl {
  public:
   void __init__() {
-    auto device = gpu::GetDevice();
-    sorter_ = Sorter::Create(device, device.physical_device());
-
-    device_name_ = device.device_name();
-    graphics_queue_index_ = device.graphics_queue_index();
-    compute_queue_index_ = device.compute_queue_index();
-    transfer_queue_index_ = device.transfer_queue_index();
+    device_ = gpu::GetDevice();
+    sorter_ = Sorter::Create(device_, device_);
 
     for (auto& buffer : ring_buffer_) {
       buffer.compute_storage = ComputeStorage::Create();
       buffer.screen_splats = ScreenSplats::Create();
       buffer.graphics_storage = GraphicsStorage::Create();
-      buffer.compute_semaphore = device.AllocateSemaphore();
-      buffer.graphics_semaphore = device.AllocateSemaphore();
-      buffer.transfer_semaphore = device.AllocateSemaphore();
+      buffer.compute_semaphore = device_.AllocateSemaphore();
+      buffer.graphics_semaphore = device_.AllocateSemaphore();
+      buffer.transfer_semaphore = device_.AllocateSemaphore();
     }
 
     compute_pipeline_layout_ = gpu::PipelineLayout::Create({
@@ -96,10 +91,7 @@ class RendererImpl {
     });
   }
 
-  const std::string& device_name() const noexcept { return device_name_; }
-  uint32_t graphics_queue_index() const noexcept { return graphics_queue_index_; }
-  uint32_t compute_queue_index() const noexcept { return compute_queue_index_; }
-  uint32_t transfer_queue_index() const noexcept { return transfer_queue_index_; }
+  const std::string& device_name() const noexcept { return device_.device_name(); }
 
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options,
                      const ScreenSplatOptions& screen_splat_options, uint8_t* dst) {
@@ -122,9 +114,9 @@ class RendererImpl {
     auto tsem = ring_buffer.transfer_semaphore;
     auto tval = tsem.value();
 
-    auto cq = compute_queue_index_;
-    auto gq = graphics_queue_index_;
-    auto tq = transfer_queue_index_;
+    auto cq = device_.compute_queue();
+    auto gq = device_.graphics_queue();
+    auto tq = device_.transfer_queue();
 
     screen_splats.Update(N);
     graphics_storage.Update(width, height);
@@ -152,6 +144,9 @@ class RendererImpl {
                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
       // C[i].comp
       task.Signal(csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+
+      csem.Keep();
+      gsem.Keep();
     }
 
     auto image = graphics_storage.image();
@@ -245,6 +240,12 @@ class RendererImpl {
                       VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
       // G[i].blit
       task.Signal(gsem, gval + 2, VK_PIPELINE_STAGE_2_BLIT_BIT);
+
+      csem.Keep();
+      tsem.Keep();
+      gsem.Keep();
+      image.Keep();
+      image_u8.Keep();
     }
 
     auto image_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
@@ -287,15 +288,20 @@ class RendererImpl {
       task.Wait(gsem, gval + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
       // T[i].xfer
       task.Signal(tsem, tval + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+
+      gsem.Keep();
+      tsem.Keep();
+      image_u8.Keep();
+      image_buffer.Keep();
+
       queue_task = task.Submit();
     }
 
     rendering_task.SetTask(queue_task);
 
-    csem.Increment();
-    gsem.Increment();
-    gsem.Increment();
-    tsem.Increment();
+    csem++;
+    gsem += 2;
+    tsem++;
     frame_index_++;
 
     return rendering_task;
@@ -421,6 +427,10 @@ class RendererImpl {
     if (draw_options.record_stat) {
     }
 
+    position_opacity.Keep();
+    cov3d.Keep();
+    sh.Keep();
+    opacity_sh.Keep();
     visible_point_count.Keep();
     key.Keep();
     index.Keep();
@@ -503,11 +513,7 @@ class RendererImpl {
   }
 
  private:
-  std::string device_name_;
-  uint32_t graphics_queue_index_;
-  uint32_t compute_queue_index_;
-  uint32_t transfer_queue_index_;
-
+  gpu::Device device_;
   Sorter sorter_;
 
   gpu::PipelineLayout compute_pipeline_layout_;
@@ -534,9 +540,6 @@ class RendererImpl {
 Renderer Renderer::Create() { return Make<RendererImpl>(); }
 
 const std::string& Renderer::device_name() const { return impl_->device_name(); }
-uint32_t Renderer::graphics_queue_index() const { return impl_->graphics_queue_index(); }
-uint32_t Renderer::compute_queue_index() const { return impl_->compute_queue_index(); }
-uint32_t Renderer::transfer_queue_index() const { return impl_->transfer_queue_index(); }
 
 RenderingTask Renderer::Draw(GaussianSplats splats, const DrawOptions& draw_options,
                              const ScreenSplatOptions& screen_splat_options, uint8_t* dst) {

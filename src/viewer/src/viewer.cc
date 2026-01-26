@@ -39,7 +39,6 @@
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/stats.h"
 #include "vkgs/core/draw_options.h"
-#include "vkgs/core/screen_splat_options.h"
 
 #include "vkgs/viewer/camera_params.h"
 #include "generated/color_vert.h"
@@ -319,7 +318,7 @@ class ViewerImpl {
     ImGui_ImplGlfw_InitForVulkan(window_, true);
     ImGui_ImplVulkan_InitInfo init_info = {
         .Instance = device.instance(),
-        .PhysicalDevice = device.physical_device(),
+        .PhysicalDevice = device,
         .Device = device,
         .QueueFamily = gq,
         .Queue = gq,
@@ -907,8 +906,8 @@ class ViewerImpl {
       task.Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 
-    csem.Increment();
-    gsem.Increment();
+    csem++;
+    gsem++;
   }
 
   std::shared_ptr<Context> context_;

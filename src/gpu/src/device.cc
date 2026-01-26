@@ -282,17 +282,13 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
     volkFinalize();
   }
 
+  operator VkPhysicalDevice() const noexcept { return physical_device_; }
   operator VkDevice() const noexcept { return device_; }
 
   const std::string& device_name() const noexcept { return device_name_; }
-  uint32_t graphics_queue_index() const noexcept { return graphics_queue_; }
-  uint32_t compute_queue_index() const noexcept { return compute_queue_; }
-  uint32_t transfer_queue_index() const noexcept { return transfer_queue_; }
 
   auto instance() const noexcept { return instance_; }
   auto allocator() const noexcept { return allocator_; }
-  auto physical_device() const noexcept { return physical_device_; }
-  auto device() const noexcept { return device_; }
 
   auto graphics_queue() const noexcept { return graphics_queue_; }
   auto compute_queue() const noexcept { return compute_queue_; }
@@ -342,17 +338,13 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
 
 Device Device::Create(const DeviceCreateInfo& create_info) { return Make<DeviceImpl>(create_info); }
 
-Device::operator VkDevice() const noexcept { return impl_->operator VkDevice(); }
+Device::operator VkPhysicalDevice() const noexcept { return *impl_; }
+Device::operator VkDevice() const noexcept { return *impl_; }
 
 const std::string& Device::device_name() const noexcept { return impl_->device_name(); }
-uint32_t Device::graphics_queue_index() const noexcept { return impl_->graphics_queue_index(); }
-uint32_t Device::compute_queue_index() const noexcept { return impl_->compute_queue_index(); }
-uint32_t Device::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
 
 VkInstance Device::instance() const noexcept { return impl_->instance(); }
 VmaAllocator Device::allocator() const noexcept { return impl_->allocator(); }
-VkPhysicalDevice Device::physical_device() const noexcept { return impl_->physical_device(); }
-VkDevice Device::device() const noexcept { return impl_->device(); }
 
 Queue Device::graphics_queue() const noexcept { return impl_->graphics_queue(); }
 Queue Device::compute_queue() const noexcept { return impl_->compute_queue(); }

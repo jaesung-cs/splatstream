@@ -13,6 +13,7 @@
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/task.h"
+#include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/queue_task.h"
@@ -167,9 +168,9 @@ class VKGS_CORE_API ParserImpl {
 
     auto device = gpu::GetDevice();
     auto sem = device.AllocateSemaphore();
-    auto tq = device.transfer_queue_index();
-    auto cq = device.compute_queue_index();
-    auto gq = device.graphics_queue_index();
+    auto tq = device.transfer_queue();
+    auto cq = device.compute_queue();
+    auto gq = device.graphics_queue();
 
     // Transfer queue: stage to buffers
     {
@@ -264,7 +265,7 @@ class VKGS_CORE_API ParserImpl {
       task.Wait(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
     }
 
-    sem.Increment();
+    sem++;
 
     return GaussianSplats::Create(size, sh_degree, opacity_degree, position_opacity, cov3d, sh, opacity_sh,
                                   index_buffer, queue_task);
@@ -398,9 +399,9 @@ class VKGS_CORE_API ParserImpl {
 
     auto device = gpu::GetDevice();
     auto sem = device.AllocateSemaphore();
-    auto tq = device.transfer_queue_index();
-    auto cq = device.compute_queue_index();
-    auto gq = device.graphics_queue_index();
+    auto tq = device.transfer_queue();
+    auto cq = device.compute_queue();
+    auto gq = device.graphics_queue();
 
     // Transfer queue: stage to buffers
     {
@@ -468,7 +469,7 @@ class VKGS_CORE_API ParserImpl {
       task.Wait(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     }
 
-    sem.Increment();
+    sem++;
 
     return GaussianSplats::Create(point_count, sh_degree, -1, position_opacity, cov3d, sh, opacity_sh, index_buffer,
                                   queue_task);

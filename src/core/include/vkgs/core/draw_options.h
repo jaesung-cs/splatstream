@@ -18,6 +18,10 @@ struct DrawOptions {
   bool record_stat;
 };
 
+struct ScreenSplatOptions {
+  float confidence_radius;
+};
+
 }  // namespace core
 }  // namespace vkgs
 

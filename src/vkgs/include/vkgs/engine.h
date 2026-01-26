@@ -20,9 +20,6 @@ class VKGS_API Engine {
   ~Engine();
 
   const std::string& device_name() const noexcept;
-  uint32_t graphics_queue_index() const noexcept;
-  uint32_t compute_queue_index() const noexcept;
-  uint32_t transfer_queue_index() const noexcept;
 
   GaussianSplats LoadFromPly(const std::string& path, int sh_degree = -1);
   GaussianSplats CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,

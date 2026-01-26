@@ -115,10 +115,8 @@ class SwapchainImpl : public Object {
 
  private:
   void GetDefaultSwapchainCreateInfo(VkSwapchainCreateInfoKHR* swapchain_info) {
-    auto physical_device = device_.physical_device();
-
     VkSurfaceCapabilitiesKHR surface_capabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface_, &surface_capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_, surface_, &surface_capabilities);
 
     *swapchain_info = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     swapchain_info->surface = surface_;

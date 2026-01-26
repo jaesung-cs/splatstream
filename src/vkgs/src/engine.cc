@@ -11,7 +11,6 @@
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendering_task.h"
 #include "vkgs/core/draw_options.h"
-#include "vkgs/core/screen_splat_options.h"
 #include "vkgs/viewer/camera_params.h"
 #include "vkgs/viewer/viewer.h"
 
@@ -26,9 +25,6 @@ class Engine::Impl {
   ~Impl() = default;
 
   const std::string& device_name() const noexcept { return renderer_.device_name(); }
-  uint32_t graphics_queue_index() const noexcept { return renderer_.graphics_queue_index(); }
-  uint32_t compute_queue_index() const noexcept { return renderer_.compute_queue_index(); }
-  uint32_t transfer_queue_index() const noexcept { return renderer_.transfer_queue_index(); }
 
   GaussianSplats LoadFromPly(const std::string& path, int sh_degree) {
     return GaussianSplats(parser_.LoadFromPly(path, sh_degree));
@@ -86,9 +82,6 @@ Engine::Engine() : impl_(std::make_shared<Impl>()) {}
 Engine::~Engine() = default;
 
 const std::string& Engine::device_name() const noexcept { return impl_->device_name(); }
-uint32_t Engine::graphics_queue_index() const noexcept { return impl_->graphics_queue_index(); }
-uint32_t Engine::compute_queue_index() const noexcept { return impl_->compute_queue_index(); }
-uint32_t Engine::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
 
 GaussianSplats Engine::LoadFromPly(const std::string& path, int sh_degree) {
   return impl_->LoadFromPly(path, sh_degree);

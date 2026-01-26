@@ -36,17 +36,13 @@ class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
  public:
   static Device Create(const DeviceCreateInfo& create_info);
 
+  operator VkPhysicalDevice() const noexcept;
   operator VkDevice() const noexcept;
 
   const std::string& device_name() const noexcept;
-  uint32_t graphics_queue_index() const noexcept;
-  uint32_t compute_queue_index() const noexcept;
-  uint32_t transfer_queue_index() const noexcept;
 
   VkInstance instance() const noexcept;
   VmaAllocator_T* allocator() const noexcept;
-  VkPhysicalDevice physical_device() const noexcept;
-  VkDevice device() const noexcept;
 
   Queue graphics_queue() const noexcept;
   Queue compute_queue() const noexcept;

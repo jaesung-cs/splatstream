@@ -31,9 +31,6 @@ class VKGS_CORE_API Renderer : public Handle<Renderer, RendererImpl> {
   static Renderer Create();
 
   const std::string& device_name() const;
-  uint32_t graphics_queue_index() const;
-  uint32_t compute_queue_index() const;
-  uint32_t transfer_queue_index() const;
 
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options,
                      const ScreenSplatOptions& screen_splat_options, uint8_t* dst);

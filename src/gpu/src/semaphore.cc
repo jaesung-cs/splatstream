@@ -34,7 +34,18 @@ class SemaphoreImpl : public Object {
   }
 
   void SetValue(uint64_t value) { value_ = value; }
-  void Increment() { value_++; }
+
+  SemaphoreImpl& operator++() {
+    ++value_;
+    return *this;
+  }
+
+  void operator++(int) { value_++; }
+
+  SemaphoreImpl& operator+=(int value) {
+    value_ += value;
+    return *this;
+  }
 
  private:
   SemaphorePool semaphore_pool_;
@@ -47,11 +58,24 @@ Semaphore Semaphore::Create(SemaphorePool semaphore_pool, VkSemaphore semaphore,
   return Make<SemaphoreImpl>(semaphore_pool, semaphore, value);
 }
 
+void Semaphore::Keep() { impl_->Keep(); }
+
 Semaphore::operator VkSemaphore() const { return *impl_; }
 uint64_t Semaphore::value() const { return impl_->value(); }
 void Semaphore::Wait() { impl_->Wait(); }
 void Semaphore::SetValue(uint64_t value) { impl_->SetValue(value); }
-void Semaphore::Increment() { impl_->Increment(); }
+
+Semaphore& Semaphore::operator++() {
+  ++*impl_;
+  return *this;
+}
+
+void Semaphore::operator++(int) { (*impl_)++; }
+
+Semaphore& Semaphore::operator+=(int value) {
+  *impl_ += value;
+  return *this;
+}
 
 }  // namespace gpu
 }  // namespace vkgs

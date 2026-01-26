@@ -25,7 +25,7 @@ class ImageImpl : public Object {
         break;
     }
 
-    VmaAllocator allocator = static_cast<VmaAllocator>(device_.allocator());
+    VmaAllocator allocator = device_.allocator();
     VmaAllocation allocation = VK_NULL_HANDLE;
 
     VkImageCreateInfo image_info = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};

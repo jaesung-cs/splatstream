@@ -18,7 +18,7 @@ class BufferImpl : public Object {
     buffer_info.size = size;
     buffer_info.usage = usage;
 
-    VmaAllocator allocator = static_cast<VmaAllocator>(device_.allocator());
+    VmaAllocator allocator = device_.allocator();
     VmaAllocation allocation = VK_NULL_HANDLE;
     if (host) {
       VmaAllocationCreateInfo allocation_info = {};
@@ -36,10 +36,8 @@ class BufferImpl : public Object {
   }
 
   void __del__() {
-    VmaAllocator allocator = static_cast<VmaAllocator>(device_.allocator());
-    VmaAllocation allocation = static_cast<VmaAllocation>(allocation_);
-
-    vmaDestroyBuffer(allocator, buffer_, allocation);
+    VmaAllocator allocator = device_.allocator();
+    vmaDestroyBuffer(allocator, buffer_, allocation_);
   }
 
   operator VkBuffer() const noexcept { return buffer_; }
@@ -61,7 +59,7 @@ class BufferImpl : public Object {
  private:
   VkDeviceSize size_ = 0;
   VkBuffer buffer_ = VK_NULL_HANDLE;
-  void* allocation_ = VK_NULL_HANDLE;
+  VmaAllocation allocation_ = VK_NULL_HANDLE;
   void* ptr_ = nullptr;
 };
 
