@@ -28,9 +28,10 @@
 #include "vkgs/core/draw_options.h"
 #include "vkgs/core/screen_splat_options.h"
 #include "vkgs/core/draw_result.h"
-#include "vkgs/core/details/compute_storage.h"
-#include "vkgs/core/details/graphics_storage.h"
-#include "vkgs/core/details/sorter.h"
+
+#include "details/compute_storage.h"
+#include "details/graphics_storage.h"
+#include "details/sorter.h"
 #include "generated/rank.h"
 #include "generated/inverse_index.h"
 #include "generated/projection.h"

@@ -1,4 +1,4 @@
-#include "vkgs/core/details/compute_storage.h"
+#include "details/compute_storage.h"
 
 #include "vkgs/gpu/buffer.h"
 

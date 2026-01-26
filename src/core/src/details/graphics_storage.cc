@@ -1,4 +1,4 @@
-#include "vkgs/core/details/graphics_storage.h"
+#include "details/graphics_storage.h"
 
 #include "vkgs/gpu/image.h"
 

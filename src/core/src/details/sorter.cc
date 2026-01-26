@@ -1,4 +1,4 @@
-#include "vkgs/core/details/sorter.h"
+#include "details/sorter.h"
 
 #include "vk_radix_sort.h"
 
