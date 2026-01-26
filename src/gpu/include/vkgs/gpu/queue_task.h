@@ -18,8 +18,7 @@ class Object;
 class QueueTaskImpl;
 class VKGS_GPU_API QueueTask : public Handle<QueueTask, QueueTaskImpl> {
  public:
-  static QueueTask Create(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                          std::function<void()> callback);
+  static QueueTask Create(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback);
 
   bool IsDone();
   void Wait();

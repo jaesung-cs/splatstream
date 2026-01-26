@@ -21,8 +21,7 @@ class TaskMonitor : public Handle<TaskMonitor, TaskMonitorImpl> {
   static TaskMonitor Create();
 
   void FinishAllTasks();
-  QueueTask Add(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                std::function<void()> callback);
+  QueueTask Add(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback);
 };
 
 }  // namespace gpu

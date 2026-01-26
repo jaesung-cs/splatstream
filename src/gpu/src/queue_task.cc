@@ -8,8 +8,7 @@ namespace gpu {
 
 class QueueTaskImpl {
  public:
-  void __init__(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                std::function<void()> callback) {
+  void __init__(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback) {
     fence_ = fence;
     command_ = command;
     objects_ = std::move(objects);
@@ -41,11 +40,11 @@ class QueueTaskImpl {
  private:
   Fence fence_;
   Command command_;
-  std::vector<std::shared_ptr<Object>> objects_;
+  std::vector<AnyHandle> objects_;
   std::function<void()> callback_;
 };
 
-QueueTask QueueTask::Create(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+QueueTask QueueTask::Create(Fence fence, Command command, std::vector<AnyHandle> objects,
                             std::function<void()> callback) {
   return Make<QueueTaskImpl>(fence, command, std::move(objects), callback);
 }

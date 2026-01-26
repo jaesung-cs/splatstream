@@ -310,8 +310,7 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
   void ClearCurrentTask() { current_task_ = nullptr; }
   Task* CurrentTask() const { return current_task_; }
 
-  QueueTask AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                         std::function<void()> callback) {
+  QueueTask AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback) {
     return task_monitor_.Add(fence, command, std::move(objects), callback);
   }
 
@@ -363,7 +362,7 @@ void Device::SetCurrentTask(Task* task) { impl_->SetCurrentTask(task); }
 void Device::ClearCurrentTask() { impl_->ClearCurrentTask(); }
 Task* Device::CurrentTask() const { return impl_->CurrentTask(); }
 
-QueueTask Device::AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+QueueTask Device::AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects,
                                std::function<void()> callback) {
   return impl_->AddQueueTask(fence, command, std::move(objects), callback);
 }

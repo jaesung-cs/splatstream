@@ -6,6 +6,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
 
 namespace vkgs {
@@ -24,13 +25,12 @@ class TaskImpl;
 class VKGS_GPU_API Task {
  public:
   Task(QueueType queue_type);
-
-  auto device() const noexcept;
+  ~Task();
 
   VkCommandBuffer command_buffer() const;
   auto fence() const noexcept;
 
-  Task& Keep(std::shared_ptr<Object> object);
+  Task& Keep(AnyHandle object);
 
   Task& Wait(VkSemaphore semaphore, VkPipelineStageFlags2 stage);
   Task& Wait(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage);
@@ -46,7 +46,7 @@ class VKGS_GPU_API Task {
   QueueTask Submit();
 
  private:
-  std::shared_ptr<TaskImpl> impl_;
+  std::unique_ptr<TaskImpl> impl_;
 };
 
 class VKGS_GPU_API ComputeTask : public Task {

@@ -17,8 +17,7 @@ class TaskMonitorImpl {
     tasks_.clear();
   }
 
-  QueueTask Add(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                std::function<void()> callback) {
+  QueueTask Add(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback) {
     gc();
 
     auto queue_task = QueueTask::Create(fence, command, std::move(objects), callback);
@@ -47,7 +46,7 @@ class TaskMonitorImpl {
 TaskMonitor TaskMonitor::Create() { return Make<TaskMonitorImpl>(); }
 
 void TaskMonitor::FinishAllTasks() { impl_->FinishAllTasks(); }
-QueueTask TaskMonitor::Add(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
+QueueTask TaskMonitor::Add(Fence fence, Command command, std::vector<AnyHandle> objects,
                            std::function<void()> callback) {
   return impl_->Add(fence, command, std::move(objects), callback);
 }

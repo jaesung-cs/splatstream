@@ -14,7 +14,7 @@ namespace gpu {
 
 class TaskImpl {
  public:
-  TaskImpl(QueueType queue_type) {
+  TaskImpl(QueueType queue_type, Task* task) {
     device_ = GetDevice();
 
     switch (queue_type) {
@@ -35,6 +35,8 @@ class TaskImpl {
     VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(command_, &begin_info);
+
+    device_.SetCurrentTask(task);
   }
 
   virtual ~TaskImpl() {
@@ -43,13 +45,11 @@ class TaskImpl {
     }
   }
 
-  auto device() const noexcept { return device_; }
-
   VkCommandBuffer command_buffer() const { return command_; }
 
   auto fence() const noexcept { return fence_; }
 
-  void Keep(std::shared_ptr<Object> object) { objects_.push_back(object); }
+  void Keep(AnyHandle object) { objects_.push_back(object); }
 
   void Wait(VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
     VkSemaphoreSubmitInfo wait_semaphore_info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
@@ -117,7 +117,7 @@ class TaskImpl {
   Queue queue_;
   Fence fence_;
   Command command_;
-  std::vector<std::shared_ptr<Object>> objects_;
+  std::vector<AnyHandle> objects_;
   std::function<void()> callback_;
 
   std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos_;
@@ -126,14 +126,12 @@ class TaskImpl {
   bool submitted_ = false;
 };
 
-Task::Task(QueueType queue_type) : impl_(std::make_shared<TaskImpl>(queue_type)) {
-  impl_->device().SetCurrentTask(this);
-}
+Task::Task(QueueType queue_type) : impl_(std::make_unique<TaskImpl>(queue_type, this)) {}
+Task::~Task() = default;
 
-auto Task::device() const noexcept { return impl_->device(); }
 VkCommandBuffer Task::command_buffer() const { return impl_->command_buffer(); }
 auto Task::fence() const noexcept { return impl_->fence(); }
-Task& Task::Keep(std::shared_ptr<Object> object) {
+Task& Task::Keep(AnyHandle object) {
   impl_->Keep(object);
   return *this;
 }

@@ -59,8 +59,7 @@ class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
   void ClearCurrentTask();
   Task* CurrentTask() const;
 
-  QueueTask AddQueueTask(Fence fence, Command command, std::vector<std::shared_ptr<Object>> objects,
-                         std::function<void()> callback);
+  QueueTask AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback);
 };
 
 }  // namespace gpu
