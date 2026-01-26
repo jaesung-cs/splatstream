@@ -189,10 +189,9 @@ class ViewerImpl {
 
       camera_index_size_ = indices.size();
 
-      auto indices_stage =
-          gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, indices.size() * sizeof(indices[0]), true);
+      auto indices_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, indices.size() * sizeof(indices[0]));
       auto vertices_stage =
-          gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertices.size() * sizeof(vertices[0]), true);
+          gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertices.size() * sizeof(vertices[0]));
 
       std::memcpy(indices_stage.data(), indices.data(), indices.size() * sizeof(indices[0]));
       std::memcpy(vertices_stage.data(), vertices.data(), vertices.size() * sizeof(vertices[0]));
@@ -591,9 +590,7 @@ class ViewerImpl {
     storage.Update(splats_.size(), texture_width, texture_height);
     auto screen_splats = storage.screen_splats();
     auto csem = storage.compute_semaphore();
-    auto cval = csem.value();
     auto gsem = storage.graphics_semaphore();
-    auto gval = gsem.value();
     auto image16 = storage.image16();
     auto depth = storage.depth();
     auto depth_image = storage.depth_image();
@@ -649,7 +646,7 @@ class ViewerImpl {
       screen_splats.stats().Keep();
       stats_stage.Keep();
 
-      task.Signal(csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+      task.Signal(csem, csem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
       task.PostCallback([visible_point_count_stage, stats_stage, stats = &stats, storage = &storage,
                          record_stat = draw_options.record_stat] {
@@ -839,7 +836,7 @@ class ViewerImpl {
         renderer_.RenderScreenSplatsDepth(cb, screen_splats, screen_splat_options, render_target_options);
       }
 
-      // subpass 1:
+      // subpass 1: blend
       gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
           .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                   VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
@@ -899,10 +896,10 @@ class ViewerImpl {
       depth.Keep();
 
       task.Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-      task.Wait(csem, cval + 1,
+      task.Wait(csem, csem + 1,
                 VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
                     VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
-      task.Signal(gsem, gval + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      task.Signal(gsem, gsem + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
       task.Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 

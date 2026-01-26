@@ -17,8 +17,8 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
   screen_splats_.Update(size);
 
   if (!visible_point_count_stage_)
-    visible_point_count_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(uint32_t), true);
-  if (!stats_stage_) stats_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(core::Stats), true);
+    visible_point_count_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(uint32_t));
+  if (!stats_stage_) stats_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(core::Stats));
 
   if (!compute_semaphore_) compute_semaphore_ = device.AllocateSemaphore();
   if (!graphics_semaphore_) graphics_semaphore_ = device.AllocateSemaphore();

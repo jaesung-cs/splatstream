@@ -11,34 +11,28 @@ namespace gpu {
 
 class BufferImpl : public Object {
  public:
-  void __init__(VkBufferUsageFlags usage, VkDeviceSize size, bool host) {
+  void __init__(VkBufferUsageFlags usage, VkDeviceSize size) {
     size_ = size;
+
+    bool host = (usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT) || (usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
     VkBufferCreateInfo buffer_info = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     buffer_info.size = size;
     buffer_info.usage = usage;
 
-    VmaAllocator allocator = device_.allocator();
-    VmaAllocation allocation = VK_NULL_HANDLE;
+    VmaAllocationCreateInfo allocation_info = {};
+    allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
     if (host) {
-      VmaAllocationCreateInfo allocation_info = {};
       allocation_info.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-      allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
       VmaAllocationInfo map_info;
-      vmaCreateBuffer(allocator, &buffer_info, &allocation_info, &buffer_, &allocation, &map_info);
+      vmaCreateBuffer(device_.allocator(), &buffer_info, &allocation_info, &buffer_, &allocation_, &map_info);
       ptr_ = map_info.pMappedData;
     } else {
-      VmaAllocationCreateInfo allocation_info = {};
-      allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
-      vmaCreateBuffer(allocator, &buffer_info, &allocation_info, &buffer_, &allocation, NULL);
+      vmaCreateBuffer(device_.allocator(), &buffer_info, &allocation_info, &buffer_, &allocation_, NULL);
     }
-    allocation_ = allocation;
   }
 
-  void __del__() {
-    VmaAllocator allocator = device_.allocator();
-    vmaDestroyBuffer(allocator, buffer_, allocation_);
-  }
+  void __del__() { vmaDestroyBuffer(device_.allocator(), buffer_, allocation_); }
 
   operator VkBuffer() const noexcept { return buffer_; }
 
@@ -63,9 +57,7 @@ class BufferImpl : public Object {
   void* ptr_ = nullptr;
 };
 
-Buffer Buffer::Create(VkBufferUsageFlags usage, VkDeviceSize size, bool host) {
-  return Make<BufferImpl>(usage, size, host);
-}
+Buffer Buffer::Create(VkBufferUsageFlags usage, VkDeviceSize size) { return Make<BufferImpl>(usage, size); }
 
 Buffer::operator VkBuffer() const { return *impl_; }
 

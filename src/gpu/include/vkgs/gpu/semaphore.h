@@ -21,6 +21,16 @@ class VKGS_GPU_API Semaphore : public Handle<Semaphore, SemaphoreImpl> {
   operator VkSemaphore() const;
   uint64_t value() const;
 
+  // Semaphore value
+  uint64_t operator+(int value);
+  uint64_t operator-(int value);
+  bool operator>=(uint64_t value);
+
+  template <typename T, typename = std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, uint64_t>>>
+  bool operator>=(T value) {
+    return (*this) >= static_cast<uint64_t>(value);
+  }
+
   void Wait();
 
   void SetValue(uint64_t value);

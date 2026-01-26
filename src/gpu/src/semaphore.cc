@@ -25,6 +25,10 @@ class SemaphoreImpl : public Object {
   operator VkSemaphore() const noexcept { return semaphore_; }
   auto value() const noexcept { return value_; }
 
+  uint64_t operator+(int value) { return value_ + value; }
+  uint64_t operator-(int value) { return value_ - value; }
+  bool operator>=(uint64_t value) { return value_ >= value; }
+
   void Wait() {
     VkSemaphoreWaitInfo wait_info = {VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
     wait_info.semaphoreCount = 1;
@@ -62,6 +66,11 @@ void Semaphore::Keep() { impl_->Keep(); }
 
 Semaphore::operator VkSemaphore() const { return *impl_; }
 uint64_t Semaphore::value() const { return impl_->value(); }
+
+uint64_t Semaphore::operator+(int value) { return (*impl_) + value; }
+uint64_t Semaphore::operator-(int value) { return (*impl_) - value; }
+bool Semaphore::operator>=(uint64_t value) { return (*impl_) >= value; }
+
 void Semaphore::Wait() { impl_->Wait(); }
 void Semaphore::SetValue(uint64_t value) { impl_->SetValue(value); }
 

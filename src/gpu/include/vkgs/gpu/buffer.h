@@ -12,7 +12,7 @@ namespace gpu {
 class BufferImpl;
 class VKGS_GPU_API Buffer : public Handle<Buffer, BufferImpl> {
  public:
-  static Buffer Create(VkBufferUsageFlags usage, VkDeviceSize size, bool host = false);
+  static Buffer Create(VkBufferUsageFlags usage, VkDeviceSize size);
 
   operator VkBuffer() const;
 

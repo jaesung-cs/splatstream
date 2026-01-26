@@ -108,11 +108,8 @@ class RendererImpl {
     auto screen_splats = ring_buffer.screen_splats;
     auto graphics_storage = ring_buffer.graphics_storage;
     auto csem = ring_buffer.compute_semaphore;
-    auto cval = csem.value();
     auto gsem = ring_buffer.graphics_semaphore;
-    auto gval = gsem.value();
     auto tsem = ring_buffer.transfer_semaphore;
-    auto tval = tsem.value();
 
     auto cq = device_.compute_queue();
     auto gq = device_.graphics_queue();
@@ -140,10 +137,10 @@ class RendererImpl {
           .Commit(cb);
 
       // G[i-2].read before C[i].comp
-      task.WaitIf(gval >= 2, gsem, gval - 2 + 1,
+      task.WaitIf(gsem >= 2, gsem, gsem - 2 + 1,
                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
       // C[i].comp
-      task.Signal(csem, cval + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+      task.Signal(csem, csem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
       csem.Keep();
       gsem.Keep();
@@ -229,17 +226,17 @@ class RendererImpl {
           .Commit(cb);
 
       // C[i].comp before G[i].read
-      task.Wait(csem, cval + 1,
+      task.Wait(csem, csem + 1,
                 VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
                     VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
       // T[i-2].xfer before G[i].output
-      task.Wait(tsem, tval - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      task.Wait(tsem, tsem - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
       // G[i].read
-      task.Signal(gsem, gval + 1,
+      task.Signal(gsem, gsem + 1,
                   VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
                       VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
       // G[i].blit
-      task.Signal(gsem, gval + 2, VK_PIPELINE_STAGE_2_BLIT_BIT);
+      task.Signal(gsem, gsem + 2, VK_PIPELINE_STAGE_2_BLIT_BIT);
 
       csem.Keep();
       tsem.Keep();
@@ -248,7 +245,7 @@ class RendererImpl {
       image_u8.Keep();
     }
 
-    auto image_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4, true);
+    auto image_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4);
     gpu::QueueTask queue_task;
     {
       gpu::TransferTask task;
@@ -285,9 +282,9 @@ class RendererImpl {
       });
 
       // G[i].blit before T[i].xfer
-      task.Wait(gsem, gval + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      task.Wait(gsem, gsem + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
       // T[i].xfer
-      task.Signal(tsem, tval + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      task.Signal(tsem, tsem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
       gsem.Keep();
       tsem.Keep();
@@ -562,5 +559,6 @@ void Renderer::RenderScreenSplatsDepth(VkCommandBuffer cb, ScreenSplats screen_s
                                        const RenderTargetOptions& render_target_options) {
   impl_->RenderScreenSplatsDepth(cb, screen_splats, screen_splat_options, render_target_options);
 }
+
 }  // namespace core
 }  // namespace vkgs

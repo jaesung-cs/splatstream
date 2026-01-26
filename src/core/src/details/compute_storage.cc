@@ -2,7 +2,7 @@
 
 #include "vkgs/gpu/buffer.h"
 
-#include "../struct.h"
+#include "struct.h"
 
 namespace vkgs {
 namespace core {
@@ -23,7 +23,7 @@ class ComputeStorageImpl {
 
   void Update(uint32_t point_count, VkBufferUsageFlags usage, VkDeviceSize size) {
     // Get new stage buffers
-    camera_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera), true);
+    camera_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera));
 
     if (point_count_ < point_count) {
       key_ = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(uint32_t));

@@ -123,15 +123,13 @@ class VKGS_CORE_API ParserImpl {
         throw std::runtime_error("Unsupported opacity degree: " + std::to_string(opacity_degree));
     }
 
-    auto position_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
-    auto quats_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float), true);
-    auto scales_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float), true);
+    auto position_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float));
+    auto quats_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float));
+    auto scales_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float));
     auto colors_stage =
-        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t), true);
-    auto opacity_stage =
-        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * opacity_size * sizeof(float), true);
-    auto index_stage =
-        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t));
+    auto opacity_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * opacity_size * sizeof(float));
+    auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t));
 
     auto position = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                         size * 3 * sizeof(float));
@@ -199,7 +197,7 @@ class VKGS_CORE_API ParserImpl {
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer)
           .Commit(cb);
 
-      task.Signal(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      task.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
       position_stage.Keep();
       quats_stage.Keep();
@@ -249,7 +247,7 @@ class VKGS_CORE_API ParserImpl {
       colors.Keep();
       opacity.Keep();
 
-      task.Wait(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
       queue_task = task.Submit();
     }
 
@@ -262,7 +260,7 @@ class VKGS_CORE_API ParserImpl {
           .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, index_buffer)
           .Commit(cb);
 
-      task.Wait(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
+      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
     }
 
     sem++;
@@ -378,7 +376,7 @@ class VKGS_CORE_API ParserImpl {
     // allocate buffers
     auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
     auto ply_stage =
-        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size, true);
+        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size);
     auto ply_buffer =
         gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
 
@@ -388,8 +386,7 @@ class VKGS_CORE_API ParserImpl {
         gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sh_packed_size * 4 * sizeof(uint16_t));
     auto opacity_sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 4);  // dummy
 
-    auto index_stage =
-        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t), true);
+    auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t));
     auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                             index_data.size() * sizeof(uint32_t));
 
@@ -419,7 +416,7 @@ class VKGS_CORE_API ParserImpl {
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer)
           .Commit(cb);
 
-      task.Signal(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      task.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
       ply_stage.Keep();
       index_stage.Keep();
@@ -453,7 +450,7 @@ class VKGS_CORE_API ParserImpl {
 
       ply_buffer.Keep();
 
-      task.Wait(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
       queue_task = task.Submit();
     }
 
@@ -466,7 +463,7 @@ class VKGS_CORE_API ParserImpl {
           .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, index_buffer)
           .Commit(cb);
 
-      task.Wait(sem, sem.value() + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     }
 
     sem++;
