@@ -6,7 +6,7 @@
 #include <vector>
 #include <cstring>
 
-#include <vulkan/vulkan.h>
+#include "volk.h"
 
 #include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"

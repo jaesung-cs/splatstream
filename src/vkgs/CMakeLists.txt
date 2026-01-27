@@ -1,4 +1,4 @@
-add_library(vkgs_vkgs SHARED
+add_library(vkgs_vkgs STATIC
   src/engine.cc
   src/gaussian_splats.cc
   src/rendering_task.cc
@@ -18,7 +18,10 @@ target_link_libraries(vkgs_vkgs
     vkgs::viewer
 )
 
-target_compile_definitions(vkgs_vkgs PRIVATE VKGS_EXPORTS)
+target_compile_definitions(vkgs_vkgs
+  PUBLIC
+    VKGS_STATIC
+)
 
 set_target_properties(vkgs_vkgs PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin

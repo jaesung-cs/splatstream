@@ -32,7 +32,7 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glfw)
 
-add_library(vkgs_viewer SHARED
+add_library(vkgs_viewer STATIC
   src/camera.cc
   src/context.cc
   src/imgui_texture.cc
@@ -71,8 +71,10 @@ target_link_libraries(vkgs_viewer
 )
 
 target_compile_definitions(vkgs_viewer
+  PUBLIC
+    VKGS_VIEWER_STATIC
   PRIVATE
-    VKGS_VIEWER_EXPORTS
+    IMGUI_IMPL_VULKAN_USE_VOLK
 )
 
 add_shader(vkgs_viewer shader/screen.vert screen_vert)

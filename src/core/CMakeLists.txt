@@ -16,7 +16,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(vk_radix_sort)
 
-add_library(vkgs_core SHARED
+add_library(vkgs_core STATIC
   src/details/compute_storage.cc
   src/details/graphics_storage.cc
   src/details/sorter.cc
@@ -38,15 +38,18 @@ target_include_directories(vkgs_core
 
 target_link_libraries(vkgs_core
   PUBLIC
-    Vulkan::Vulkan
     glm::glm
-    vkgs::common
     vkgs::gpu
   PRIVATE
     vk_radix_sort
 )
 
-target_compile_definitions(vkgs_core PRIVATE VKGS_CORE_EXPORTS)
+target_compile_definitions(vkgs_core
+  PUBLIC
+    VKGS_CORE_STATIC
+  PRIVATE
+    VRDX_USE_VOLK
+)
 
 add_shader(vkgs_core shader/inverse_index.comp inverse_index)
 add_shader(vkgs_core shader/parse_ply.comp parse_ply)
