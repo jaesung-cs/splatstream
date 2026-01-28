@@ -9,11 +9,12 @@ namespace vkgs {
 namespace gpu {
 
 class CommandPool;
+class Device;
 
 class CommandImpl;
 class Command : public Handle<Command, CommandImpl> {
  public:
-  static Command Create(CommandPool command_pool, VkCommandBuffer cb);
+  static Command Create(Device device, CommandPool command_pool, VkCommandBuffer cb);
 
   operator VkCommandBuffer() const;
 };

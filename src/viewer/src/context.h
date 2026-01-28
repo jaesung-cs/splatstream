@@ -3,24 +3,21 @@
 
 #include <memory>
 
-#include "vkgs/gpu/device.h"
+#include "vkgs/common/handle.h"
+#include "vkgs/gpu/fwd.h"
 
 namespace vkgs {
 namespace viewer {
 
-class Context;
-std::shared_ptr<Context> GetContext();
-
-class Context {
+class ContextImpl;
+class Context : public Handle<Context, ContextImpl> {
  public:
-  Context();
-  ~Context();
+  static Context Create();
 
-  auto device() const noexcept { return device_; }
-
- private:
-  gpu::Device device_;
+  gpu::Device device() const noexcept;
 };
+
+Context GetContext();
 
 }  // namespace viewer
 }  // namespace vkgs

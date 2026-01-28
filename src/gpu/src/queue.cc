@@ -1,5 +1,7 @@
 #include "vkgs/gpu/queue.h"
 
+#include "vkgs/gpu/device.h"
+
 #include "details/command_pool.h"
 #include "details/command.h"
 
@@ -8,11 +10,11 @@ namespace gpu {
 
 class VKGS_GPU_API QueueImpl {
  public:
-  void __init__(VkDevice device, VkQueue queue, uint32_t family_index) {
+  void __init__(Device device, VkQueue queue, uint32_t family_index) {
     device_ = device;
     queue_ = queue;
     family_index_ = family_index;
-    command_pool_ = CommandPool::Create(device_, family_index_);
+    command_pool_ = CommandPool::Create(device, family_index_);
   }
 
   operator VkQueue() const noexcept { return queue_; }
@@ -22,7 +24,7 @@ class VKGS_GPU_API QueueImpl {
   Command AllocateCommandBuffer() { return command_pool_.Allocate(); }
 
  private:
-  VkDevice device_;
+  Device::Weak device_;
 
   VkQueue queue_ = VK_NULL_HANDLE;
   uint32_t family_index_ = 0;
@@ -30,7 +32,7 @@ class VKGS_GPU_API QueueImpl {
   CommandPool command_pool_;
 };
 
-Queue Queue::Create(VkDevice device, VkQueue queue, uint32_t family_index) {
+Queue Queue::Create(Device device, VkQueue queue, uint32_t family_index) {
   return Make<QueueImpl>(device, queue, family_index);
 }
 

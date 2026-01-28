@@ -39,6 +39,7 @@ add_library(vkgs_viewer STATIC
   src/pose_spline.cc
   src/storage.cc
   src/util.cc
+  src/viewer_base.cc
   src/viewer.cc
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp

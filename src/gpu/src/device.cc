@@ -68,7 +68,7 @@ VkBool32 debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> {
+class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> {
  public:
   void __init__(const DeviceCreateInfo& create_info) {
     volkInitialize();
@@ -240,9 +240,9 @@ class VKGS_GPU_API DeviceImpl : public std::enable_shared_from_this<DeviceImpl> 
     fence_pool_ = FencePool::Create(device_);
     graphics_pipeline_pool_ = GraphicsPipelinePool::Create(device_);
 
-    graphics_queue_ = Queue::Create(device_, graphics_queue, graphics_queue_index);
-    compute_queue_ = Queue::Create(device_, compute_queue, compute_queue_index);
-    transfer_queue_ = Queue::Create(device_, transfer_queue, transfer_queue_index);
+    graphics_queue_ = Queue::Create(HandleFromThis(), graphics_queue, graphics_queue_index);
+    compute_queue_ = Queue::Create(HandleFromThis(), compute_queue, compute_queue_index);
+    transfer_queue_ = Queue::Create(HandleFromThis(), transfer_queue, transfer_queue_index);
 
     // Allocator
     VmaVulkanFunctions functions = {};

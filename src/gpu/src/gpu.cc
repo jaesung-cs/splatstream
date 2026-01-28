@@ -6,20 +6,15 @@ namespace vkgs {
 namespace gpu {
 namespace {
 
-DeviceCreateInfo global_device_info = {};
-std::weak_ptr<DeviceImpl> device_impl;
+Device::Weak global_device;
 
 }  // namespace
 
-void Init(const DeviceCreateInfo& device_info) { global_device_info = device_info; }
-
-Device GetDevice() {
-  if (device_impl.expired()) {
-    auto new_device = Device::Create(global_device_info);
-    device_impl = new_device.impl();
-    return new_device;
-  }
-  return Device::CreateHandle(device_impl.lock());
+Device GetDevice(const DeviceCreateInfo& create_info) {
+  if (auto handle = global_device.lock()) return handle;
+  auto handle = Device::Create(create_info);
+  global_device = handle;
+  return handle;
 }
 
 }  // namespace gpu

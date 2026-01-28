@@ -3,14 +3,12 @@
 #include <memory>
 #include <array>
 #include <vector>
-#include <stdexcept>
+#include <algorithm>
 
 #include "volk.h"
-#include <GLFW/glfw3.h>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "ImGuizmo.h"
 #include "implot.h"
 
 #include <glm/glm.hpp>
@@ -21,14 +19,12 @@
 
 #include "vkgs/common/timer.h"
 #include "vkgs/common/sampled_moving_window.h"
-#include "vkgs/gpu/swapchain.h"
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/device.h"
-#include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/task.h"
 #include "vkgs/gpu/image.h"
@@ -39,8 +35,8 @@
 #include "vkgs/core/screen_splats.h"
 #include "vkgs/core/stats.h"
 #include "vkgs/core/draw_options.h"
-
 #include "vkgs/viewer/camera_params.h"
+
 #include "generated/color_vert.h"
 #include "generated/color_frag.h"
 #include "generated/depth_vert.h"
@@ -48,11 +44,10 @@
 #include "generated/screen_vert.h"
 #include "generated/blend_color_frag.h"
 #include "generated/blend_depth_frag.h"
-#include "fonts/roboto_regular.h"
-#include "context.h"
 #include "storage.h"
 #include "camera.h"
 #include "pose_spline.h"
+#include "viewer_base.h"
 
 namespace vkgs {
 namespace viewer {
@@ -89,9 +84,9 @@ struct BlendPushConstants {
 
 }  // namespace
 
-class ViewerImpl {
+class ViewerImpl : public ViewerBase {
  public:
-  void __init__() { context_ = GetContext(); }
+  void __init__() { ViewerBase::__init__(); }
 
   void SetRenderer(core::Renderer renderer) { renderer_ = renderer; }
   void SetSplats(core::GaussianSplats splats) { splats_ = splats; }
@@ -99,9 +94,7 @@ class ViewerImpl {
   void AddCamera(const CameraParams& camera_params) { camera_params_.push_back(camera_params); }
   void ClearCameras() { camera_params_.clear(); }
 
-  void Run() {
-    InitializeWindow();
-
+  void OnBeforeRun() override {
     // Graphics pipelines
     color_pipeline_layout_ = gpu::PipelineLayout::Create({
         .push_constants = {{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ColorPushConstants)}},
@@ -118,7 +111,7 @@ class ViewerImpl {
                 {1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3},
             },
         .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-        .formats = {swapchain_format_, high_format_},
+        .formats = {swapchain_.format(), high_format_},
         .locations = {VK_ATTACHMENT_UNUSED, 0},
         .depth_format = depth_format_,
         .depth_test = true,
@@ -131,7 +124,7 @@ class ViewerImpl {
         .bindings = {{0, sizeof(float) * 6, VK_VERTEX_INPUT_RATE_VERTEX}},
         .attributes = {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0}},
         .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-        .formats = {swapchain_format_, depth_image_format_},
+        .formats = {swapchain_.format(), depth_image_format_},
         .locations = {VK_ATTACHMENT_UNUSED, 0},
         .depth_format = depth_format_,
         .depth_test = true,
@@ -148,7 +141,7 @@ class ViewerImpl {
         .pipeline_layout = blend_pipeline_layout_,
         .vertex_shader = gpu::ShaderCode(screen_vert),
         .fragment_shader = gpu::ShaderCode(blend_color_frag),
-        .formats = {swapchain_format_, high_format_},
+        .formats = {swapchain_.format(), high_format_},
         .locations = {0, VK_ATTACHMENT_UNUSED},
         .input_indices = {VK_ATTACHMENT_UNUSED, 0},
         .depth_format = depth_format_,
@@ -157,7 +150,7 @@ class ViewerImpl {
         .pipeline_layout = blend_pipeline_layout_,
         .vertex_shader = gpu::ShaderCode(screen_vert),
         .fragment_shader = gpu::ShaderCode(blend_depth_frag),
-        .formats = {swapchain_format_, depth_image_format_},
+        .formats = {swapchain_.format(), depth_image_format_},
         .locations = {0, VK_ATTACHMENT_UNUSED},
         .input_indices = {VK_ATTACHMENT_UNUSED, 0},
         .depth_format = depth_format_,
@@ -251,104 +244,14 @@ class ViewerImpl {
     timer_.start();
     fps_window_ = SampledMovingWindow(5.f, 0.01f);
     visible_point_count_window_ = SampledMovingWindow(5.f, 0.01f);
-    while (!glfwWindowShouldClose(window_)) {
-      glfwPollEvents();
+  }
 
-      ImGui_ImplVulkan_NewFrame();
-      ImGui_ImplGlfw_NewFrame();
-      ImGui::NewFrame();
-      ImGuizmo::BeginFrame();
-
-      DrawUi();
-
-      const auto& io = ImGui::GetIO();
-      bool is_minimized = io.DisplaySize.x <= 0.0f || io.DisplaySize.y <= 0.0f;
-
-      if (is_minimized) {
-        ImGui::EndFrame();
-      } else {
-        auto present_image_info = swapchain_.AcquireNextImage();
-        Draw(present_image_info);
-        swapchain_.Present();
-      }
-    }
-
-    context_->device().WaitIdle();
-
+  void OnAfterRun() override {
     for (auto& storage : ring_buffer_) storage.Clear();
-
-    FinalizeWindow();
   }
 
  private:
-  void InitializeWindow() {
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    window_ = glfwCreateWindow(1600, 900, "vkgs", nullptr, nullptr);
-    if (!window_) throw std::runtime_error("Failed to create window");
-
-    auto device = context_->device();
-    auto instance = device.instance();
-    glfwCreateWindowSurface(instance, window_, NULL, &surface_);
-
-    swapchain_ = gpu::Swapchain::Create(surface_, swapchain_format_,
-                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-
-    auto gq = device.graphics_queue();
-
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-    auto& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.IniFilename = NULL;
-    io.LogFilename = NULL;
-    ImPlot::CreateContext();
-
-    ImFontConfig font_config = {};
-    font_config.OversampleH = 3;
-    font_config.OversampleV = 3;
-    float font_size = 15.f;
-    io.Fonts->AddFontFromMemoryCompressedTTF(roboto_regular_compressed_data, roboto_regular_compressed_size, font_size,
-                                             &font_config);
-    auto& style = ImGui::GetStyle();
-    style.FramePadding.y = 2;
-    style.ItemSpacing.y = 3;
-
-    ImGui_ImplGlfw_InitForVulkan(window_, true);
-    ImGui_ImplVulkan_InitInfo init_info = {
-        .Instance = device.instance(),
-        .PhysicalDevice = device,
-        .Device = device,
-        .QueueFamily = gq,
-        .Queue = gq,
-        .DescriptorPoolSize = 1024,
-        .MinImageCount = 3,
-        .ImageCount = 3,
-        .PipelineInfoMain =
-            {
-                .PipelineRenderingCreateInfo =
-                    {
-                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                        .colorAttachmentCount = 1,
-                        .pColorAttachmentFormats = &swapchain_format_,
-                    },
-            },
-        .UseDynamicRendering = true,
-        .CheckVkResultFn = nullptr,
-    };
-    ImGui_ImplVulkan_Init(&init_info);
-  }
-
-  void FinalizeWindow() {
-    ImPlot::DestroyContext();
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-
-    glfwDestroyWindow(window_);
-  }
-
-  void DrawUi() {
+  void DrawUi() override {
     const auto& io = ImGui::GetIO();
 
     fps_window_.add(timer_.elapsed(), io.Framerate);
@@ -575,19 +478,18 @@ class ViewerImpl {
     }
   }
 
-  void Draw(const gpu::PresentImageInfo& present_image_info) {
-    ImGui::Render();
+  void Draw(const gpu::PresentImageInfo& present_image_info) override {
     ImDrawData* draw_data = ImGui::GetDrawData();
 
-    auto cq = context_->device().compute_queue();
-    auto gq = context_->device().graphics_queue();
+    auto cq = device().compute_queue();
+    auto gq = device().graphics_queue();
 
-    auto texture_width = present_image_info.extent.width;
-    auto texture_height = present_image_info.extent.height;
+    auto image_width = present_image_info.extent.width;
+    auto image_height = present_image_info.extent.height;
 
     // ring buffer
     auto& storage = ring_buffer_[frame_index_ % ring_buffer_.size()];
-    storage.Update(splats_.size(), texture_width, texture_height);
+    storage.Update(splats_.size(), image_width, image_height);
     auto screen_splats = storage.screen_splats();
     auto csem = storage.compute_semaphore();
     auto gsem = storage.graphics_semaphore();
@@ -599,14 +501,14 @@ class ViewerImpl {
     auto& stats = storage.stats();
     frame_index_++;
 
-    camera_.SetWindowSize(texture_width, texture_height);
+    camera_.SetWindowSize(image_width, image_height);
 
     core::DrawOptions draw_options = {
         .view = camera_.ViewMatrix(),
         .projection = camera_.ProjectionMatrix(),
         .model = viewer_options_.model,
-        .width = texture_width,
-        .height = texture_height,
+        .width = image_width,
+        .height = image_height,
         .background = {0.f, 0.f, 0.f},  // unused
         .eps2d = viewer_options_.eps2d,
         .sh_degree = viewer_options_.render_type == 0 ? viewer_options_.sh_degree : 0,
@@ -702,7 +604,7 @@ class ViewerImpl {
       };
       if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
         // Splats image
-        formats = {swapchain_format_, image16.format()};
+        formats = {swapchain_.format(), image16.format()};
         color_attachments[1] = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = image16.image_view(),
@@ -714,7 +616,7 @@ class ViewerImpl {
         };
       } else if (viewer_options_.render_type == 2) {
         // Depth image
-        formats = {swapchain_format_, depth_image.format()};
+        formats = {swapchain_.format(), depth_image.format()};
         color_attachments[1] = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = depth_image.image_view(),
@@ -736,7 +638,7 @@ class ViewerImpl {
 
       VkRenderingInfo rendering_info = {
           .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-          .renderArea = {{0, 0}, {texture_width, texture_height}},
+          .renderArea = {{0, 0}, {image_width, image_height}},
           .layerCount = 1,
           .colorAttachmentCount = color_attachments.size(),
           .pColorAttachments = color_attachments.data(),
@@ -744,9 +646,9 @@ class ViewerImpl {
       };
       vkCmdBeginRendering(cb, &rendering_info);
 
-      VkViewport viewport = {0.f, 0.f, static_cast<float>(texture_width), static_cast<float>(texture_height), 0.f, 1.f};
+      VkViewport viewport = {0.f, 0.f, static_cast<float>(image_width), static_cast<float>(image_height), 0.f, 1.f};
       vkCmdSetViewport(cb, 0, 1, &viewport);
-      VkRect2D scissor = {0, 0, texture_width, texture_height};
+      VkRect2D scissor = {0, 0, image_width, image_height};
       vkCmdSetScissor(cb, 0, 1, &scissor);
 
       // render scene
@@ -907,15 +809,9 @@ class ViewerImpl {
     gsem++;
   }
 
-  std::shared_ptr<Context> context_;
-
-  GLFWwindow* window_ = nullptr;
-  VkSurfaceKHR surface_ = VK_NULL_HANDLE;
-  VkFormat swapchain_format_ = VK_FORMAT_B8G8R8A8_UNORM;
   VkFormat high_format_ = VK_FORMAT_R16G16B16A16_SFLOAT;
   VkFormat depth_image_format_ = VK_FORMAT_R16G16_SFLOAT;
   VkFormat depth_format_ = VK_FORMAT_D32_SFLOAT;
-  gpu::Swapchain swapchain_;
 
   struct ViewerOptions {
     glm::mat4 model;

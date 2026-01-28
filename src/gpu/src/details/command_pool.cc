@@ -4,6 +4,8 @@
 
 #include "volk.h"
 
+#include "vkgs/gpu/device.h"
+
 #include "details/command.h"
 
 namespace vkgs {
@@ -11,7 +13,7 @@ namespace gpu {
 
 class CommandPoolImpl : public EnableHandleFromThis<CommandPool, CommandPoolImpl> {
  public:
-  void __init__(VkDevice device, uint32_t queue_family_index) {
+  void __init__(Device device, uint32_t queue_family_index) {
     device_ = device;
     queue_family_index_ = queue_family_index;
 
@@ -37,20 +39,20 @@ class CommandPoolImpl : public EnableHandleFromThis<CommandPool, CommandPoolImpl
       command_buffers_.pop_back();
     }
 
-    return Command::Create(HandleFromThis(), command_buffer);
+    return Command::Create(device_.lock(), HandleFromThis(), command_buffer);
   }
 
   void Free(VkCommandBuffer command_buffer) { command_buffers_.push_back(command_buffer); }
 
  private:
-  VkDevice device_;
+  Device::Weak device_;
   uint32_t queue_family_index_;
 
   VkCommandPool command_pool_ = VK_NULL_HANDLE;
   std::vector<VkCommandBuffer> command_buffers_;
 };
 
-CommandPool CommandPool::Create(VkDevice device, uint32_t queue_family_index) {
+CommandPool CommandPool::Create(Device device, uint32_t queue_family_index) {
   return Make<CommandPoolImpl>(device, queue_family_index);
 }
 

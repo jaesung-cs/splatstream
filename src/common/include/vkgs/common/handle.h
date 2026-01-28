@@ -6,6 +6,43 @@
 
 namespace vkgs {
 
+namespace details {
+
+// Weak handle with weak pointer. Useful for resolving dangling pointers.
+template <typename HandleType, typename ImplType>
+class Weak {
+ public:
+  Weak() = default;
+  Weak(const HandleType& h) : ptr_(h.ptr_), impl_(h.ptr_.get()) {}
+
+  bool expired() const noexcept { return ptr_.expired(); }
+  HandleType lock() const noexcept;
+
+  template <typename T>
+  operator T() const {
+    // ImplType is an incomplete class, while HandleType isn't.
+    // Create a volatile HandleType, and convert to T.
+    // This typecasting is valid in __del__() where the weak pointer isn't valid but the content is valid yet.
+    HandleType handle;
+    handle.impl_ = impl_;
+    return static_cast<T>(handle);
+  }
+
+  auto operator->() {
+    HandleType handle;
+    handle.impl_ = impl_;
+    return handle.operator->();
+  }
+
+ protected:
+  ImplType* impl_;
+
+ private:
+  std::weak_ptr<ImplType> ptr_;
+};
+
+}  // namespace details
+
 template <typename T, typename... Args>
 concept HasInit = requires(T cls) { cls.__init__(std::declval<Args>()...); };
 
@@ -24,43 +61,15 @@ template <typename HandleType, typename ImplType>
 class Handle {
   friend class AnyHandle;
   friend class EnableHandleFromThis<HandleType, ImplType>;
+  friend class details::Weak<HandleType, ImplType>;
+
+ public:
+  using Weak = details::Weak<HandleType, ImplType>;
 
  private:
   using _ImplType = ImplType;
 
  public:
-  // Weak handle with weak pointer. Useful for resolving dangling pointers.
-  class Weak {
-   public:
-    Weak() = default;
-    Weak(const HandleType& h) : ptr_(h.ptr_), impl_(h.ptr_.get()) {}
-
-    bool expired() const noexcept { return ptr_.expired(); }
-    HandleType lock() const noexcept { return ptr_.expired() ? HandleType() : CreateHandle(ptr_.lock()); }
-
-    template <typename T>
-    operator T() const {
-      // ImplType is an incomplete class, while HandleType isn't.
-      // Create a volatile HandleType, and convert to T.
-      // This typecasting is valid in __del__() where the weak pointer isn't valid but the content is valid yet.
-      HandleType handle;
-      handle.impl_ = impl_;
-      return static_cast<T>(handle);
-    }
-
-    auto operator->() {
-      HandleType handle;
-      handle.impl_ = impl_;
-      return handle.operator->();
-    }
-
-   protected:
-    ImplType* impl_;
-
-   private:
-    std::weak_ptr<ImplType> ptr_;
-  };
-
   static HandleType CreateHandle(std::shared_ptr<ImplType> impl) {
     HandleType handle;
     handle.ptr_ = impl;
@@ -159,6 +168,15 @@ template <typename HandleType, typename ImplType>
 Handle<HandleType, ImplType>::operator AnyHandle() const {
   return RemoveType();
 }
+
+namespace details {
+
+template <typename HandleType, typename ImplType>
+HandleType Weak<HandleType, ImplType>::lock() const noexcept {
+  return ptr_.expired() ? HandleType() : Handle<HandleType, ImplType>::CreateHandle(ptr_.lock());
+}
+
+}  // namespace details
 
 // Add HandleFromThis()
 // Valid only outside constructor/destructor.
