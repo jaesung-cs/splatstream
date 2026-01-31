@@ -1,5 +1,6 @@
 #include "details/compute_storage.h"
 
+#include "vkgs/gpu/host_buffer.h"
 #include "vkgs/gpu/buffer.h"
 
 #include "struct.h"
@@ -23,7 +24,7 @@ class ComputeStorageImpl {
 
   void Update(uint32_t point_count, VkBufferUsageFlags usage, VkDeviceSize size) {
     // Get new stage buffers
-    camera_stage_ = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera));
+    camera_stage_ = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Camera));
 
     if (point_count_ < point_count) {
       key_ = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sizeof(uint32_t));
@@ -40,8 +41,8 @@ class ComputeStorageImpl {
   uint32_t point_count_ = 0;
 
   // Fixed
-  gpu::Buffer camera_;        // (Camera)
-  gpu::Buffer camera_stage_;  // (Camera)
+  gpu::Buffer camera_;            // (Camera)
+  gpu::HostBuffer camera_stage_;  // (Camera)
 
   // Variable
   gpu::Buffer key_;            // (N)
@@ -53,7 +54,7 @@ class ComputeStorageImpl {
 ComputeStorage ComputeStorage::Create() { return Make<ComputeStorageImpl>(); }
 
 gpu::Buffer ComputeStorage::camera() const { return impl_->camera(); }
-gpu::Buffer ComputeStorage::camera_stage() const { return impl_->camera_stage(); }
+gpu::HostBuffer ComputeStorage::camera_stage() const { return impl_->camera_stage(); }
 gpu::Buffer ComputeStorage::key() const { return impl_->key(); }
 gpu::Buffer ComputeStorage::index() const { return impl_->index(); }
 gpu::Buffer ComputeStorage::sort_storage() const { return impl_->sort_storage(); }

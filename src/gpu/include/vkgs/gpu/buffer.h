@@ -19,18 +19,6 @@ class VKGS_GPU_API Buffer : public Handle<Buffer, BufferImpl> {
   void Keep() const;
 
   VkDeviceSize size() const noexcept;
-  void* data() noexcept;
-  const void* data() const noexcept;
-
-  template <typename T>
-  T* data() noexcept {
-    return static_cast<T*>(data());
-  }
-
-  template <typename T>
-  const T* data() const noexcept {
-    return static_cast<const T*>(data());
-  }
 };
 
 }  // namespace gpu

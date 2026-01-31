@@ -13,6 +13,7 @@ class Semaphore;
 class Queue;
 class Task;
 class Buffer;
+class HostBuffer;
 class QueueTask;
 class Timer;
 

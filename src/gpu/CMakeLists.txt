@@ -32,6 +32,7 @@ add_library(vkgs_gpu STATIC
   src/device.cc
   src/gpu.cc
   src/graphics_pipeline.cc
+  src/host_buffer.cc
   src/image.cc
   src/object.cc
   src/pipeline_layout.cc

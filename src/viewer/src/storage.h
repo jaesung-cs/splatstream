@@ -10,6 +10,7 @@
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/queue_task.h"
 #include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/host_buffer.h"
 
 namespace vkgs {
 namespace viewer {
@@ -52,8 +53,8 @@ class Storage {
 
  private:
   core::ScreenSplats screen_splats_;
-  gpu::Buffer visible_point_count_stage_;
-  gpu::Buffer stats_stage_;
+  gpu::HostBuffer visible_point_count_stage_;
+  gpu::HostBuffer stats_stage_;
   gpu::Image image16_;
   gpu::Image depth_image_;
   gpu::Image depth_;

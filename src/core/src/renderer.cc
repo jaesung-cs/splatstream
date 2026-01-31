@@ -23,6 +23,7 @@
 #include "vkgs/gpu/timer.h"
 #include "vkgs/gpu/task.h"
 #include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/host_buffer.h"
 #include "vkgs/gpu/queue_task.h"
 
 #include "vkgs/core/gaussian_splats.h"
@@ -247,7 +248,7 @@ class RendererImpl {
       image_u8.Keep();
     }
 
-    auto image_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4);
+    auto image_buffer = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4);
     gpu::QueueTask queue_task;
     {
       gpu::TransferTask task;

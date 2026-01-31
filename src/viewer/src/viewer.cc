@@ -22,6 +22,7 @@
 #include "vkgs/gpu/pipeline_layout.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/host_buffer.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/device.h"
@@ -182,9 +183,10 @@ class ViewerImpl : public ViewerBase {
 
       camera_index_size_ = indices.size();
 
-      auto indices_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, indices.size() * sizeof(indices[0]));
+      auto indices_stage =
+          gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, indices.size() * sizeof(indices[0]));
       auto vertices_stage =
-          gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertices.size() * sizeof(vertices[0]));
+          gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertices.size() * sizeof(vertices[0]));
 
       std::memcpy(indices_stage.data(), indices.data(), indices.size() * sizeof(indices[0]));
       std::memcpy(vertices_stage.data(), vertices.data(), vertices.size() * sizeof(vertices[0]));

@@ -15,7 +15,7 @@ class ComputeStorage : public Handle<ComputeStorage, ComputeStorageImpl> {
   static ComputeStorage Create();
 
   gpu::Buffer camera() const;
-  gpu::Buffer camera_stage() const;
+  gpu::HostBuffer camera_stage() const;
   gpu::Buffer key() const;
   gpu::Buffer index() const;
   gpu::Buffer sort_storage() const;

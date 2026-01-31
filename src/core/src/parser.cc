@@ -12,6 +12,7 @@
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/host_buffer.h"
 #include "vkgs/gpu/task.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
@@ -123,13 +124,13 @@ class VKGS_CORE_API ParserImpl {
         throw std::runtime_error("Unsupported opacity degree: " + std::to_string(opacity_degree));
     }
 
-    auto position_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float));
-    auto quats_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float));
-    auto scales_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float));
+    auto position_stage = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float));
+    auto quats_stage = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 4 * sizeof(float));
+    auto scales_stage = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * 3 * sizeof(float));
     auto colors_stage =
-        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t));
-    auto opacity_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * opacity_size * sizeof(float));
-    auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t));
+        gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * colors_size * 3 * sizeof(uint16_t));
+    auto opacity_stage = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size * opacity_size * sizeof(float));
+    auto index_stage = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t));
 
     auto position = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                         size * 3 * sizeof(float));
@@ -376,7 +377,7 @@ class VKGS_CORE_API ParserImpl {
     // allocate buffers
     auto buffer_size = buffer.size() + 60 * sizeof(uint32_t);
     auto ply_stage =
-        gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size);
+        gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer_size);
     auto ply_buffer =
         gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer_size);
 
@@ -386,7 +387,7 @@ class VKGS_CORE_API ParserImpl {
         gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, point_count * sh_packed_size * 4 * sizeof(uint16_t));
     auto opacity_sh = gpu::Buffer::Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 4);  // dummy
 
-    auto index_stage = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t));
+    auto index_stage = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, index_data.size() * sizeof(uint32_t));
     auto index_buffer = gpu::Buffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                             index_data.size() * sizeof(uint32_t));
 
