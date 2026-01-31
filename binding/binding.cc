@@ -12,9 +12,6 @@ PYBIND11_MODULE(_core, m) {
   py::class_<vkgs::Engine>(m, "Engine")
       .def(py::init<>())
       .def_property_readonly("device_name", &vkgs::Engine::device_name)
-      .def_property_readonly("graphics_queue_index", &vkgs::Engine::graphics_queue_index)
-      .def_property_readonly("compute_queue_index", &vkgs::Engine::compute_queue_index)
-      .def_property_readonly("transfer_queue_index", &vkgs::Engine::transfer_queue_index)
       .def("load_from_ply", &vkgs::Engine::LoadFromPly)
       .def("create_gaussian_splats",
            [](vkgs::Engine& engine, py::array_t<float> means, py::array_t<float> quats, py::array_t<float> scales,

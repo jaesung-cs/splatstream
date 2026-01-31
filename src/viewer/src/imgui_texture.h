@@ -3,26 +3,20 @@
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
-#include "vkgs/gpu/object.h"
+#include "vkgs/common/handle.h"
 
 namespace vkgs {
 namespace viewer {
 
-class ImGuiTextureImpl : public gpu::Object {
+class ImGuiTextureImpl;
+class ImGuiTexture : public Handle<ImGuiTexture, ImGuiTextureImpl> {
  public:
-  ImGuiTextureImpl(VkSampler sampler, VkImageView image_view);
-  ~ImGuiTextureImpl() override;
+  static ImGuiTexture Create(VkSampler sampler, VkImageView image_view);
 
-  operator VkDescriptorSet() const noexcept { return texture_; }
-
- private:
-  VkDescriptorSet texture_ = VK_NULL_HANDLE;
+  operator VkDescriptorSet() const;
 };
-
-class ImGuiTexture : public SharedAccessor<ImGuiTexture, ImGuiTextureImpl> {};
 
 }  // namespace viewer
 }  // namespace vkgs
 
-#endif
+#endif  // VKGS_VIEWER_IMGUI_TEXTURE_H

@@ -9,6 +9,8 @@
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/queue_task.h"
+#include "vkgs/gpu/buffer.h"
+#include "vkgs/gpu/host_buffer.h"
 
 namespace vkgs {
 namespace viewer {
@@ -40,7 +42,7 @@ class Storage {
 
   void SetTask(gpu::QueueTask task) { task_ = task; }
   void Wait() {
-    if (task_) task_->Wait();
+    if (task_) task_.Wait();
   }
 
   void SetVisiblePointCount(uint32_t visible_point_count) noexcept { visible_point_count_ = visible_point_count; }
@@ -51,8 +53,8 @@ class Storage {
 
  private:
   core::ScreenSplats screen_splats_;
-  gpu::Buffer visible_point_count_stage_;
-  gpu::Buffer stats_stage_;
+  gpu::HostBuffer visible_point_count_stage_;
+  gpu::HostBuffer stats_stage_;
   gpu::Image image16_;
   gpu::Image depth_image_;
   gpu::Image depth_;

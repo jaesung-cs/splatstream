@@ -1,29 +1,21 @@
 #ifndef VKGS_GPU_SAMPLER_H
 #define VKGS_GPU_SAMPLER_H
 
-#include <memory>
-
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
-class VKGS_GPU_API SamplerImpl : public Object {
+class SamplerImpl;
+class VKGS_GPU_API Sampler : public Handle<Sampler, SamplerImpl> {
  public:
-  SamplerImpl();
-  ~SamplerImpl() override;
+  static Sampler Create();
 
-  operator VkSampler() const noexcept { return sampler_; }
-
- private:
-  VkSampler sampler_ = VK_NULL_HANDLE;
+  operator VkSampler() const;
 };
-
-class VKGS_GPU_API Sampler : public SharedAccessor<Sampler, SamplerImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs

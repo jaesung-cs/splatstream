@@ -1,20 +1,18 @@
 #ifndef VKGS_GPU_GRAPHICS_PIPELINE_H
 #define VKGS_GPU_GRAPHICS_PIPELINE_H
 
-#include <memory>
 #include <vector>
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/object.h"
-#include "vkgs/gpu/details/graphics_pipeline_pool.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Device;
+class GraphicsPipelinePool;
 
 struct VKGS_GPU_API ShaderCode {
   ShaderCode() {}
@@ -41,27 +39,16 @@ struct GraphicsPipelineCreateInfo {
   bool depth_write;
 };
 
-class VKGS_GPU_API GraphicsPipelineImpl : public Object {
+class GraphicsPipelineImpl;
+class VKGS_GPU_API GraphicsPipeline : public Handle<GraphicsPipeline, GraphicsPipelineImpl> {
  public:
-  GraphicsPipelineImpl(const GraphicsPipelineCreateInfo& create_info);
+  static GraphicsPipeline Create(const GraphicsPipelineCreateInfo& create_info);
+  static GraphicsPipeline Create(GraphicsPipelinePool graphics_pipeline_pool,
+                                 const GraphicsPipelineCreateInfo& create_info, VkPipeline pipeline);
 
-  GraphicsPipelineImpl(GraphicsPipelinePool graphics_pipeline_pool, const GraphicsPipelineCreateInfo& create_info,
-                       VkPipeline pipeline);
+  operator VkPipeline() const;
 
-  ~GraphicsPipelineImpl() override;
-
-  operator VkPipeline() const noexcept { return pipeline_; }
-
- private:
-  GraphicsPipelinePool graphics_pipeline_pool_;
-  GraphicsPipelineCreateInfo create_info_;
-  VkPipeline pipeline_ = VK_NULL_HANDLE;
-};
-
-class VKGS_GPU_API GraphicsPipeline : public SharedAccessor<GraphicsPipeline, GraphicsPipelineImpl> {
- public:
-  using Base::Create;
-  static GraphicsPipeline Create(const GraphicsPipelineCreateInfo& create_info) { return Base::Create(create_info); }
+  void Keep() const;
 };
 
 }  // namespace gpu

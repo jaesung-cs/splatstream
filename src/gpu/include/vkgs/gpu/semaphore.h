@@ -1,40 +1,44 @@
 #ifndef VKGS_GPU_SEMAPHORE_H
 #define VKGS_GPU_SEMAPHORE_H
 
-#include <memory>
-
 #include <vulkan/vulkan.h>
 
-#include "vkgs/common/shared_accessor.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {
 
 class SemaphorePool;
 
-class VKGS_GPU_API SemaphoreImpl : public Object {
+class SemaphoreImpl;
+class VKGS_GPU_API Semaphore : public Handle<Semaphore, SemaphoreImpl> {
  public:
-  SemaphoreImpl(SemaphorePool semaphore_pool, VkSemaphore semaphore, uint64_t value);
-  ~SemaphoreImpl() override;
+  static Semaphore Create(SemaphorePool semaphore_pool, VkSemaphore semaphore, uint64_t value);
 
-  operator VkSemaphore() const noexcept { return semaphore_; }
-  auto value() const noexcept { return value_; }
+  void Keep();
+
+  operator VkSemaphore() const;
+  uint64_t value() const;
+
+  // Semaphore value
+  uint64_t operator+(int value);
+  uint64_t operator-(int value);
+  bool operator>=(uint64_t value);
+
+  template <typename T, typename = std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, uint64_t>>>
+  bool operator>=(T value) {
+    return (*this) >= static_cast<uint64_t>(value);
+  }
 
   void Wait();
 
   void SetValue(uint64_t value);
-  void Increment() { value_++; }
 
- private:
-  SemaphorePool semaphore_pool_;
-
-  VkSemaphore semaphore_;
-  uint64_t value_;
+  Semaphore& operator++();
+  void operator++(int);  // lvalue-to-rvalue not allowed.
+  Semaphore& operator+=(int value);
 };
-
-class VKGS_GPU_API Semaphore : public SharedAccessor<Semaphore, SemaphoreImpl> {};
 
 }  // namespace gpu
 }  // namespace vkgs
