@@ -1,6 +1,3 @@
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
 find_package(Vulkan REQUIRED)
 
 include(FetchContent)
@@ -20,7 +17,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(vma)
 
 # Static library only to load Vulkan functions statically properly.
-add_library(vkgs_gpu SHARED
+add_library(vkgs_gpu STATIC
   src/cmd/barrier.cc
   src/cmd/pipeline.cc
   src/details/command_pool.cc
@@ -35,6 +32,7 @@ add_library(vkgs_gpu SHARED
   src/device.cc
   src/gpu.cc
   src/graphics_pipeline.cc
+  src/host_buffer.cc
   src/image.cc
   src/object.cc
   src/pipeline_layout.cc
@@ -59,17 +57,17 @@ target_include_directories(vkgs_gpu
 
 target_link_libraries(vkgs_gpu
   PUBLIC
-    Vulkan::Vulkan
+    Vulkan::Headers
+    volk::volk_headers
     vkgs::common
   PRIVATE
-    volk::volk_headers
     GPUOpen::VulkanMemoryAllocator
 )
 
 target_compile_definitions(vkgs_gpu
-  PRIVATE
-    VKGS_GPU_EXPORTS
-    VK_NO_PROTOTYPES  # to use volk internally, to expose vulkan header only
+  PUBLIC
+    VKGS_GPU_STATIC
+    VK_NO_PROTOTYPES
 )
 
 # TODO: Disables too many warnings from vma (MacOS only)

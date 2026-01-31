@@ -2,40 +2,35 @@
 #define VKGS_GPU_TASK_H
 
 #include <memory>
-#include <vector>
+#include <functional>
 
 #include <vulkan/vulkan.h>
 
-#include "vkgs/gpu/details/fence.h"
-#include "vkgs/gpu/details/command.h"
+#include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/device.h"
-#include "vkgs/gpu/queue.h"
 
 namespace vkgs {
 namespace gpu {
 
 class Object;
+class QueueTask;
 
+enum class QueueType {
+  TRANSFER,
+  COMPUTE,
+  GRAPHICS,
+};
+
+class TaskImpl;
 class VKGS_GPU_API Task {
- protected:
-  enum class QueueType {
-    TRANSFER,
-    COMPUTE,
-    GRAPHICS,
-  };
-
  public:
   Task(QueueType queue_type);
-
-  virtual ~Task();
-
-  auto device() const noexcept { return device_; }
+  ~Task();
 
   VkCommandBuffer command_buffer() const;
-  auto fence() const noexcept { return fence_; }
+  auto fence() const noexcept;
 
-  Task& Keep(std::shared_ptr<Object> object);
+  Task& Keep(AnyHandle object);
 
   Task& Wait(VkSemaphore semaphore, VkPipelineStageFlags2 stage);
   Task& Wait(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage);
@@ -51,35 +46,22 @@ class VKGS_GPU_API Task {
   QueueTask Submit();
 
  private:
-  Device device_;
-  Queue queue_;
-  Fence fence_;
-  Command command_;
-  std::vector<std::shared_ptr<Object>> objects_;
-  std::function<void()> callback_;
-
-  std::vector<VkSemaphoreSubmitInfo> wait_semaphore_infos_;
-  std::vector<VkSemaphoreSubmitInfo> signal_semaphore_infos_;
-
-  bool submitted_ = false;
+  std::unique_ptr<TaskImpl> impl_;
 };
 
 class VKGS_GPU_API ComputeTask : public Task {
  public:
   ComputeTask() : Task(QueueType::COMPUTE) {}
-  ~ComputeTask() override = default;
 };
 
 class VKGS_GPU_API GraphicsTask : public Task {
  public:
   GraphicsTask() : Task(QueueType::GRAPHICS) {}
-  ~GraphicsTask() override = default;
 };
 
 class VKGS_GPU_API TransferTask : public Task {
  public:
   TransferTask() : Task(QueueType::TRANSFER) {}
-  ~TransferTask() override = default;
 };
 
 }  // namespace gpu

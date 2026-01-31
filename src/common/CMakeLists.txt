@@ -1,6 +1,3 @@
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
 add_library(vkgs_common INTERFACE)
 add_library(vkgs::common ALIAS vkgs_common)
 

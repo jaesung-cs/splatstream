@@ -10,6 +10,8 @@
 #include "vkgs/core/parser.h"
 #include "vkgs/core/gaussian_splats.h"
 #include "vkgs/core/rendering_task.h"
+#include "vkgs/core/draw_options.h"
+#include "vkgs/viewer/camera_params.h"
 #include "vkgs/viewer/viewer.h"
 
 namespace vkgs {
@@ -17,25 +19,22 @@ namespace vkgs {
 class Engine::Impl {
  public:
   Impl() : viewer_(viewer::Viewer::Create()), parser_(core::Parser::Create()), renderer_(core::Renderer::Create()) {
-    viewer_->SetRenderer(renderer_);
+    viewer_.SetRenderer(renderer_);
   }
 
   ~Impl() = default;
 
-  const std::string& device_name() const noexcept { return renderer_->device_name(); }
-  uint32_t graphics_queue_index() const noexcept { return renderer_->graphics_queue_index(); }
-  uint32_t compute_queue_index() const noexcept { return renderer_->compute_queue_index(); }
-  uint32_t transfer_queue_index() const noexcept { return renderer_->transfer_queue_index(); }
+  const std::string& device_name() const noexcept { return renderer_.device_name(); }
 
   GaussianSplats LoadFromPly(const std::string& path, int sh_degree) {
-    return GaussianSplats(parser_->LoadFromPly(path, sh_degree));
+    return GaussianSplats(parser_.LoadFromPly(path, sh_degree));
   }
 
   GaussianSplats CreateGaussianSplats(size_t size, const float* means, const float* quats, const float* scales,
                                       const float* opacities, const uint16_t* colors, int sh_degree,
                                       int opacity_degree) {
     return GaussianSplats(
-        parser_->CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree, opacity_degree));
+        parser_.CreateGaussianSplats(size, means, quats, scales, opacities, colors, sh_degree, opacity_degree));
   }
 
   RenderingTask Draw(GaussianSplats splats, const DrawOptions& draw_options, uint8_t* dst) {
@@ -52,7 +51,7 @@ class Engine::Impl {
     core::ScreenSplatOptions core_screen_splat_options = {
         .confidence_radius = draw_options.confidence_radius,
     };
-    return RenderingTask(renderer_->Draw(splats.get(), core_draw_options, core_screen_splat_options, dst));
+    return RenderingTask(renderer_.Draw(splats.get(), core_draw_options, core_screen_splat_options, dst));
   }
 
   void AddCamera(const CameraParams& camera_params) {
@@ -62,14 +61,14 @@ class Engine::Impl {
         .width = camera_params.width,
         .height = camera_params.height,
     };
-    viewer_->AddCamera(viewer_camera_params);
+    viewer_.AddCamera(viewer_camera_params);
   }
 
-  void ClearCameras() { viewer_->ClearCameras(); }
+  void ClearCameras() { viewer_.ClearCameras(); }
 
   void Show(GaussianSplats splats) {
-    viewer_->SetSplats(splats.get());
-    viewer_->Run();
+    viewer_.SetSplats(splats.get());
+    viewer_.Run();
   }
 
  private:
@@ -83,9 +82,6 @@ Engine::Engine() : impl_(std::make_shared<Impl>()) {}
 Engine::~Engine() = default;
 
 const std::string& Engine::device_name() const noexcept { return impl_->device_name(); }
-uint32_t Engine::graphics_queue_index() const noexcept { return impl_->graphics_queue_index(); }
-uint32_t Engine::compute_queue_index() const noexcept { return impl_->compute_queue_index(); }
-uint32_t Engine::transfer_queue_index() const noexcept { return impl_->transfer_queue_index(); }
 
 GaussianSplats Engine::LoadFromPly(const std::string& path, int sh_degree) {
   return impl_->LoadFromPly(path, sh_degree);

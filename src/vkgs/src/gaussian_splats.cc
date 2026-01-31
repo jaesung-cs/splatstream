@@ -10,9 +10,9 @@ class GaussianSplats::Impl {
 
   ~Impl() = default;
 
-  size_t size() const { return gaussian_splats_->size(); }
+  size_t size() const { return gaussian_splats_.size(); }
 
-  void Wait() const { gaussian_splats_->Wait(); }
+  void Wait() const { gaussian_splats_.Wait(); }
 
   core::GaussianSplats get() const noexcept { return gaussian_splats_; }
 

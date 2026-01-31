@@ -150,7 +150,7 @@ See [bench](/bench/README.md) for more details.
 See [DETAILS.md](/DETAILS.md).
 
 ## Development Requirements
-- `VulkanSDK>=1.4.328.1` (set up environment variables per OS)
+- `VulkanSDK>=1.4.335.0` (some validation spec has changed)
 - `python>=3.10`
 - `cmake>=3.15` (install via `pip install cmake` or `conda install conda-forge::cmake`)
 - python packages (install via `pip install`)
