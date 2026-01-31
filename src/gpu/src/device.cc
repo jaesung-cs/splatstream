@@ -76,9 +76,9 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
     // Instance
     VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app_info.pApplicationName = "splatstream";
-    app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 3);
+    app_info.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 4);
     app_info.pEngineName = "splatstream";
-    app_info.engineVersion = VK_MAKE_VERSION(0, 1, 3);
+    app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 4);
     app_info.apiVersion = VK_API_VERSION_1_4;
 
     VkDebugUtilsMessengerCreateInfoEXT messenger_info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
