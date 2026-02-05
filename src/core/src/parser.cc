@@ -188,14 +188,13 @@ class VKGS_CORE_API ParserImpl {
       region = {0, 0, index_stage.size()};
       vkCmdCopyBuffer(cb, index_stage, index_buffer, 1, &region);
 
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, position)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, quats)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, scales)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, colors)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, opacity)
-          .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer)
-          .Commit(cb);
+          .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer);
 
       task.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
@@ -213,15 +212,14 @@ class VKGS_CORE_API ParserImpl {
       gpu::ComputeTask task;
       auto cb = task.command_buffer();
 
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, position)
           .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, quats)
           .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, scales)
           .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, colors)
-          .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, opacity)
-          .Commit(cb);
+          .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, opacity);
 
-      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
+      gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
           .Storage(0, position)
           .Storage(1, quats)
           .Storage(2, scales)
@@ -232,14 +230,11 @@ class VKGS_CORE_API ParserImpl {
           .Storage(7, sh)
           .Storage(8, opacity_sh)
           .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_data_push_constants), &parse_data_push_constants)
-          .Bind(parse_data_pipeline_)
-          .Commit(cb);
+          .Bind(parse_data_pipeline_);
       vkCmdDispatch(cb, WorkgroupSize(size, 256), 1, 1);
 
-      gpu::cmd::Barrier()
-          .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
       position.Keep();
       quats.Keep();
@@ -256,9 +251,8 @@ class VKGS_CORE_API ParserImpl {
       gpu::GraphicsTask task;
       auto cb = task.command_buffer();
 
-      gpu::cmd::Barrier()
-          .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, index_buffer)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq,
+                                    index_buffer);
 
       task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
     }
@@ -411,10 +405,9 @@ class VKGS_CORE_API ParserImpl {
       region = {0, 0, index_stage.size()};
       vkCmdCopyBuffer(cb, index_stage, index_buffer, 1, &region);
 
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, ply_buffer)
-          .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer)
-          .Commit(cb);
+          .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer);
 
       task.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
@@ -428,25 +421,21 @@ class VKGS_CORE_API ParserImpl {
       gpu::ComputeTask task;
       auto cb = task.command_buffer();
 
-      gpu::cmd::Barrier()
-          .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, ply_buffer)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq,
+                                    ply_buffer);
 
       // ply_buffer -> gaussian_splats
-      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
+      gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, parse_pipeline_layout_)
           .Storage(0, ply_buffer)
           .Storage(1, position_opacity)
           .Storage(2, cov3d)
           .Storage(3, sh)
           .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parse_ply_push_constants), &parse_ply_push_constants)
-          .Bind(parse_ply_pipeline_)
-          .Commit(cb);
+          .Bind(parse_ply_pipeline_);
       vkCmdDispatch(cb, WorkgroupSize(point_count, 256), 1, 1);
 
-      gpu::cmd::Barrier()
-          .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
       ply_buffer.Keep();
 
@@ -459,9 +448,8 @@ class VKGS_CORE_API ParserImpl {
       gpu::GraphicsTask task;
       auto cb = task.command_buffer();
 
-      gpu::cmd::Barrier()
-          .Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq, index_buffer)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq,
+                                    index_buffer);
 
       task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     }

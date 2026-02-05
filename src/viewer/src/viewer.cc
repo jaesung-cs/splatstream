@@ -199,11 +199,9 @@ class ViewerImpl : public ViewerBase {
       region = {0, 0, vertices_stage.size()};
       vkCmdCopyBuffer(cb, vertices_stage, camera_vertices_, 1, &region);
 
-      gpu::cmd::Barrier()
-          .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                  VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT,
-                  VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                   VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT,
+                                   VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT);
 
       indices_stage.Keep();
       vertices_stage.Keep();
@@ -524,10 +522,8 @@ class ViewerImpl : public ViewerBase {
       renderer_.ComputeScreenSplats(cb, splats_, draw_options, screen_splats, {});
 
       // Get stats to stage buffer
-      gpu::cmd::Barrier()
-          .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                  VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                   VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
 
       VkBufferCopy region = {0, 0, sizeof(uint32_t)};
       vkCmdCopyBuffer(cb, screen_splats.visible_point_count(), visible_point_count_stage, 1, &region);
@@ -537,12 +533,11 @@ class ViewerImpl : public ViewerBase {
       }
 
       // Release
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, cq, gq,
                    screen_splats.instances())
           .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, cq, gq,
-                   screen_splats.draw_indirect())
-          .Commit(cb);
+                   screen_splats.draw_indirect());
 
       screen_splats.visible_point_count().Keep();
       visible_point_count_stage.Keep();
@@ -573,7 +568,7 @@ class ViewerImpl : public ViewerBase {
       gpu::GraphicsTask task;
       auto cb = task.command_buffer();
 
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           // Acquire
           .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, cq, gq,
                    screen_splats.instances())
@@ -588,8 +583,7 @@ class ViewerImpl : public ViewerBase {
                  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, depth_image)
           .Image(0, 0, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                  VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                 VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depth)
-          .Commit(cb);
+                 VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, depth);
 
       // Rendering
       std::vector<VkFormat> formats;
@@ -654,10 +648,9 @@ class ViewerImpl : public ViewerBase {
 
       // render scene
       if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+        gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
             .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0})
-            .Bind(color_pipeline_)
-            .Commit(cb);
+            .Bind(color_pipeline_);
 
         if (viewer_options_.show_camera_frames) {
           ColorPushConstants color_push_constants = {
@@ -674,9 +667,8 @@ class ViewerImpl : public ViewerBase {
                                          glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
                                          glm::mat4(glm::mat3(viewer_options_.camera_frame_scale));
 
-            gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
-                .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
-                .Commit(cb);
+            gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+                .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants);
 
             vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
             VkBuffer buffer = camera_vertices_;
@@ -686,10 +678,9 @@ class ViewerImpl : public ViewerBase {
           }
         }
       } else if (viewer_options_.render_type == 2) {
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+        gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
             .AttachmentLocations({VK_ATTACHMENT_UNUSED, 0})
-            .Bind(depth_pipeline_)
-            .Commit(cb);
+            .Bind(depth_pipeline_);
 
         if (viewer_options_.show_camera_frames) {
           ColorPushConstants color_push_constants = {
@@ -706,9 +697,8 @@ class ViewerImpl : public ViewerBase {
                                          glm::inverse(glm::mat4(camera_param.intrinsic)) * ndc_to_image *
                                          glm::mat4(glm::mat3(viewer_options_.camera_frame_scale));
 
-            gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
-                .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants)
-                .Commit(cb);
+            gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
+                .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(color_push_constants), &color_push_constants);
 
             vkCmdBindIndexBuffer(cb, camera_indices_, 0, VK_INDEX_TYPE_UINT32);
             VkBuffer buffer = camera_vertices_;
@@ -721,9 +711,7 @@ class ViewerImpl : public ViewerBase {
 
       // render splats
       std::vector<uint32_t> locations = {VK_ATTACHMENT_UNUSED, 0};
-      gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_)
-          .AttachmentLocations(locations)
-          .Commit(cb);
+      gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, color_pipeline_layout_).AttachmentLocations(locations);
 
       core::ScreenSplatOptions screen_splat_options = {
           .confidence_radius = viewer_options_.confidence_radius,
@@ -740,31 +728,28 @@ class ViewerImpl : public ViewerBase {
       }
 
       // subpass 1: blend
-      gpu::cmd::Barrier(VK_DEPENDENCY_BY_REGION_BIT)
+      gpu::cmd::Barrier(cb, VK_DEPENDENCY_BY_REGION_BIT)
           .Memory(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                  VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
-          .Commit(cb);
+                  VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT);
 
       BlendPushConstants blend_push_constants = {
           .mode = viewer_options_.render_type,
           .gamma_correction = viewer_options_.gamma_correction,
       };
       if (viewer_options_.render_type == 0 || viewer_options_.render_type == 1) {
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
+        gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
             .Input(0, image16.image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
             .PushConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(blend_push_constants), &blend_push_constants)
             .Bind(blend_color_pipeline_)
             .AttachmentLocations({0, VK_ATTACHMENT_UNUSED})
-            .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0})
-            .Commit(cb);
+            .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0});
         vkCmdDraw(cb, 3, 1, 0, 0);
       } else if (viewer_options_.render_type == 2) {
-        gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
+        gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, blend_pipeline_layout_)
             .Input(0, depth_image.image_view(), VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ)
             .Bind(blend_depth_pipeline_)
             .AttachmentLocations({0, VK_ATTACHMENT_UNUSED})
-            .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0})
-            .Commit(cb);
+            .InputAttachmentIndices({VK_ATTACHMENT_UNUSED, 0});
         vkCmdDraw(cb, 3, 1, 0, 0);
       }
 
@@ -789,10 +774,9 @@ class ViewerImpl : public ViewerBase {
       ImGui_ImplVulkan_RenderDrawData(draw_data, cb);
       vkCmdEndRendering(cb);
 
-      gpu::cmd::Barrier()
-          .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, 0, 0,
-                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, present_image_info.image)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Image(
+          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, 0, 0,
+          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, present_image_info.image);
 
       image16.Keep();
       depth_image.Keep();

@@ -15,7 +15,7 @@ namespace cmd {
 
 class VKGS_GPU_API Pipeline {
  public:
-  Pipeline(VkPipelineBindPoint bind_point, VkPipelineLayout layout);
+  Pipeline(VkCommandBuffer cb, VkPipelineBindPoint bind_point, VkPipelineLayout layout);
   ~Pipeline();
 
   Pipeline& Storage(int binding, VkBuffer buffer);
@@ -32,9 +32,8 @@ class VKGS_GPU_API Pipeline {
 
   Pipeline& InputAttachmentIndices(const std::vector<uint32_t>& indices);
 
-  void Commit(VkCommandBuffer cb);
-
  private:
+  VkCommandBuffer cb_;
   VkPipelineBindPoint bind_point_;
   VkPipelineLayout layout_;
 

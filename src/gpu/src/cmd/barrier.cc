@@ -6,9 +6,20 @@ namespace vkgs {
 namespace gpu {
 namespace cmd {
 
-Barrier::Barrier(VkDependencyFlags dependency_flags) : dependency_flags_(dependency_flags) {}
+Barrier::Barrier(VkCommandBuffer cb, VkDependencyFlags dependency_flags)
+    : cb_(cb), dependency_flags_(dependency_flags) {}
 
-Barrier::~Barrier() = default;
+Barrier::~Barrier() {
+  VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+  dependency_info.dependencyFlags = dependency_flags_;
+  dependency_info.memoryBarrierCount = memory_barriers_.size();
+  dependency_info.pMemoryBarriers = memory_barriers_.data();
+  dependency_info.bufferMemoryBarrierCount = buffer_barriers_.size();
+  dependency_info.pBufferMemoryBarriers = buffer_barriers_.data();
+  dependency_info.imageMemoryBarrierCount = image_barriers_.size();
+  dependency_info.pImageMemoryBarriers = image_barriers_.data();
+  vkCmdPipelineBarrier2(cb_, &dependency_info);
+}
 
 Barrier& Barrier::Release(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_access, uint32_t src_queue_family_index,
                           uint32_t dst_queue_family_index, VkBuffer buffer) {
@@ -100,22 +111,6 @@ Barrier& Barrier::Image(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_acce
   barrier.subresourceRange = {aspect, 0, 1, 0, 1};
   image_barriers_.push_back(barrier);
   return *this;
-}
-
-void Barrier::Commit(VkCommandBuffer cb) {
-  VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-  dependency_info.dependencyFlags = dependency_flags_;
-  dependency_info.memoryBarrierCount = memory_barriers_.size();
-  dependency_info.pMemoryBarriers = memory_barriers_.data();
-  dependency_info.bufferMemoryBarrierCount = buffer_barriers_.size();
-  dependency_info.pBufferMemoryBarriers = buffer_barriers_.data();
-  dependency_info.imageMemoryBarrierCount = image_barriers_.size();
-  dependency_info.pImageMemoryBarriers = image_barriers_.data();
-  vkCmdPipelineBarrier2(cb, &dependency_info);
-
-  memory_barriers_.clear();
-  buffer_barriers_.clear();
-  image_barriers_.clear();
 }
 
 }  // namespace cmd

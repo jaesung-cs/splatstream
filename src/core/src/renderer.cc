@@ -131,12 +131,11 @@ class RendererImpl {
       ComputeScreenSplats(cb, splats, draw_options, screen_splats, timer);
 
       // Release
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, cq, gq,
                    screen_splats.instances())
           .Release(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, cq, gq,
-                   screen_splats.draw_indirect())
-          .Commit(cb);
+                   screen_splats.draw_indirect());
 
       // G[i-2].read before C[i].comp
       task.WaitIf(gsem >= 2, gsem, gsem - 2 + 1,
@@ -157,18 +156,16 @@ class RendererImpl {
       auto cb = task.command_buffer();
 
       // Acquire
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           .Acquire(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, cq, gq,
                    screen_splats.instances())
           .Acquire(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT, cq, gq,
-                   screen_splats.draw_indirect())
-          .Commit(cb);
+                   screen_splats.draw_indirect());
 
       // Layout transition to color attachment
-      gpu::cmd::Barrier()
-          .Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, image)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Image(0, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                  VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, image);
 
       // Rendering
       VkRenderingAttachmentInfo color_attachment = {
@@ -202,13 +199,12 @@ class RendererImpl {
       vkCmdEndRendering(cb);
 
       // float -> uint8
-      gpu::cmd::Barrier()
+      gpu::cmd::Barrier(cb)
           .Image(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                  VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image)
           .Image(0, 0, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, image_u8)
-          .Commit(cb);
+                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, image_u8);
 
       VkImageBlit image_region = {
           .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
@@ -222,10 +218,9 @@ class RendererImpl {
       timer.Record(cb, VK_PIPELINE_STAGE_2_BLIT_BIT);
 
       // Layout transition to transfer src, and release
-      gpu::cmd::Barrier()
-          .Release(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq, image_u8)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Release(VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq,
+                                    image_u8);
 
       // C[i].comp before G[i].read
       task.Wait(csem, csem + 1,
@@ -253,10 +248,9 @@ class RendererImpl {
       gpu::TransferTask task;
       auto cb = task.command_buffer();
 
-      gpu::cmd::Barrier()
-          .Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
-                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq, image_u8)
-          .Commit(cb);
+      gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
+                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq,
+                                    image_u8);
 
       // Image to buffer
       VkBufferImageCopy region = {
@@ -359,53 +353,46 @@ class RendererImpl {
     vkCmdFillBuffer(cb, inverse_index, 0, N * sizeof(uint32_t), -1);
     if (draw_options.record_stat) vkCmdFillBuffer(cb, stats, 0, stats.size(), 0);
 
-    gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT)
-        .Commit(cb);
+    gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                 VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
 
     // Rank
-    gpu::cmd::Pipeline pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline_layout_);
-    pipeline.Storage(0, camera)
+    gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline_layout_)
+        .Storage(0, camera)
         .Storage(1, position_opacity)
         .Storage(2, visible_point_count)
         .Storage(3, key)
         .Storage(4, index)
         .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(projection_push_constants), &projection_push_constants)
-        .Bind(rank_pipeline_)
-        .Commit(cb);
+        .Bind(rank_pipeline_);
     vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
     // Sort
-    gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT)
-        .Commit(cb);
+    gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                 VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
 
     sorter_.SortKeyValueIndirect(cb, N, visible_point_count, key, index, sort_storage);
 
     // Inverse index
-    gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-        .Commit(cb);
+    gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
-    pipeline.Storage(0, visible_point_count)
+    gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline_layout_)
+        .Storage(0, visible_point_count)
         .Storage(1, index)
         .Storage(2, inverse_index)
         .PushConstant(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(projection_push_constants), &projection_push_constants)
-        .Bind(inverse_index_pipeline_)
-        .Commit(cb);
+        .Bind(inverse_index_pipeline_);
     vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
     // Projection
-    gpu::cmd::Barrier()
-        .Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT)
-        .Commit(cb);
+    gpu::cmd::Barrier(cb).Memory(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                 VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
-    pipeline.Storage(0, camera)
+    gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline_layout_)
+        .Storage(0, camera)
         .Storage(1, position_opacity)
         .Storage(2, cov3d)
         .Storage(3, sh)
@@ -415,8 +402,7 @@ class RendererImpl {
         .Storage(7, draw_indirect)
         .Storage(8, instances)
         .Storage(9, stats)
-        .Bind(projection_pipeline_)
-        .Commit(cb);
+        .Bind(projection_pipeline_);
     vkCmdDispatch(cb, WorkgroupSize(N, 256), 1, 1);
 
     if (timer) {
@@ -464,11 +450,10 @@ class RendererImpl {
     SplatPushConstants splat_push_constants = {
         .confidence_radius = screen_splat_options.confidence_radius,
     };
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
+    gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
         .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(splat_push_constants), &splat_push_constants)
         .Storage(0, screen_splats.instances())
-        .Bind(splat_color_pipeline)
-        .Commit(cb);
+        .Bind(splat_color_pipeline);
 
     vkCmdBindIndexBuffer(cb, screen_splats.index_buffer(), 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(cb, screen_splats.draw_indirect(), 0, 1, 0);
@@ -496,11 +481,10 @@ class RendererImpl {
         .projection_inverse = glm::inverse(screen_splats.projection()),
         .confidence_radius = screen_splat_options.confidence_radius,
     };
-    gpu::cmd::Pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
+    gpu::cmd::Pipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_)
         .PushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(splat_push_constants), &splat_push_constants)
         .Storage(0, screen_splats.instances())
-        .Bind(splat_depth_pipeline)
-        .Commit(cb);
+        .Bind(splat_depth_pipeline);
 
     vkCmdBindIndexBuffer(cb, screen_splats.index_buffer(), 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(cb, screen_splats.draw_indirect(), 0, 1, 0);

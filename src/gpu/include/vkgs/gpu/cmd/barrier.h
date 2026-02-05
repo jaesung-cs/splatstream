@@ -13,7 +13,7 @@ namespace cmd {
 
 class VKGS_GPU_API Barrier {
  public:
-  Barrier(VkDependencyFlags dependency_flags = 0);
+  Barrier(VkCommandBuffer cb, VkDependencyFlags dependency_flags = 0);
   ~Barrier();
 
   Barrier& Release(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_access, uint32_t src_queue_family_index,
@@ -36,9 +36,8 @@ class VKGS_GPU_API Barrier {
   Barrier& Image(VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_access, VkPipelineStageFlags2 dst_stage,
                  VkAccessFlags2 dst_access, VkImageLayout old_layout, VkImageLayout new_layout, VkImage image);
 
-  void Commit(VkCommandBuffer cb);
-
  private:
+  VkCommandBuffer cb_;
   VkDependencyFlags dependency_flags_;
   std::vector<VkMemoryBarrier2> memory_barriers_;
   std::vector<VkBufferMemoryBarrier2> buffer_barriers_;
