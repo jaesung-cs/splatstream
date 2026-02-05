@@ -16,7 +16,6 @@ struct VmaAllocator_T;
 namespace vkgs {
 namespace gpu {
 
-class Object;
 class Semaphore;
 class Fence;
 struct GraphicsPipelineCreateInfo;

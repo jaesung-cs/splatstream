@@ -45,9 +45,7 @@ class TaskImpl {
     }
   }
 
-  VkCommandBuffer command_buffer() const { return command_; }
-
-  auto fence() const noexcept { return fence_; }
+  operator VkCommandBuffer() const noexcept { return command_; }
 
   void Keep(AnyHandle object) { objects_.push_back(object); }
 
@@ -129,8 +127,7 @@ class TaskImpl {
 Task::Task(QueueType queue_type) : impl_(std::make_unique<TaskImpl>(queue_type, this)) {}
 Task::~Task() = default;
 
-VkCommandBuffer Task::command_buffer() const { return impl_->command_buffer(); }
-auto Task::fence() const noexcept { return impl_->fence(); }
+Task::operator VkCommandBuffer() const { return *impl_; }
 Task& Task::Keep(AnyHandle object) {
   impl_->Keep(object);
   return *this;

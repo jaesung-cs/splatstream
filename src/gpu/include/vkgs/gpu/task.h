@@ -27,8 +27,7 @@ class VKGS_GPU_API Task {
   Task(QueueType queue_type);
   ~Task();
 
-  VkCommandBuffer command_buffer() const;
-  auto fence() const noexcept;
+  operator VkCommandBuffer() const;
 
   Task& Keep(AnyHandle object);
 

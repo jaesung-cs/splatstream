@@ -172,8 +172,7 @@ class VKGS_CORE_API ParserImpl {
 
     // Transfer queue: stage to buffers
     {
-      gpu::TransferTask task;
-      auto cb = task.command_buffer();
+      gpu::TransferTask cb;
 
       VkBufferCopy region = {0, 0, position_stage.size()};
       vkCmdCopyBuffer(cb, position_stage, position, 1, &region);
@@ -196,7 +195,7 @@ class VKGS_CORE_API ParserImpl {
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, opacity)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer);
 
-      task.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      cb.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
       position_stage.Keep();
       quats_stage.Keep();
@@ -209,8 +208,7 @@ class VKGS_CORE_API ParserImpl {
     // Compute queue: parse data
     gpu::QueueTask queue_task;
     {
-      gpu::ComputeTask task;
-      auto cb = task.command_buffer();
+      gpu::ComputeTask cb;
 
       gpu::cmd::Barrier(cb)
           .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, position)
@@ -242,19 +240,18 @@ class VKGS_CORE_API ParserImpl {
       colors.Keep();
       opacity.Keep();
 
-      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-      queue_task = task.Submit();
+      cb.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+      queue_task = cb.Submit();
     }
 
     // Graphics queue: make visible
     {
-      gpu::GraphicsTask task;
-      auto cb = task.command_buffer();
+      gpu::GraphicsTask cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq,
                                     index_buffer);
 
-      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
+      cb.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT);
     }
 
     sem++;
@@ -396,8 +393,7 @@ class VKGS_CORE_API ParserImpl {
 
     // Transfer queue: stage to buffers
     {
-      gpu::TransferTask task;
-      auto cb = task.command_buffer();
+      gpu::TransferTask cb;
 
       VkBufferCopy region = {0, 0, buffer_size};
       vkCmdCopyBuffer(cb, ply_stage, ply_buffer, 1, &region);
@@ -409,7 +405,7 @@ class VKGS_CORE_API ParserImpl {
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq, ply_buffer)
           .Release(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, gq, index_buffer);
 
-      task.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      cb.Signal(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
       ply_stage.Keep();
       index_stage.Keep();
@@ -418,8 +414,7 @@ class VKGS_CORE_API ParserImpl {
     // Compute queue: parse ply
     gpu::QueueTask queue_task;
     {
-      gpu::ComputeTask task;
-      auto cb = task.command_buffer();
+      gpu::ComputeTask cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq,
                                     ply_buffer);
@@ -439,19 +434,18 @@ class VKGS_CORE_API ParserImpl {
 
       ply_buffer.Keep();
 
-      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-      queue_task = task.Submit();
+      cb.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      queue_task = cb.Submit();
     }
 
     // Graphics queue: acquire index buffer
     {
-      gpu::GraphicsTask task;
-      auto cb = task.command_buffer();
+      gpu::GraphicsTask cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq,
                                     index_buffer);
 
-      task.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      cb.Wait(sem, sem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
     }
 
     sem++;

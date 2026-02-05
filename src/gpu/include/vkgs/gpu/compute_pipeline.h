@@ -8,7 +8,6 @@
 
 #include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
-#include "vkgs/gpu/object.h"
 
 namespace vkgs {
 namespace gpu {

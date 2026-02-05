@@ -124,8 +124,7 @@ class RendererImpl {
 
     // Compute queue
     {
-      gpu::ComputeTask task;
-      auto cb = task.command_buffer();
+      gpu::ComputeTask cb;
 
       // Compute
       ComputeScreenSplats(cb, splats, draw_options, screen_splats, timer);
@@ -138,10 +137,10 @@ class RendererImpl {
                    screen_splats.draw_indirect());
 
       // G[i-2].read before C[i].comp
-      task.WaitIf(gsem >= 2, gsem, gsem - 2 + 1,
-                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      cb.WaitIf(gsem >= 2, gsem, gsem - 2 + 1,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT);
       // C[i].comp
-      task.Signal(csem, csem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+      cb.Signal(csem, csem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
       csem.Keep();
       gsem.Keep();
@@ -152,8 +151,7 @@ class RendererImpl {
 
     // Graphics queue
     {
-      gpu::GraphicsTask task;
-      auto cb = task.command_buffer();
+      gpu::GraphicsTask cb;
 
       // Acquire
       gpu::cmd::Barrier(cb)
@@ -223,17 +221,17 @@ class RendererImpl {
                                     image_u8);
 
       // C[i].comp before G[i].read
-      task.Wait(csem, csem + 1,
+      cb.Wait(csem, csem + 1,
+              VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                  VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
+      // T[i-2].xfer before G[i].output
+      cb.Wait(tsem, tsem - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      // G[i].read
+      cb.Signal(gsem, gsem + 1,
                 VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
                     VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
-      // T[i-2].xfer before G[i].output
-      task.Wait(tsem, tsem - 1 + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-      // G[i].read
-      task.Signal(gsem, gsem + 1,
-                  VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                      VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
       // G[i].blit
-      task.Signal(gsem, gsem + 2, VK_PIPELINE_STAGE_2_BLIT_BIT);
+      cb.Signal(gsem, gsem + 2, VK_PIPELINE_STAGE_2_BLIT_BIT);
 
       csem.Keep();
       tsem.Keep();
@@ -245,8 +243,7 @@ class RendererImpl {
     auto image_buffer = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4);
     gpu::QueueTask queue_task;
     {
-      gpu::TransferTask task;
-      auto cb = task.command_buffer();
+      gpu::TransferTask cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq,
@@ -265,7 +262,7 @@ class RendererImpl {
 
       timer.Record(cb, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
-      task.PostCallback([width, height, image_buffer, dst, timer, rendering_task]() mutable {
+      cb.PostCallback([width, height, image_buffer, dst, timer, rendering_task]() mutable {
         std::memcpy(dst, image_buffer.data<uint8_t>(), width * height * 4);
 
         auto timestamps = timer.GetTimestamps();
@@ -278,16 +275,16 @@ class RendererImpl {
       });
 
       // G[i].blit before T[i].xfer
-      task.Wait(gsem, gsem + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      cb.Wait(gsem, gsem + 2, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
       // T[i].xfer
-      task.Signal(tsem, tsem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+      cb.Signal(tsem, tsem + 1, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
       gsem.Keep();
       tsem.Keep();
       image_u8.Keep();
       image_buffer.Keep();
 
-      queue_task = task.Submit();
+      queue_task = cb.Submit();
     }
 
     rendering_task.SetTask(queue_task);

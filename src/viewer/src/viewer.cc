@@ -164,8 +164,7 @@ class ViewerImpl : public ViewerBase {
     }
 
     {
-      gpu::GraphicsTask task;
-      auto cb = task.command_buffer();
+      gpu::GraphicsTask cb;
 
       std::vector<uint32_t> indices = {
           0, 1, 0, 2, 0, 3, 0, 4,  // legs
@@ -207,8 +206,6 @@ class ViewerImpl : public ViewerBase {
       vertices_stage.Keep();
       camera_vertices_.Keep();
       camera_indices_.Keep();
-
-      task.Submit();
     }
 
     // Camera spline
@@ -516,8 +513,7 @@ class ViewerImpl : public ViewerBase {
 
     // Compute queue
     {
-      gpu::ComputeTask task;
-      auto cb = task.command_buffer();
+      gpu::ComputeTask cb;
 
       renderer_.ComputeScreenSplats(cb, splats_, draw_options, screen_splats, {});
 
@@ -544,10 +540,10 @@ class ViewerImpl : public ViewerBase {
       screen_splats.stats().Keep();
       stats_stage.Keep();
 
-      task.Signal(csem, csem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+      cb.Signal(csem, csem + 1, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
-      task.PostCallback([visible_point_count_stage, stats_stage, stats = &stats, storage = &storage,
-                         record_stat = draw_options.record_stat] {
+      cb.PostCallback([visible_point_count_stage, stats_stage, stats = &stats, storage = &storage,
+                       record_stat = draw_options.record_stat] {
         uint32_t visible_point_count;
         std::memcpy(&visible_point_count, visible_point_count_stage.data(), sizeof(uint32_t));
         storage->SetVisiblePointCount(visible_point_count);
@@ -559,14 +555,13 @@ class ViewerImpl : public ViewerBase {
         }
       });
 
-      auto compute_task = task.Submit();
+      auto compute_task = cb.Submit();
       storage.SetTask(compute_task);
     }
 
     // Graphics queue
     {
-      gpu::GraphicsTask task;
-      auto cb = task.command_buffer();
+      gpu::GraphicsTask cb;
 
       gpu::cmd::Barrier(cb)
           // Acquire
@@ -782,12 +777,12 @@ class ViewerImpl : public ViewerBase {
       depth_image.Keep();
       depth.Keep();
 
-      task.Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-      task.Wait(csem, csem + 1,
-                VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
-                    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
-      task.Signal(gsem, gsem + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-      task.Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      cb.Wait(present_image_info.image_available_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      cb.Wait(csem, csem + 1,
+              VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT |
+                  VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
+      cb.Signal(gsem, gsem + 1, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+      cb.Signal(present_image_info.render_finished_semaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 
     csem++;
