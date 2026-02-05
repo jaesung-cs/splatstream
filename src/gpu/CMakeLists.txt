@@ -16,6 +16,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(vma)
 
+FetchContent_Declare(
+  glfw
+  GIT_REPOSITORY https://github.com/glfw/glfw.git
+  GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579  # 3.4
+)
+set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(glfw)
+
 # Static library only to load Vulkan functions statically properly.
 add_library(vkgs_gpu STATIC
   src/cmd/barrier.cc
@@ -30,7 +41,6 @@ add_library(vkgs_gpu STATIC
   src/buffer.cc
   src/compute_pipeline.cc
   src/device.cc
-  src/gpu.cc
   src/graphics_pipeline.cc
   src/host_buffer.cc
   src/image.cc
@@ -60,6 +70,7 @@ target_link_libraries(vkgs_gpu
     Vulkan::Headers
     volk::volk_headers
     vkgs::common
+    glfw
   PRIVATE
     GPUOpen::VulkanMemoryAllocator
 )

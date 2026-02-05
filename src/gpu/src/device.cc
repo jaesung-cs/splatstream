@@ -5,6 +5,8 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
+#include <GLFW/glfw3.h>
+
 #include "vkgs/gpu/object.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/graphics_pipeline.h"
@@ -70,7 +72,8 @@ namespace gpu {
 
 class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> {
  public:
-  void __init__(const DeviceCreateInfo& create_info) {
+  void __init__() {
+    glfwInit();
     volkInitialize();
 
     // Instance
@@ -92,7 +95,11 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
         "VK_LAYER_KHRONOS_validation",
     };
 
-    std::vector<const char*> extensions = create_info.instance_extensions;
+    // GLFW required instance extensions
+    uint32_t count;
+    const char** instance_extensions = glfwGetRequiredInstanceExtensions(&count);
+
+    std::vector<const char*> extensions = {instance_extensions, instance_extensions + count};
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #ifdef __APPLE__
     extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
@@ -171,12 +178,12 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
     queue_create_infos[2].pQueuePriorities = &queue_priority;
 
     std::vector<const char*> device_extensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 #ifdef __APPLE__
         "VK_KHR_portability_subset",
 #endif
     };
-    if (create_info.enable_viewer) device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
     // VkPhysicalDeviceVulkan14Features
     VkPhysicalDeviceDynamicRenderingLocalReadFeatures dynamic_rendering_local_read_features = {
@@ -280,6 +287,7 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
     vkDestroyInstance(instance_, NULL);
 
     volkFinalize();
+    glfwTerminate();
   }
 
   operator VkPhysicalDevice() const noexcept { return physical_device_; }
@@ -335,7 +343,7 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
   Task* current_task_ = nullptr;
 };
 
-Device Device::Create(const DeviceCreateInfo& create_info) { return Make<DeviceImpl>(create_info); }
+Device Device::Create() { return Make<DeviceImpl>(); }
 
 Device::operator VkPhysicalDevice() const noexcept { return *impl_; }
 Device::operator VkDevice() const noexcept { return *impl_; }
@@ -365,6 +373,17 @@ Task* Device::CurrentTask() const { return impl_->CurrentTask(); }
 QueueTask Device::AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects,
                                std::function<void()> callback) {
   return impl_->AddQueueTask(fence, command, std::move(objects), callback);
+}
+
+namespace {
+Device::Weak global_device;
+}  // namespace
+
+Device GetDevice() {
+  if (auto handle = global_device.lock()) return handle;
+  auto handle = Device::Create();
+  global_device = handle;
+  return handle;
 }
 
 }  // namespace gpu

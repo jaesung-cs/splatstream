@@ -1,6 +1,5 @@
 #include "storage.h"
 
-#include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
 
 namespace vkgs {

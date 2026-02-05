@@ -8,7 +8,6 @@
 
 #include "volk.h"
 
-#include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/buffer.h"

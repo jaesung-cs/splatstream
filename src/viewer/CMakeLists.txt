@@ -21,20 +21,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(implot)
 
-FetchContent_Declare(
-  glfw
-  GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579  # 3.4
-)
-set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(glfw)
-
 add_library(vkgs_viewer STATIC
   src/camera.cc
-  src/context.cc
   src/imgui_texture.cc
   src/pose_spline.cc
   src/storage.cc
@@ -68,7 +56,6 @@ target_link_libraries(vkgs_viewer
   PRIVATE
     vkgs::core
     vkgs::gpu
-    glfw
 )
 
 target_compile_definitions(vkgs_viewer

@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 
-#include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/task.h"
 
 namespace vkgs {

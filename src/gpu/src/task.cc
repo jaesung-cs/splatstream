@@ -2,7 +2,7 @@
 
 #include "volk.h"
 
-#include "vkgs/gpu/gpu.h"
+#include "vkgs/gpu/device.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/queue_task.h"
 

@@ -16,10 +16,6 @@
 namespace vkgs {
 namespace viewer {
 
-void ViewerBase::__init__() { context_ = GetContext(); }
-
-void ViewerBase::__del__() {}
-
 void ViewerBase::Run() {
   InitializeWindow();
   OnBeforeRun();
@@ -60,7 +56,7 @@ void ViewerBase::InitializeWindow() {
   window_ = glfwCreateWindow(1600, 900, "vkgs", nullptr, nullptr);
   if (!window_) throw std::runtime_error("Failed to create window");
 
-  auto device = context_.device();
+  auto device = gpu::GetDevice();
   auto instance = device.instance();
   glfwCreateWindowSurface(instance, window_, NULL, &surface_);
 
@@ -121,8 +117,6 @@ void ViewerBase::FinalizeWindow() {
 
   glfwDestroyWindow(window_);
 }
-
-gpu::Device ViewerBase::device() const { return context_.device(); }
 
 }  // namespace viewer
 }  // namespace vkgs

@@ -26,15 +26,10 @@ class QueueTask;
 class Queue;
 class Task;
 
-struct DeviceCreateInfo {
-  bool enable_viewer;
-  std::vector<const char*> instance_extensions;
-};
-
 class DeviceImpl;
 class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
  public:
-  static Device Create(const DeviceCreateInfo& create_info);
+  static Device Create();
 
   operator VkPhysicalDevice() const noexcept;
   operator VkDevice() const noexcept;
@@ -61,6 +56,8 @@ class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
 
   QueueTask AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback);
 };
+
+Device VKGS_GPU_API GetDevice();
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -10,7 +10,6 @@
 
 #include "vk_radix_sort.h"
 
-#include "vkgs/gpu/gpu.h"
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/cmd/pipeline.h"
 #include "vkgs/gpu/image.h"

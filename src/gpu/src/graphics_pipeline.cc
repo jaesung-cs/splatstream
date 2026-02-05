@@ -3,7 +3,6 @@
 #include "volk.h"
 
 #include "vkgs/gpu/object.h"
-#include "vkgs/gpu/gpu.h"
 
 #include "details/graphics_pipeline_pool.h"
 

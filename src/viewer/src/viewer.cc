@@ -87,8 +87,6 @@ struct BlendPushConstants {
 
 class ViewerImpl : public ViewerBase {
  public:
-  void __init__() { ViewerBase::__init__(); }
-
   void SetRenderer(core::Renderer renderer) { renderer_ = renderer; }
   void SetSplats(core::GaussianSplats splats) { splats_ = splats; }
 
@@ -483,8 +481,9 @@ class ViewerImpl : public ViewerBase {
   void Draw(const gpu::PresentImageInfo& present_image_info) override {
     ImDrawData* draw_data = ImGui::GetDrawData();
 
-    auto cq = device().compute_queue();
-    auto gq = device().graphics_queue();
+    auto device = gpu::GetDevice();
+    auto cq = device.compute_queue();
+    auto gq = device.graphics_queue();
 
     auto image_width = present_image_info.extent.width;
     auto image_height = present_image_info.extent.height;

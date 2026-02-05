@@ -16,7 +16,7 @@ The `Device` class is defined normally, and a singleton Vulkan device is created
 It returns a `std::shared_ptr<Device>` type to be shared by requested objects, and also it is wanted to be destroyed when no objects are used.
 
 The trick is using `std::weak_ptr<Device>` to manage the device like a singleton object.
-In `vkgs/gpu/gpu.cc`, `GetDevice()` is defined as:
+In `vkgs/gpu/device.cc`, `GetDevice()` is defined as:
 ```cpp
 namespace {
 std::weak_ptr<Device> device;
