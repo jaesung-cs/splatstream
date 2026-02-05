@@ -10,7 +10,7 @@ namespace vkgs {
 namespace gpu {
 
 class Device;
-class Command;
+class CommandBuffer;
 
 class QueueImpl;
 class VKGS_GPU_API Queue : public Handle<Queue, QueueImpl> {
@@ -21,7 +21,7 @@ class VKGS_GPU_API Queue : public Handle<Queue, QueueImpl> {
   operator uint32_t() const;
   auto family_index() const;
 
-  Command AllocateCommandBuffer();
+  CommandBuffer AllocateCommandBuffer();
 };
 
 }  // namespace gpu

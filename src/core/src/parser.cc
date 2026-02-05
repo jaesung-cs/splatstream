@@ -12,7 +12,7 @@
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/host_buffer.h"
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/command.h"
 #include "vkgs/gpu/queue.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/pipeline_layout.h"
@@ -172,7 +172,7 @@ class VKGS_CORE_API ParserImpl {
 
     // Transfer queue: stage to buffers
     {
-      gpu::TransferTask cb;
+      gpu::TransferCommand cb;
 
       VkBufferCopy region = {0, 0, position_stage.size()};
       vkCmdCopyBuffer(cb, position_stage, position, 1, &region);
@@ -208,7 +208,7 @@ class VKGS_CORE_API ParserImpl {
     // Compute queue: parse data
     gpu::QueueTask queue_task;
     {
-      gpu::ComputeTask cb;
+      gpu::ComputeCommand cb;
 
       gpu::cmd::Barrier(cb)
           .Acquire(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT, tq, cq, position)
@@ -246,7 +246,7 @@ class VKGS_CORE_API ParserImpl {
 
     // Graphics queue: make visible
     {
-      gpu::GraphicsTask cb;
+      gpu::GraphicsCommand cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq,
                                     index_buffer);
@@ -393,7 +393,7 @@ class VKGS_CORE_API ParserImpl {
 
     // Transfer queue: stage to buffers
     {
-      gpu::TransferTask cb;
+      gpu::TransferCommand cb;
 
       VkBufferCopy region = {0, 0, buffer_size};
       vkCmdCopyBuffer(cb, ply_stage, ply_buffer, 1, &region);
@@ -414,7 +414,7 @@ class VKGS_CORE_API ParserImpl {
     // Compute queue: parse ply
     gpu::QueueTask queue_task;
     {
-      gpu::ComputeTask cb;
+      gpu::ComputeCommand cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, tq, cq,
                                     ply_buffer);
@@ -440,7 +440,7 @@ class VKGS_CORE_API ParserImpl {
 
     // Graphics queue: acquire index buffer
     {
-      gpu::GraphicsTask cb;
+      gpu::GraphicsCommand cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT, VK_ACCESS_2_INDEX_READ_BIT, tq, gq,
                                     index_buffer);

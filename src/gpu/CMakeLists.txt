@@ -31,14 +31,15 @@ FetchContent_MakeAvailable(glfw)
 add_library(vkgs_gpu STATIC
   src/cmd/barrier.cc
   src/cmd/pipeline.cc
+  src/details/command_buffer.cc
   src/details/command_pool.cc
-  src/details/command.cc
   src/details/fence_pool.cc
   src/details/fence.cc
   src/details/graphics_pipeline_pool.cc
   src/details/semaphore_pool.cc
   src/details/task_monitor.cc
   src/buffer.cc
+  src/command.cc
   src/compute_pipeline.cc
   src/device.cc
   src/graphics_pipeline.cc
@@ -51,7 +52,6 @@ add_library(vkgs_gpu STATIC
   src/sampler.cc
   src/semaphore.cc
   src/swapchain.cc
-  src/task.cc
   src/timer.cc
   src/vma_impl.cc
   src/volk_impl.cc

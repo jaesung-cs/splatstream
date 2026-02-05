@@ -1,4 +1,4 @@
-#include "details/command.h"
+#include "details/command_buffer.h"
 
 #include "vkgs/gpu/device.h"
 
@@ -7,7 +7,7 @@
 namespace vkgs {
 namespace gpu {
 
-class CommandImpl {
+class CommandBufferImpl {
  public:
   void __init__(Device device, CommandPool command_pool, VkCommandBuffer cb) {
     device_ = device;
@@ -25,11 +25,11 @@ class CommandImpl {
   VkCommandBuffer cb_ = VK_NULL_HANDLE;
 };
 
-Command Command::Create(Device device, CommandPool command_pool, VkCommandBuffer cb) {
-  return Make<CommandImpl>(device, command_pool, cb);
+CommandBuffer CommandBuffer::Create(Device device, CommandPool command_pool, VkCommandBuffer cb) {
+  return Make<CommandBufferImpl>(device, command_pool, cb);
 }
 
-Command::operator VkCommandBuffer() const { return *impl_; }
+CommandBuffer::operator VkCommandBuffer() const { return *impl_; }
 
 }  // namespace gpu
 }  // namespace vkgs

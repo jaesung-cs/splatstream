@@ -3,7 +3,7 @@
 #include "vkgs/gpu/queue_task.h"
 
 #include "details/fence.h"
-#include "details/command.h"
+#include "details/command_buffer.h"
 
 namespace vkgs {
 namespace gpu {
@@ -17,10 +17,10 @@ class TaskMonitorImpl {
     tasks_.clear();
   }
 
-  QueueTask Add(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback) {
+  QueueTask Add(Fence fence, CommandBuffer cb, std::vector<AnyHandle> objects, std::function<void()> callback) {
     gc();
 
-    auto queue_task = QueueTask::Create(fence, command, std::move(objects), callback);
+    auto queue_task = QueueTask::Create(fence, cb, std::move(objects), callback);
     tasks_.push_back(queue_task);
     return queue_task;
   }
@@ -46,9 +46,9 @@ class TaskMonitorImpl {
 TaskMonitor TaskMonitor::Create() { return Make<TaskMonitorImpl>(); }
 
 void TaskMonitor::FinishAllTasks() { impl_->FinishAllTasks(); }
-QueueTask TaskMonitor::Add(Fence fence, Command command, std::vector<AnyHandle> objects,
+QueueTask TaskMonitor::Add(Fence fence, CommandBuffer cb, std::vector<AnyHandle> objects,
                            std::function<void()> callback) {
-  return impl_->Add(fence, command, std::move(objects), callback);
+  return impl_->Add(fence, cb, std::move(objects), callback);
 }
 
 }  // namespace gpu

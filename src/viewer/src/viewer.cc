@@ -27,7 +27,7 @@
 #include "vkgs/gpu/cmd/barrier.h"
 #include "vkgs/gpu/device.h"
 #include "vkgs/gpu/queue.h"
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/command.h"
 #include "vkgs/gpu/image.h"
 #include "vkgs/gpu/timer.h"
 #include "vkgs/gpu/cmd/pipeline.h"
@@ -164,7 +164,7 @@ class ViewerImpl : public ViewerBase {
     }
 
     {
-      gpu::GraphicsTask cb;
+      gpu::GraphicsCommand cb;
 
       std::vector<uint32_t> indices = {
           0, 1, 0, 2, 0, 3, 0, 4,  // legs
@@ -513,7 +513,7 @@ class ViewerImpl : public ViewerBase {
 
     // Compute queue
     {
-      gpu::ComputeTask cb;
+      gpu::ComputeCommand cb;
 
       renderer_.ComputeScreenSplats(cb, splats_, draw_options, screen_splats, {});
 
@@ -561,7 +561,7 @@ class ViewerImpl : public ViewerBase {
 
     // Graphics queue
     {
-      gpu::GraphicsTask cb;
+      gpu::GraphicsCommand cb;
 
       gpu::cmd::Barrier(cb)
           // Acquire

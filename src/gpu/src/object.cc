@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/command.h"
 
 namespace vkgs {
 namespace gpu {
@@ -12,9 +12,9 @@ Object::Object() : device_(GetDevice()) {}
 Object::~Object() = default;
 
 void Object::Keep() {
-  auto task = device_.CurrentTask();
-  if (!task) throw std::runtime_error("No task is bound");
-  task->Keep(shared_from_this());
+  auto command = device_.CurrentCommand();
+  if (!command) throw std::runtime_error("No command is bound");
+  command->Keep(shared_from_this());
 }
 
 }  // namespace gpu

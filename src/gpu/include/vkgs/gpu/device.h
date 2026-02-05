@@ -21,9 +21,9 @@ class Fence;
 struct GraphicsPipelineCreateInfo;
 class GraphicsPipeline;
 class Command;
+class CommandBuffer;
 class QueueTask;
 class Queue;
-class Task;
 
 class DeviceImpl;
 class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
@@ -49,11 +49,11 @@ class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
   void WaitIdle();
 
   // Internal
-  void SetCurrentTask(Task* task);
-  void ClearCurrentTask();
-  Task* CurrentTask() const;
+  void SetCurrentCommand(Command* command);
+  void ClearCurrentCommand();
+  Command* CurrentCommand() const;
 
-  QueueTask AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback);
+  QueueTask AddQueueTask(Fence fence, CommandBuffer cb, std::vector<AnyHandle> objects, std::function<void()> callback);
 };
 
 Device VKGS_GPU_API GetDevice();

@@ -20,7 +20,7 @@
 #include "vkgs/gpu/compute_pipeline.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/timer.h"
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/command.h"
 #include "vkgs/gpu/buffer.h"
 #include "vkgs/gpu/host_buffer.h"
 #include "vkgs/gpu/queue_task.h"
@@ -124,7 +124,7 @@ class RendererImpl {
 
     // Compute queue
     {
-      gpu::ComputeTask cb;
+      gpu::ComputeCommand cb;
 
       // Compute
       ComputeScreenSplats(cb, splats, draw_options, screen_splats, timer);
@@ -151,7 +151,7 @@ class RendererImpl {
 
     // Graphics queue
     {
-      gpu::GraphicsTask cb;
+      gpu::GraphicsCommand cb;
 
       // Acquire
       gpu::cmd::Barrier(cb)
@@ -243,7 +243,7 @@ class RendererImpl {
     auto image_buffer = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, width * height * 4);
     gpu::QueueTask queue_task;
     {
-      gpu::TransferTask cb;
+      gpu::TransferCommand cb;
 
       gpu::cmd::Barrier(cb).Acquire(VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gq, tq,

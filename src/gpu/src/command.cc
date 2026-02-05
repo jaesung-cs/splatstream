@@ -1,4 +1,4 @@
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/command.h"
 
 #include "volk.h"
 
@@ -7,14 +7,14 @@
 #include "vkgs/gpu/queue_task.h"
 
 #include "details/fence.h"
-#include "details/command.h"
+#include "details/command_buffer.h"
 
 namespace vkgs {
 namespace gpu {
 
-class TaskImpl {
+class CommandImpl {
  public:
-  TaskImpl(QueueType queue_type, Task* task) {
+  CommandImpl(QueueType queue_type, Command* command) {
     device_ = GetDevice();
 
     switch (queue_type) {
@@ -29,23 +29,23 @@ class TaskImpl {
         break;
     }
 
-    command_ = queue_.AllocateCommandBuffer();
+    cb_ = queue_.AllocateCommandBuffer();
     fence_ = device_.AllocateFence();
 
     VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(command_, &begin_info);
+    vkBeginCommandBuffer(cb_, &begin_info);
 
-    device_.SetCurrentTask(task);
+    device_.SetCurrentCommand(command);
   }
 
-  virtual ~TaskImpl() {
+  virtual ~CommandImpl() {
     if (!submitted_) {
       Submit();
     }
   }
 
-  operator VkCommandBuffer() const noexcept { return command_; }
+  operator VkCommandBuffer() const noexcept { return cb_; }
 
   void Keep(AnyHandle object) { objects_.push_back(object); }
 
@@ -90,10 +90,10 @@ class TaskImpl {
   void PostCallback(std::function<void()> callback) { callback_ = callback; }
 
   QueueTask Submit() {
-    vkEndCommandBuffer(command_);
+    vkEndCommandBuffer(cb_);
 
     VkCommandBufferSubmitInfo command_buffer_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    command_buffer_info.commandBuffer = command_;
+    command_buffer_info.commandBuffer = cb_;
 
     VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
     submit.waitSemaphoreInfoCount = wait_semaphore_infos_.size();
@@ -104,9 +104,9 @@ class TaskImpl {
     submit.pSignalSemaphoreInfos = signal_semaphore_infos_.data();
     vkQueueSubmit2(queue_, 1, &submit, fence_);
 
-    auto task = device_.AddQueueTask(fence_, command_, std::move(objects_), callback_);
+    auto task = device_.AddQueueTask(fence_, cb_, std::move(objects_), callback_);
     submitted_ = true;
-    device_.ClearCurrentTask();
+    device_.ClearCurrentCommand();
     return task;
   }
 
@@ -114,7 +114,7 @@ class TaskImpl {
   Device device_;
   Queue queue_;
   Fence fence_;
-  Command command_;
+  CommandBuffer cb_;
   std::vector<AnyHandle> objects_;
   std::function<void()> callback_;
 
@@ -124,44 +124,44 @@ class TaskImpl {
   bool submitted_ = false;
 };
 
-Task::Task(QueueType queue_type) : impl_(std::make_unique<TaskImpl>(queue_type, this)) {}
-Task::~Task() = default;
+Command::Command(QueueType queue_type) : impl_(std::make_unique<CommandImpl>(queue_type, this)) {}
+Command::~Command() = default;
 
-Task::operator VkCommandBuffer() const { return *impl_; }
-Task& Task::Keep(AnyHandle object) {
+Command::operator VkCommandBuffer() const { return *impl_; }
+Command& Command::Keep(AnyHandle object) {
   impl_->Keep(object);
   return *this;
 }
-Task& Task::Wait(VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
+Command& Command::Wait(VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
   impl_->Wait(semaphore, stage);
   return *this;
 }
-Task& Task::Wait(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage) {
+Command& Command::Wait(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage) {
   impl_->Wait(semaphore, value, stage);
   return *this;
 }
-Task& Task::WaitIf(bool condition, VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
+Command& Command::WaitIf(bool condition, VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
   impl_->WaitIf(condition, semaphore, stage);
   return *this;
 }
-Task& Task::WaitIf(bool condition, VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage) {
+Command& Command::WaitIf(bool condition, VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage) {
   impl_->WaitIf(condition, semaphore, value, stage);
   return *this;
 }
 
-Task& Task::Signal(VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
+Command& Command::Signal(VkSemaphore semaphore, VkPipelineStageFlags2 stage) {
   impl_->Signal(semaphore, stage);
   return *this;
 }
-Task& Task::Signal(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage) {
+Command& Command::Signal(VkSemaphore semaphore, uint64_t value, VkPipelineStageFlags2 stage) {
   impl_->Signal(semaphore, value, stage);
   return *this;
 }
-Task& Task::PostCallback(std::function<void()> callback) {
+Command& Command::PostCallback(std::function<void()> callback) {
   impl_->PostCallback(callback);
   return *this;
 }
-QueueTask Task::Submit() { return impl_->Submit(); }
+QueueTask Command::Submit() { return impl_->Submit(); }
 
 }  // namespace gpu
 }  // namespace vkgs

@@ -6,7 +6,7 @@
 
 #include "vkgs/gpu/device.h"
 
-#include "details/command.h"
+#include "details/command_buffer.h"
 
 namespace vkgs {
 namespace gpu {
@@ -25,7 +25,7 @@ class CommandPoolImpl : public EnableHandleFromThis<CommandPool, CommandPoolImpl
 
   void __del__() { vkDestroyCommandPool(device_, command_pool_, NULL); }
 
-  Command Allocate() {
+  CommandBuffer Allocate() {
     VkCommandBuffer command_buffer;
 
     if (command_buffers_.empty()) {
@@ -39,7 +39,7 @@ class CommandPoolImpl : public EnableHandleFromThis<CommandPool, CommandPoolImpl
       command_buffers_.pop_back();
     }
 
-    return Command::Create(device_.lock(), HandleFromThis(), command_buffer);
+    return CommandBuffer::Create(device_.lock(), HandleFromThis(), command_buffer);
   }
 
   void Free(VkCommandBuffer command_buffer) { command_buffers_.push_back(command_buffer); }
@@ -56,7 +56,7 @@ CommandPool CommandPool::Create(Device device, uint32_t queue_family_index) {
   return Make<CommandPoolImpl>(device, queue_family_index);
 }
 
-Command CommandPool::Allocate() { return impl_->Allocate(); }
+CommandBuffer CommandPool::Allocate() { return impl_->Allocate(); }
 void CommandPool::Free(VkCommandBuffer command_buffer) { impl_->Free(command_buffer); }
 
 }  // namespace gpu

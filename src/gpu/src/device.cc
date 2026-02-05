@@ -7,11 +7,10 @@
 
 #include <GLFW/glfw3.h>
 
-#include "vkgs/gpu/object.h"
 #include "vkgs/gpu/semaphore.h"
 #include "vkgs/gpu/graphics_pipeline.h"
 #include "vkgs/gpu/queue_task.h"
-#include "vkgs/gpu/task.h"
+#include "vkgs/gpu/command.h"
 #include "vkgs/gpu/queue.h"
 
 #include "details/task_monitor.h"
@@ -20,7 +19,7 @@
 #include "details/fence_pool.h"
 #include "details/graphics_pipeline_pool.h"
 #include "details/task_monitor.h"
-#include "details/command.h"
+#include "details/command_buffer.h"
 
 namespace {
 
@@ -314,12 +313,13 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
   }
 
   // Internal
-  void SetCurrentTask(Task* task) { current_task_ = task; }
-  void ClearCurrentTask() { current_task_ = nullptr; }
-  Task* CurrentTask() const { return current_task_; }
+  void SetCurrentCommand(Command* command) { current_command_ = command; }
+  void ClearCurrentCommand() { current_command_ = nullptr; }
+  Command* CurrentCommand() const { return current_command_; }
 
-  QueueTask AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects, std::function<void()> callback) {
-    return task_monitor_.Add(fence, command, std::move(objects), callback);
+  QueueTask AddQueueTask(Fence fence, CommandBuffer cb, std::vector<AnyHandle> objects,
+                         std::function<void()> callback) {
+    return task_monitor_.Add(fence, cb, std::move(objects), callback);
   }
 
  private:
@@ -340,7 +340,7 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
   GraphicsPipelinePool graphics_pipeline_pool_;
   TaskMonitor task_monitor_;
 
-  Task* current_task_ = nullptr;
+  Command* current_command_ = nullptr;
 };
 
 Device Device::Create() { return Make<DeviceImpl>(); }
@@ -366,13 +366,13 @@ GraphicsPipeline Device::AllocateGraphicsPipeline(const GraphicsPipelineCreateIn
 
 void Device::WaitIdle() { impl_->WaitIdle(); }
 
-void Device::SetCurrentTask(Task* task) { impl_->SetCurrentTask(task); }
-void Device::ClearCurrentTask() { impl_->ClearCurrentTask(); }
-Task* Device::CurrentTask() const { return impl_->CurrentTask(); }
+void Device::SetCurrentCommand(Command* command) { impl_->SetCurrentCommand(command); }
+void Device::ClearCurrentCommand() { impl_->ClearCurrentCommand(); }
+Command* Device::CurrentCommand() const { return impl_->CurrentCommand(); }
 
-QueueTask Device::AddQueueTask(Fence fence, Command command, std::vector<AnyHandle> objects,
+QueueTask Device::AddQueueTask(Fence fence, CommandBuffer cb, std::vector<AnyHandle> objects,
                                std::function<void()> callback) {
-  return impl_->AddQueueTask(fence, command, std::move(objects), callback);
+  return impl_->AddQueueTask(fence, cb, std::move(objects), callback);
 }
 
 namespace {

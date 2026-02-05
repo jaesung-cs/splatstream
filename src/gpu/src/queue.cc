@@ -3,7 +3,7 @@
 #include "vkgs/gpu/device.h"
 
 #include "details/command_pool.h"
-#include "details/command.h"
+#include "details/command_buffer.h"
 
 namespace vkgs {
 namespace gpu {
@@ -21,7 +21,7 @@ class VKGS_GPU_API QueueImpl {
   operator uint32_t() const noexcept { return family_index_; }
   auto family_index() const noexcept { return family_index_; }
 
-  Command AllocateCommandBuffer() { return command_pool_.Allocate(); }
+  CommandBuffer AllocateCommandBuffer() { return command_pool_.Allocate(); }
 
  private:
   Device::Weak device_;
@@ -40,7 +40,7 @@ Queue::operator VkQueue() const { return impl_->operator VkQueue(); }
 Queue::operator uint32_t() const { return impl_->operator uint32_t(); }
 auto Queue::family_index() const { return impl_->family_index(); }
 
-Command Queue::AllocateCommandBuffer() { return impl_->AllocateCommandBuffer(); }
+CommandBuffer Queue::AllocateCommandBuffer() { return impl_->AllocateCommandBuffer(); }
 
 }  // namespace gpu
 }  // namespace vkgs
