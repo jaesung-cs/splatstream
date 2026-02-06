@@ -12,6 +12,7 @@
 #include "vkgs/gpu/queue_task.h"
 #include "vkgs/gpu/command.h"
 #include "vkgs/gpu/queue.h"
+#include "vkgs/gpu/timer.h"
 
 #include "details/task_monitor.h"
 #include "details/semaphore_pool.h"
@@ -20,6 +21,7 @@
 #include "details/graphics_pipeline_pool.h"
 #include "details/task_monitor.h"
 #include "details/command_buffer.h"
+#include "details/timer_pool.h"
 
 namespace {
 
@@ -244,6 +246,7 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
 
     semaphore_pool_ = SemaphorePool::Create(device_);
     fence_pool_ = FencePool::Create(device_);
+    timer_pool_ = TimerPool::Create(HandleFromThis());
     graphics_pipeline_pool_ = GraphicsPipelinePool::Create(device_);
 
     graphics_queue_ = Queue::Create(HandleFromThis(), graphics_queue, graphics_queue_index);
@@ -303,6 +306,7 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
 
   Semaphore AllocateSemaphore() { return semaphore_pool_.Allocate(); }
   Fence AllocateFence() { return fence_pool_.Allocate(); }
+  Timer AllocateTimer(uint32_t size) { return timer_pool_.Allocate(size); }
   GraphicsPipeline AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info) {
     return graphics_pipeline_pool_.Allocate(create_info);
   }
@@ -337,6 +341,7 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
   Queue transfer_queue_;
   SemaphorePool semaphore_pool_;
   FencePool fence_pool_;
+  TimerPool timer_pool_;
   GraphicsPipelinePool graphics_pipeline_pool_;
   TaskMonitor task_monitor_;
 
@@ -359,6 +364,7 @@ Queue Device::transfer_queue() const noexcept { return impl_->transfer_queue(); 
 
 Semaphore Device::AllocateSemaphore() { return impl_->AllocateSemaphore(); }
 Fence Device::AllocateFence() { return impl_->AllocateFence(); }
+Timer Device::AllocateTimer(uint32_t size) { return impl_->AllocateTimer(size); }
 
 GraphicsPipeline Device::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info) {
   return impl_->AllocateGraphicsPipeline(create_info);

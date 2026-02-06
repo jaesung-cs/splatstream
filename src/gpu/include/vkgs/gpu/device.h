@@ -24,6 +24,7 @@ class Command;
 class CommandBuffer;
 class QueueTask;
 class Queue;
+class Timer;
 
 class DeviceImpl;
 class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
@@ -44,6 +45,7 @@ class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
 
   Semaphore AllocateSemaphore();
   Fence AllocateFence();
+  Timer AllocateTimer(uint32_t size);
   GraphicsPipeline AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info);
 
   void WaitIdle();

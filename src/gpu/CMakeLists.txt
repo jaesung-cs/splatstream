@@ -38,6 +38,7 @@ add_library(vkgs_gpu STATIC
   src/details/graphics_pipeline_pool.cc
   src/details/semaphore_pool.cc
   src/details/task_monitor.cc
+  src/details/timer_pool.cc
   src/buffer.cc
   src/command.cc
   src/compute_pipeline.cc

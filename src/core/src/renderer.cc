@@ -120,7 +120,7 @@ class RendererImpl {
     screen_splats.Update(N);
     graphics_storage.Update(width, height);
 
-    auto timer = gpu::Timer::Create(3);
+    auto timer = gpu::GetDevice().AllocateTimer(3);
 
     // Compute queue
     {
