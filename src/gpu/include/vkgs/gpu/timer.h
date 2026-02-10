@@ -16,7 +16,7 @@ class TimerPool;
 class TimerImpl;
 class VKGS_GPU_API Timer : public Handle<Timer, TimerImpl> {
  public:
-  static Timer Create(TimerPool pool, VkQueryPool query_pool, uint32_t start, uint32_t size);
+  static Timer Create(uint32_t size);
 
   void Record(VkCommandBuffer cb, VkPipelineStageFlags2 stage);
   std::vector<uint64_t> GetTimestamps() const;

@@ -246,7 +246,7 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
 
     semaphore_pool_ = SemaphorePool::Create(device_);
     fence_pool_ = FencePool::Create(device_);
-    timer_pool_ = TimerPool::Create(HandleFromThis());
+    timer_pool_ = TimerPool::Create(device_);
     graphics_pipeline_pool_ = GraphicsPipelinePool::Create(device_);
 
     graphics_queue_ = Queue::Create(HandleFromThis(), graphics_queue, graphics_queue_index);
@@ -300,13 +300,20 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
   auto instance() const noexcept { return instance_; }
   auto allocator() const noexcept { return allocator_; }
 
+  auto queue(QueueType queue_type) {
+    switch (queue_type) {
+      case QueueType::GRAPHICS:
+        return graphics_queue_;
+      case QueueType::COMPUTE:
+        return compute_queue_;
+      case QueueType::TRANSFER:
+        return transfer_queue_;
+    }
+  }
   auto graphics_queue() const noexcept { return graphics_queue_; }
   auto compute_queue() const noexcept { return compute_queue_; }
   auto transfer_queue() const noexcept { return transfer_queue_; }
 
-  Semaphore AllocateSemaphore() { return semaphore_pool_.Allocate(); }
-  Fence AllocateFence() { return fence_pool_.Allocate(); }
-  Timer AllocateTimer(uint32_t size) { return timer_pool_.Allocate(size); }
   GraphicsPipeline AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info) {
     return graphics_pipeline_pool_.Allocate(create_info);
   }
@@ -317,6 +324,10 @@ class VKGS_GPU_API DeviceImpl : public EnableHandleFromThis<Device, DeviceImpl> 
   }
 
   // Internal
+  auto semaphore_pool() { return semaphore_pool_; }
+  auto fence_pool() const noexcept { return fence_pool_; }
+  auto timer_pool() { return timer_pool_; }
+
   void SetCurrentCommand(Command* command) { current_command_ = command; }
   void ClearCurrentCommand() { current_command_ = nullptr; }
   Command* CurrentCommand() const { return current_command_; }
@@ -358,19 +369,20 @@ const std::string& Device::device_name() const noexcept { return impl_->device_n
 VkInstance Device::instance() const noexcept { return impl_->instance(); }
 VmaAllocator Device::allocator() const noexcept { return impl_->allocator(); }
 
-Queue Device::graphics_queue() const noexcept { return impl_->graphics_queue(); }
-Queue Device::compute_queue() const noexcept { return impl_->compute_queue(); }
-Queue Device::transfer_queue() const noexcept { return impl_->transfer_queue(); }
-
-Semaphore Device::AllocateSemaphore() { return impl_->AllocateSemaphore(); }
-Fence Device::AllocateFence() { return impl_->AllocateFence(); }
-Timer Device::AllocateTimer(uint32_t size) { return impl_->AllocateTimer(size); }
+Queue Device::queue(QueueType queue_type) const { return impl_->queue(queue_type); }
+Queue Device::graphics_queue() const { return impl_->graphics_queue(); }
+Queue Device::compute_queue() const { return impl_->compute_queue(); }
+Queue Device::transfer_queue() const { return impl_->transfer_queue(); }
 
 GraphicsPipeline Device::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info) {
   return impl_->AllocateGraphicsPipeline(create_info);
 }
 
 void Device::WaitIdle() { impl_->WaitIdle(); }
+
+SemaphorePool Device::semaphore_pool() const { return impl_->semaphore_pool(); }
+FencePool Device::fence_pool() const { return impl_->fence_pool(); }
+TimerPool Device::timer_pool() const { return impl_->timer_pool(); }
 
 void Device::SetCurrentCommand(Command* command) { impl_->SetCurrentCommand(command); }
 void Device::ClearCurrentCommand() { impl_->ClearCurrentCommand(); }

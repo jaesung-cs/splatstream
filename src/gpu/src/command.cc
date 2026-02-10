@@ -16,21 +16,9 @@ class CommandImpl {
  public:
   CommandImpl(QueueType queue_type, Command* command) {
     device_ = GetDevice();
-
-    switch (queue_type) {
-      case QueueType::TRANSFER:
-        queue_ = device_.transfer_queue();
-        break;
-      case QueueType::COMPUTE:
-        queue_ = device_.compute_queue();
-        break;
-      case QueueType::GRAPHICS:
-        queue_ = device_.graphics_queue();
-        break;
-    }
-
-    cb_ = queue_.AllocateCommandBuffer();
-    fence_ = device_.AllocateFence();
+    queue_ = device_.queue(queue_type);
+    cb_ = CommandBuffer::Create(queue_type);
+    fence_ = Fence::Create();
 
     VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

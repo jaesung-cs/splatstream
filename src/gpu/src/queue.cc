@@ -1,16 +1,13 @@
 #include "vkgs/gpu/queue.h"
 
-#include "vkgs/gpu/device.h"
-
 #include "details/command_pool.h"
-#include "details/command_buffer.h"
 
 namespace vkgs {
 namespace gpu {
 
 class VKGS_GPU_API QueueImpl {
  public:
-  void __init__(Device device, VkQueue queue, uint32_t family_index) {
+  void __init__(VkDevice device, VkQueue queue, uint32_t family_index) {
     device_ = device;
     queue_ = queue;
     family_index_ = family_index;
@@ -21,10 +18,10 @@ class VKGS_GPU_API QueueImpl {
   operator uint32_t() const noexcept { return family_index_; }
   auto family_index() const noexcept { return family_index_; }
 
-  CommandBuffer AllocateCommandBuffer() { return command_pool_.Allocate(); }
+  auto command_pool() const noexcept { return command_pool_; }
 
  private:
-  Device::Weak device_;
+  VkDevice device_;
 
   VkQueue queue_ = VK_NULL_HANDLE;
   uint32_t family_index_ = 0;
@@ -32,7 +29,7 @@ class VKGS_GPU_API QueueImpl {
   CommandPool command_pool_;
 };
 
-Queue Queue::Create(Device device, VkQueue queue, uint32_t family_index) {
+Queue Queue::Create(VkDevice device, VkQueue queue, uint32_t family_index) {
   return Make<QueueImpl>(device, queue, family_index);
 }
 
@@ -40,7 +37,7 @@ Queue::operator VkQueue() const { return impl_->operator VkQueue(); }
 Queue::operator uint32_t() const { return impl_->operator uint32_t(); }
 auto Queue::family_index() const { return impl_->family_index(); }
 
-CommandBuffer Queue::AllocateCommandBuffer() { return impl_->AllocateCommandBuffer(); }
+CommandPool Queue::command_pool() const { return impl_->command_pool(); }
 
 }  // namespace gpu
 }  // namespace vkgs

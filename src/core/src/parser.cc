@@ -164,8 +164,8 @@ class VKGS_CORE_API ParserImpl {
         .opacity_degree = opacity_degree,
     };
 
+    auto sem = gpu::Semaphore::Create();
     auto device = gpu::GetDevice();
-    auto sem = device.AllocateSemaphore();
     auto tq = device.transfer_queue();
     auto cq = device.compute_queue();
     auto gq = device.graphics_queue();
@@ -385,8 +385,8 @@ class VKGS_CORE_API ParserImpl {
     std::memcpy(ply_stage.data<char>() + ply_offsets.size() * sizeof(uint32_t), buffer.data(), buffer.size());
     std::memcpy(index_stage.data(), index_data.data(), index_data.size() * sizeof(uint32_t));
 
+    auto sem = gpu::Semaphore::Create();
     auto device = gpu::GetDevice();
-    auto sem = device.AllocateSemaphore();
     auto tq = device.transfer_queue();
     auto cq = device.compute_queue();
     auto gq = device.graphics_queue();

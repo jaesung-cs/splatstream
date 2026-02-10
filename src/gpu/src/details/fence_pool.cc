@@ -9,7 +9,7 @@
 namespace vkgs {
 namespace gpu {
 
-class FencePoolImpl : public EnableHandleFromThis<FencePool, FencePoolImpl> {
+class FencePoolImpl {
  public:
   void __init__(VkDevice device) { device_ = device; }
 
@@ -19,7 +19,7 @@ class FencePoolImpl : public EnableHandleFromThis<FencePool, FencePoolImpl> {
     }
   }
 
-  Fence Allocate() {
+  VkFence Allocate() {
     VkFence fence;
     if (fences_.empty()) {
       VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
@@ -28,7 +28,7 @@ class FencePoolImpl : public EnableHandleFromThis<FencePool, FencePoolImpl> {
       fence = fences_.back();
       fences_.pop_back();
     }
-    return Fence::Create(HandleFromThis(), fence);
+    return fence;
   }
 
   void Free(VkFence fence) { fences_.push_back(fence); }
@@ -40,7 +40,7 @@ class FencePoolImpl : public EnableHandleFromThis<FencePool, FencePoolImpl> {
 
 FencePool FencePool::Create(VkDevice device) { return Make<FencePoolImpl>(device); }
 
-Fence FencePool::Allocate() { return impl_->Allocate(); }
+VkFence FencePool::Allocate() { return impl_->Allocate(); }
 void FencePool::Free(VkFence fence) { impl_->Free(fence); }
 
 }  // namespace gpu

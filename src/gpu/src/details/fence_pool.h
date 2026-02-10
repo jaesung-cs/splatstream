@@ -8,14 +8,12 @@
 namespace vkgs {
 namespace gpu {
 
-class Fence;
-
 class FencePoolImpl;
 class FencePool : public Handle<FencePool, FencePoolImpl> {
  public:
   static FencePool Create(VkDevice device);
 
-  Fence Allocate();
+  VkFence Allocate();
   void Free(VkFence fence);
 };
 

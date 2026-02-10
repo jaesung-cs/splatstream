@@ -1,18 +1,19 @@
 #include "details/command_buffer.h"
 
+#include "vkgs/gpu/object.h"
 #include "vkgs/gpu/device.h"
+#include "vkgs/gpu/queue.h"
 
 #include "details/command_pool.h"
 
 namespace vkgs {
 namespace gpu {
 
-class CommandBufferImpl {
+class CommandBufferImpl : public Object {
  public:
-  void __init__(Device device, CommandPool command_pool, VkCommandBuffer cb) {
-    device_ = device;
-    command_pool_ = command_pool;
-    cb_ = cb;
+  void __init__(QueueType queue_type) {
+    command_pool_ = device_.queue(queue_type).command_pool();
+    cb_ = command_pool_.Allocate();
   }
 
   void __del__() { command_pool_.Free(cb_); }
@@ -20,14 +21,11 @@ class CommandBufferImpl {
   operator VkCommandBuffer() const noexcept { return cb_; }
 
  private:
-  Device device_;
   CommandPool command_pool_;
   VkCommandBuffer cb_ = VK_NULL_HANDLE;
 };
 
-CommandBuffer CommandBuffer::Create(Device device, CommandPool command_pool, VkCommandBuffer cb) {
-  return Make<CommandBufferImpl>(device, command_pool, cb);
-}
+CommandBuffer CommandBuffer::Create(QueueType queue_type) { return Make<CommandBufferImpl>(queue_type); }
 
 CommandBuffer::operator VkCommandBuffer() const { return *impl_; }
 

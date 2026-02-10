@@ -8,15 +8,12 @@
 namespace vkgs {
 namespace gpu {
 
-class CommandBuffer;
-class Device;
-
 class CommandPoolImpl;
 class CommandPool : public Handle<CommandPool, CommandPoolImpl> {
  public:
-  static CommandPool Create(Device device, uint32_t queue_family_index);
+  static CommandPool Create(VkDevice device, uint32_t queue_family_index);
 
-  CommandBuffer Allocate();
+  VkCommandBuffer Allocate();
   void Free(VkCommandBuffer command_buffer);
 };
 

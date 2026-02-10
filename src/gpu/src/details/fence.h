@@ -8,12 +8,10 @@
 namespace vkgs {
 namespace gpu {
 
-class FencePool;
-
 class FenceImpl;
 class Fence : public Handle<Fence, FenceImpl> {
  public:
-  static Fence Create(FencePool fence_pool, VkFence fence);
+  static Fence Create();
 
   operator VkFence() const noexcept;
   bool IsSignaled();

@@ -11,56 +11,51 @@ namespace gpu {
 
 class SemaphoreImpl : public Object {
  public:
-  void __init__(SemaphorePool semaphore_pool, VkSemaphore semaphore, uint64_t value) {
-    semaphore_pool_ = semaphore_pool;
-    semaphore_ = semaphore;
-    value_ = value;
+  void __init__() {
+    semaphore_pool_ = device_.semaphore_pool();
+    allocation_ = semaphore_pool_.Allocate();
   }
 
   void __del__() {
     Wait();
-    semaphore_pool_.Free(semaphore_, value_);
+    semaphore_pool_.Free(allocation_);
   }
 
-  operator VkSemaphore() const noexcept { return semaphore_; }
-  auto value() const noexcept { return value_; }
+  operator VkSemaphore() const noexcept { return allocation_.semaphore; }
+  auto value() const noexcept { return allocation_.value; }
 
-  uint64_t operator+(int value) { return value_ + value; }
-  uint64_t operator-(int value) { return value_ - value; }
-  bool operator>=(uint64_t value) { return value_ >= value; }
+  uint64_t operator+(int value) { return allocation_.value + value; }
+  uint64_t operator-(int value) { return allocation_.value - value; }
+  bool operator>=(uint64_t value) { return allocation_.value >= value; }
 
   void Wait() {
     VkSemaphoreWaitInfo wait_info = {VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
     wait_info.semaphoreCount = 1;
-    wait_info.pSemaphores = &semaphore_;
-    wait_info.pValues = &value_;
+    wait_info.pSemaphores = &allocation_.semaphore;
+    wait_info.pValues = &allocation_.value;
     vkWaitSemaphores(device_, &wait_info, UINT64_MAX);
   }
 
-  void SetValue(uint64_t value) { value_ = value; }
+  void SetValue(uint64_t value) { allocation_.value = value; }
 
   SemaphoreImpl& operator++() {
-    ++value_;
+    ++allocation_.value;
     return *this;
   }
 
-  void operator++(int) { value_++; }
+  void operator++(int) { allocation_.value++; }
 
   SemaphoreImpl& operator+=(int value) {
-    value_ += value;
+    allocation_.value += value;
     return *this;
   }
 
  private:
   SemaphorePool semaphore_pool_;
-
-  VkSemaphore semaphore_;
-  uint64_t value_;
+  SemaphoreAllocation allocation_;
 };
 
-Semaphore Semaphore::Create(SemaphorePool semaphore_pool, VkSemaphore semaphore, uint64_t value) {
-  return Make<SemaphoreImpl>(semaphore_pool, semaphore, value);
-}
+Semaphore Semaphore::Create() { return Make<SemaphoreImpl>(); }
 
 void Semaphore::Keep() { impl_->Keep(); }
 

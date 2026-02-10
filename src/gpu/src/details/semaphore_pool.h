@@ -8,15 +8,18 @@
 namespace vkgs {
 namespace gpu {
 
-class Semaphore;
+struct SemaphoreAllocation {
+  VkSemaphore semaphore;
+  uint64_t value;
+};
 
 class SemaphorePoolImpl;
 class SemaphorePool : public Handle<SemaphorePool, SemaphorePoolImpl> {
  public:
   static SemaphorePool Create(VkDevice device);
 
-  Semaphore Allocate();
-  void Free(VkSemaphore semaphore, uint64_t value);
+  SemaphoreAllocation Allocate();
+  void Free(const SemaphoreAllocation& allocation);
 };
 
 }  // namespace gpu

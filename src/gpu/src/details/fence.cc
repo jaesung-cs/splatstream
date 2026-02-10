@@ -11,9 +11,9 @@ namespace gpu {
 
 class FenceImpl : public Object {
  public:
-  void __init__(FencePool fence_pool, VkFence fence) {
-    fence_pool_ = fence_pool;
-    fence_ = fence;
+  void __init__() {
+    fence_pool_ = device_.fence_pool();
+    fence_ = fence_pool_.Allocate();
   }
 
   void __del__() {
@@ -36,7 +36,7 @@ class FenceImpl : public Object {
   VkFence fence_ = VK_NULL_HANDLE;
 };
 
-Fence Fence::Create(FencePool fence_pool, VkFence fence) { return Make<FenceImpl>(fence_pool, fence); }
+Fence Fence::Create() { return Make<FenceImpl>(); }
 
 Fence::operator VkFence() const noexcept { return *impl_; }
 bool Fence::IsSignaled() { return impl_->IsSignaled(); }

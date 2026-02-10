@@ -14,7 +14,7 @@ class SemaphorePool;
 class SemaphoreImpl;
 class VKGS_GPU_API Semaphore : public Handle<Semaphore, SemaphoreImpl> {
  public:
-  static Semaphore Create(SemaphorePool semaphore_pool, VkSemaphore semaphore, uint64_t value);
+  static Semaphore Create();
 
   void Keep();
 

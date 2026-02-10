@@ -8,17 +8,12 @@
 
 #include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/queue_type.h"
 
 namespace vkgs {
 namespace gpu {
 
 class QueueTask;
-
-enum class QueueType {
-  TRANSFER,
-  COMPUTE,
-  GRAPHICS,
-};
 
 class CommandImpl;
 class Command {

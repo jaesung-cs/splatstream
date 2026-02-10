@@ -5,6 +5,8 @@
 
 #include "vkgs/common/handle.h"
 
+#include "vkgs/gpu/queue_type.h"
+
 namespace vkgs {
 namespace gpu {
 
@@ -14,7 +16,7 @@ class Device;
 class CommandBufferImpl;
 class CommandBuffer : public Handle<CommandBuffer, CommandBufferImpl> {
  public:
-  static CommandBuffer Create(Device device, CommandPool command_pool, VkCommandBuffer cb);
+  static CommandBuffer Create(QueueType queue_type);
 
   operator VkCommandBuffer() const;
 };

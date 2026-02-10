@@ -1,8 +1,6 @@
 #ifndef VKGS_GPU_DETAILS_TIMER_POOL_H
 #define VKGS_GPU_DETAILS_TIMER_POOL_H
 
-#include <vector>
-
 #include <vulkan/vulkan.h>
 
 #include "vkgs/common/handle.h"
@@ -11,16 +9,19 @@
 namespace vkgs {
 namespace gpu {
 
-class Device;
-class Timer;
+struct TimerAllocation {
+  VkQueryPool query_pool;
+  uint32_t start;
+  uint32_t size;
+};
 
 class TimerPoolImpl;
 class TimerPool : public Handle<TimerPool, TimerPoolImpl> {
  public:
-  static TimerPool Create(Device device);
+  static TimerPool Create(VkDevice device);
 
-  Timer Allocate(uint32_t size);
-  void Free(VkQueryPool query_pool, uint32_t start, uint32_t size);
+  TimerAllocation Allocate(uint32_t size);
+  void Free(const TimerAllocation& allocation);
 };
 
 }  // namespace gpu

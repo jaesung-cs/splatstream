@@ -10,8 +10,6 @@ Storage::Storage() = default;
 Storage::~Storage() = default;
 
 void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
-  auto device = gpu::GetDevice();
-
   if (!screen_splats_) screen_splats_ = core::ScreenSplats::Create();
   screen_splats_.Update(size);
 
@@ -19,8 +17,8 @@ void Storage::Update(uint32_t size, uint32_t width, uint32_t height) {
     visible_point_count_stage_ = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(uint32_t));
   if (!stats_stage_) stats_stage_ = gpu::HostBuffer::Create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(core::Stats));
 
-  if (!compute_semaphore_) compute_semaphore_ = device.AllocateSemaphore();
-  if (!graphics_semaphore_) graphics_semaphore_ = device.AllocateSemaphore();
+  if (!compute_semaphore_) compute_semaphore_ = gpu::Semaphore::Create();
+  if (!graphics_semaphore_) graphics_semaphore_ = gpu::Semaphore::Create();
 
   if (!image16_ || image16_.width() != width || image16_.height() != height) {
     image16_ = gpu::Image::Create(VK_FORMAT_R16G16B16A16_SFLOAT, width, height,

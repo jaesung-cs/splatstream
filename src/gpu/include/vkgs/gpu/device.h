@@ -10,13 +10,13 @@
 
 #include "vkgs/common/handle.h"
 #include "vkgs/gpu/export_api.h"
+#include "vkgs/gpu/queue_type.h"
 
 struct VmaAllocator_T;
 
 namespace vkgs {
 namespace gpu {
 
-class Semaphore;
 class Fence;
 struct GraphicsPipelineCreateInfo;
 class GraphicsPipeline;
@@ -24,7 +24,9 @@ class Command;
 class CommandBuffer;
 class QueueTask;
 class Queue;
-class Timer;
+class SemaphorePool;
+class FencePool;
+class TimerPool;
 
 class DeviceImpl;
 class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
@@ -39,18 +41,20 @@ class VKGS_GPU_API Device : public Handle<Device, DeviceImpl> {
   VkInstance instance() const noexcept;
   VmaAllocator_T* allocator() const noexcept;
 
-  Queue graphics_queue() const noexcept;
-  Queue compute_queue() const noexcept;
-  Queue transfer_queue() const noexcept;
+  Queue queue(QueueType queue_type) const;
+  Queue graphics_queue() const;
+  Queue compute_queue() const;
+  Queue transfer_queue() const;
 
-  Semaphore AllocateSemaphore();
-  Fence AllocateFence();
-  Timer AllocateTimer(uint32_t size);
   GraphicsPipeline AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info);
 
   void WaitIdle();
 
   // Internal
+  SemaphorePool semaphore_pool() const;
+  FencePool fence_pool() const;
+  TimerPool timer_pool() const;
+
   void SetCurrentCommand(Command* command);
   void ClearCurrentCommand();
   Command* CurrentCommand() const;

@@ -9,19 +9,19 @@
 namespace vkgs {
 namespace gpu {
 
-class Device;
-class CommandBuffer;
+class CommandPool;
 
 class QueueImpl;
 class VKGS_GPU_API Queue : public Handle<Queue, QueueImpl> {
  public:
-  static Queue Create(Device device, VkQueue queue, uint32_t family_index);
+  static Queue Create(VkDevice device, VkQueue queue, uint32_t family_index);
 
   operator VkQueue() const;
   operator uint32_t() const;
   auto family_index() const;
 
-  CommandBuffer AllocateCommandBuffer();
+  // Internal
+  CommandPool command_pool() const;
 };
 
 }  // namespace gpu

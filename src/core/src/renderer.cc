@@ -62,9 +62,9 @@ class RendererImpl {
       buffer.compute_storage = ComputeStorage::Create();
       buffer.screen_splats = ScreenSplats::Create();
       buffer.graphics_storage = GraphicsStorage::Create();
-      buffer.compute_semaphore = device_.AllocateSemaphore();
-      buffer.graphics_semaphore = device_.AllocateSemaphore();
-      buffer.transfer_semaphore = device_.AllocateSemaphore();
+      buffer.compute_semaphore = gpu::Semaphore::Create();
+      buffer.graphics_semaphore = gpu::Semaphore::Create();
+      buffer.transfer_semaphore = gpu::Semaphore::Create();
     }
 
     compute_pipeline_layout_ = gpu::PipelineLayout::Create({
@@ -120,7 +120,7 @@ class RendererImpl {
     screen_splats.Update(N);
     graphics_storage.Update(width, height);
 
-    auto timer = gpu::GetDevice().AllocateTimer(3);
+    auto timer = gpu::Timer::Create(3);
 
     // Compute queue
     {
