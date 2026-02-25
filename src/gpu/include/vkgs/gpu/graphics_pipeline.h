@@ -11,7 +11,6 @@
 namespace vkgs {
 namespace gpu {
 
-class Device;
 class GraphicsPipelinePool;
 
 struct VKGS_GPU_API ShaderCode {

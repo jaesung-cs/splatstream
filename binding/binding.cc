@@ -81,7 +81,7 @@ PYBIND11_MODULE(_core, m) {
 
   py::class_<vkgs::RenderingTask>(m, "RenderingTask")
       .def("wait", &vkgs::RenderingTask::Wait)
-      .def("draw_result", &vkgs::RenderingTask::draw_result);
+      .def_property_readonly("draw_result", &vkgs::RenderingTask::draw_result);
 
   py::class_<vkgs::DrawResult>(m, "DrawResult")
       .def_readonly("compute_timestamp", &vkgs::DrawResult::compute_timestamp)

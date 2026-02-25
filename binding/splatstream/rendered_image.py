@@ -31,7 +31,7 @@ class RenderedImage:
 
         for i, task in enumerate(self._tasks):
             task.wait()
-            draw_result = task.draw_result()
+            draw_result = task.draw_result
             self.compute_timestamps[i] = draw_result.compute_timestamp
             self.graphics_timestamps[i] = draw_result.graphics_timestamp
             self.transfer_timestamps[i] = draw_result.transfer_timestamp
